@@ -1,6 +1,16 @@
 ranger-deploy
 =============
 
+.. image:: https://api.travis-ci.org/burningmantech/ranger-deploy.svg?branch=master
+    :target: https://travis-ci.org/burningmantech/ranger-deploy
+    :alt: Build Status
+.. image:: https://codecov.io/github/burningmantech/ranger-deploy/coverage.svg?branch=master
+    :target: https://codecov.io/github/burningmantech/ranger-deploy?branch=master
+    :alt: Code Coverage
+.. image:: https://requires.io/github/burningmantech/ranger-deploy/requirements.svg?branch=master
+    :target: https://requires.io/github/burningmantech/ranger-deploy/requirements/?branch=master
+    :alt: Requirements Status
+
 Deployment tools for Ranger services.
 
 Deploying to Amazon Web Services
