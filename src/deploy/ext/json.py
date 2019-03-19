@@ -5,7 +5,9 @@ Extensions to :mod:`json`
 
 from datetime import date as Date, datetime as DateTime
 from io import TextIOWrapper
-from json import JSONDecodeError, JSONEncoder, dumps, load, loads
+from json import (
+    JSONDecodeError, JSONEncoder as BaseJSONEncoder, dumps, load, loads
+)
 from typing import Any, BinaryIO, Optional
 
 from arrow.parser import DateTimeParser
@@ -22,7 +24,7 @@ __all__ = (
 
 
 
-class Encoder(JSONEncoder):
+class JSONEncoder(BaseJSONEncoder):
     """
     JSON encoder that attempts to convert :class:`Mapping` to :class:`dict`,
     and other types of :class:`Iterable` to :class:`list`.
@@ -37,7 +39,10 @@ class Encoder(JSONEncoder):
                 return dict(obj)
             return list(iterate())
 
-        return JSONEncoder.default(self, obj)
+        if isinstance(obj, DateTime):
+            return dateAsRFC3339Text(obj)
+
+        return BaseJSONEncoder.default(self, obj)
 
 
 
@@ -64,7 +69,7 @@ def jsonTextFromObject(obj: Any, pretty: bool = False) -> str:
         separators=separators,
         indent=indent,
         sort_keys=sortKeys,
-        cls=Encoder,
+        cls=JSONEncoder,
     )
 
 

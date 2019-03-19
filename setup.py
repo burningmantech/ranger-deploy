@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 ##
 # See the file COPYRIGHT for copyright information.
@@ -77,7 +77,7 @@ entry_points = {
 }
 
 script_entry_points = {
-    # "server": ("deploy.run", "Server.main"),
+    "aws": ("deploy.aws.ecs", "ECSServiceClient.main"),
 }
 
 for tool, (module, function) in script_entry_points.items():
@@ -102,9 +102,10 @@ setup_requirements = []
 
 install_requirements = [
     # Direct dependencies
+    "attrs==19.1.0",
     "arrow==0.13.1",
-    "awscli==1.16.125",
     "boto3==1.9.115",
+    "click==7.0",
     "twisted==18.9.0",
 
     # Indirect dependencies
