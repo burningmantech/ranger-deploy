@@ -1,0 +1,4 @@
+/.hypothesis
+/.mypy_cache
+/.tox
+/src/*.egg-info/

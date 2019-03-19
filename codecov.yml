@@ -1,0 +1,8 @@
+comment:
+  require_changes: yes
+
+coverage:
+  status:
+    patch:
+      default:
+        target: 100%
