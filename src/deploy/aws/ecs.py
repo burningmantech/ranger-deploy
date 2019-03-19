@@ -272,31 +272,45 @@ class ECSServiceClient(object):
 # Command line
 #
 
+clusterOption = commandOption(
+    "--cluster",
+    type=str, metavar="<name>",
+    help="ECS cluster",
+    envvar="AWS_ECS_CLUSTER_STAGING",
+    prompt=True,
+)
+serviceOption = commandOption(
+    "--service",
+    type=str, metavar="<name>",
+    help="ECS service",
+    envvar="AWS_ECS_SERVICE_STAGING",
+    prompt=True,
+)
 stagingClusterOption = commandOption(
     "--staging-cluster",
     type=str, metavar="<name>",
-    help="ECS cluster for staging environment",
+    help="ECS cluster for the staging environment",
     envvar="AWS_ECS_CLUSTER_STAGING",
     prompt=True,
 )
 stagingServiceOption = commandOption(
     "--staging-service",
     type=str, metavar="<name>",
-    help="ECS service for staging environment",
+    help="ECS service for the staging environment",
     envvar="AWS_ECS_SERVICE_STAGING",
     prompt=True,
 )
 productionClusterOption = commandOption(
     "--production-cluster",
     type=str, metavar="<name>",
-    help="ECS cluster for production environment",
+    help="ECS cluster for the production environment",
     envvar="AWS_ECS_CLUSTER_PRODUCTION",
     prompt=True,
 )
 productionServiceOption = commandOption(
     "--production-service",
     type=str, metavar="<name>",
-    help="ECS service for production environment",
+    help="ECS service for the production environment",
     envvar="AWS_ECS_SERVICE_PRODUCTION",
     prompt=True,
 )
@@ -430,15 +444,12 @@ def compare(
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
+@clusterOption
+@serviceOption
 @commandArgument("arguments", nargs=-1, metavar="[name[=value]]")
-def environment(
-    staging_cluster: str, staging_service: str,
-    arguments: Sequence[str],
-) -> None:
+def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     """
-    Show or modify environment variables in the staging environment.
+    Show or modify environment variables.
 
     If no arguments are given, prints all environment variable name/value
     pairs.
@@ -446,10 +457,9 @@ def environment(
     If arguments are given, set environment variables with the given names to
     the given values.  If a value is not provided, remove the variable.
     """
-    stagingClient = ECSServiceClient(
-        cluster=staging_cluster, service=staging_service
-    )
+    stagingClient = ECSServiceClient(cluster=cluster, service=service)
     if arguments:
+        echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
         for arg in arguments:
             if "=" in arg:
@@ -462,6 +472,7 @@ def environment(
 
         stagingClient.deployTaskEnvironment(updates)
     else:
+        echo(f"Environment variables for {cluster}:{service}:")
         for key, value in (
             stagingClient.currentTaskEnvironment().items()
         ):
