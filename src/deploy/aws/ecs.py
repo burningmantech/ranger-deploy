@@ -21,7 +21,7 @@ AWS Elastic Container Service support.
 from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 from boto3 import client as Boto3Client
 
@@ -272,48 +272,27 @@ class ECSServiceClient(object):
 # Command line
 #
 
-clusterOption = commandOption(
-    "--cluster",
-    type=str, metavar="<name>",
-    help="ECS cluster",
-    envvar="AWS_ECS_CLUSTER_STAGING",
-    prompt=True,
-)
-serviceOption = commandOption(
-    "--service",
-    type=str, metavar="<name>",
-    help="ECS service",
-    envvar="AWS_ECS_SERVICE_STAGING",
-    prompt=True,
-)
-stagingClusterOption = commandOption(
-    "--staging-cluster",
-    type=str, metavar="<name>",
-    help="ECS cluster for the staging environment",
-    envvar="AWS_ECS_CLUSTER_STAGING",
-    prompt=True,
-)
-stagingServiceOption = commandOption(
-    "--staging-service",
-    type=str, metavar="<name>",
-    help="ECS service for the staging environment",
-    envvar="AWS_ECS_SERVICE_STAGING",
-    prompt=True,
-)
-productionClusterOption = commandOption(
-    "--production-cluster",
-    type=str, metavar="<name>",
-    help="ECS cluster for the production environment",
-    envvar="AWS_ECS_CLUSTER_PRODUCTION",
-    prompt=True,
-)
-productionServiceOption = commandOption(
-    "--production-service",
-    type=str, metavar="<name>",
-    help="ECS service for the production environment",
-    envvar="AWS_ECS_SERVICE_PRODUCTION",
-    prompt=True,
-)
+def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
+    if environment is None:
+        flag = f"--{optionName}"
+        help = f"ECS {optionName}"
+        environment = "staging"
+    else:
+        flag = f"--{environment}-{optionName}"
+        help = f"ECS {optionName} for the {environment} environment"
+
+    return commandOption(
+        flag, type=str, metavar="<name>", help=help,
+        envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
+        prompt=True,
+    )
+
+clusterOption           = ecsOption("cluster")
+serviceOption           = ecsOption("service")
+stagingClusterOption    = ecsOption("cluster", "staging")
+stagingServiceOption    = ecsOption("service", "staging")
+productionClusterOption = ecsOption("cluster", "production")
+productionServiceOption = ecsOption("service", "production")
 
 
 @commandGroup()
