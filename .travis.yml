@@ -15,7 +15,7 @@ jobs:
     - python: 3.7
       env: TOXENV=mypy
 
-    - python: 3.6
+    - python: 3.7
       env: TOXENV=coverage-py37,codecov
 
     - python: 3.6
