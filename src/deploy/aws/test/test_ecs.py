@@ -298,9 +298,12 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_currentTaskEnvironment(self) -> None:
-        raise NotImplementedError()
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-    test_currentTaskEnvironment.todo = "not implemented"
+        self.assertEqual(
+            client.currentTaskEnvironment(), client._client._currentEnvironment
+        )
 
 
     def test_updateTaskEnvironment(self) -> None:
