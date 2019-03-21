@@ -44,6 +44,10 @@ class MockBoto3Client(object):
     _awsService: str = attrib()
     _currentTaskARN = "arn:mock:task-definition/ranger-service:1"
     _currentImageName = "/rangers/ranger-clubhouse-api:1"
+    _currentEnvironment = {
+        "VARIABLE1": "value1",
+        "VARIABLE2": "value2",
+    }
 
 
     @_awsService.validator
@@ -80,10 +84,9 @@ class MockBoto3Client(object):
                             },
                         ],
                         "essential": True,
-                        "environment": [
-                            {"name": "VARIABLE1", "value": "value1"},
-                            {"name": "VARIABLE2", "value": "value2"},
-                        ],
+                        "environment": ECSServiceClient._environmentAsJSON(
+                            self._currentEnvironment
+                        ),
                         "mountPoints": [],
                         "volumesFrom": [],
                     },
@@ -189,8 +192,47 @@ class ECSServiceClientTests(TestCase):
         updatedEnvironment = dict(client._environmentFromJSON(
             newTaskDefinition["containerDefinitions"][0]["environment"]
         ))
+        expectedEnvironment = dict(newEnvironment)
 
         # TASK_UPDATED is inserted during updates.
-        del updatedEnvironment["TASK_UPDATED"]
+        self.assertIn("TASK_UPDATED", updatedEnvironment)
+        expectedEnvironment["TASK_UPDATED"] = (
+            updatedEnvironment["TASK_UPDATED"]
+        )
 
-        self.assertEquals(updatedEnvironment, newEnvironment)
+        self.assertEquals(updatedEnvironment, expectedEnvironment)
+
+
+    def test_updateTaskDefinition_travis(self) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
+
+        # Patch the (local) system environment to pretend we're in Travis CI
+        travisEnvironment = {
+            "TRAVIS": "true",
+            "TRAVIS_COMMIT": "0" * 40,
+            "TRAVIS_COMMIT_MESSAGE": "Fixed some stuff",
+            "TRAVIS_JOB_WEB_URL": "https://travis-ci.com/o/r/builds/0",
+            "TRAVIS_PULL_REQUEST_BRANCH": "1",
+            "TRAVIS_TAG": "v0.0.0",
+        }
+        self.patch(ecs, "environ", travisEnvironment)
+
+        # Make an unrelated change to avoid NoChangesError
+        newTaskDefinition = client.updateTaskDefinition(
+            imageName=f"{client.currentImageName()}0"
+        )
+        updatedEnvironment = dict(client._environmentFromJSON(
+            newTaskDefinition["containerDefinitions"][0]["environment"]
+        ))
+        expectedEnvironment = dict(client._client._currentEnvironment)
+        expectedEnvironment.update(travisEnvironment)
+        del expectedEnvironment["TRAVIS"]
+
+        # TASK_UPDATED is inserted during updates.
+        self.assertIn("TASK_UPDATED", updatedEnvironment)
+        expectedEnvironment["TASK_UPDATED"] = (
+            updatedEnvironment["TASK_UPDATED"]
+        )
+
+        self.assertEquals(updatedEnvironment, expectedEnvironment)
