@@ -21,7 +21,9 @@ AWS Elastic Container Service support.
 from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+
+from attr import Factory, attrs
 
 from boto3 import client as Boto3Client
 
@@ -47,6 +49,7 @@ class NoChangesError(Exception):
 
 
 
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class ECSServiceClient(object):
     """
     ECS Service Client
@@ -57,19 +60,18 @@ class ECSServiceClient(object):
         main()
 
 
-    def __init__(self, cluster: str, service: str) -> None:
-        self.cluster = cluster
-        self.service = service
+    cluster: str
+    service: str
 
-        self._currentTask: Dict[str, Any] = {}
+    _botoClient = []
+    _currentTask: Dict[str, Any] = Factory(dict)
 
 
     @property
     def _client(self) -> Boto3Client:
-        if not hasattr(self, "_botoClient"):
-            self._botoClient = Boto3Client("ecs")
-
-        return self._botoClient
+        if not self._botoClient:
+            self._botoClient.append(Boto3Client("ecs"))
+        return self._botoClient[0]
 
 
     def currentTaskARN(self) -> str:
@@ -205,7 +207,7 @@ class ECSServiceClient(object):
         print(
             f"Updating service {self.cluster}:{self.service} to ARN {arn}..."
         )
-        self._currentTask = {}
+        self._currentTask.clear()
         self._client.update_service(
             cluster=self.cluster, service=self.service, taskDefinition=arn
         )
