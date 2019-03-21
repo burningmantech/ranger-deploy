@@ -32,6 +32,8 @@ from click import (
     option as commandOption, version_option as versionOption
 )
 
+from twisted.logger import Logger
+
 TaskDefinition = Mapping[str, Any]
 TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
@@ -70,6 +72,9 @@ class ECSServiceClient(object):
     @staticmethod
     def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
         return {e["name"]: e["value"] for e in json}
+
+
+    log = Logger()
 
 
     @classmethod
@@ -167,6 +172,16 @@ class ECSServiceClient(object):
             # Start with current environment
             environment = self.currentTaskEnvironment()
 
+        # If no changes are being applied, there's nothing to do.
+        newTaskDefinition["containerDefinitions"][0]["environment"] = (
+            self._environmentAsJSON(environment)
+        )
+        if newTaskDefinition == currentTaskDefinition:
+            self.log.info(
+                "No changes made to task definition. Nothing to deploy."
+            )
+            raise NoChangesError()
+
         environment = dict(environment)
 
         environment["TASK_UPDATED"] = str(DateTime.utcnow())
@@ -189,11 +204,6 @@ class ECSServiceClient(object):
             self._environmentAsJSON(environment)
         )
 
-        # If no changes are being applied, there's nothing to do.
-        if newTaskDefinition == currentTaskDefinition:
-            print("No changes made to task definition. Nothing to deploy.")
-            raise NoChangesError()
-
         return newTaskDefinition
 
 
@@ -201,10 +211,10 @@ class ECSServiceClient(object):
         """
         Register a new task definition for the service.
         """
-        print("Registering new task definition...")
+        self.log.info("Registering new task definition...")
         response = self._client.register_task_definition(**taskDefinition)
         newTaskARN = (response["taskDefinition"]["taskDefinitionArn"])
-        print("Registered", newTaskARN)
+        self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
         return newTaskARN
 
@@ -248,8 +258,9 @@ class ECSServiceClient(object):
         """
         Deploy a new task to the service.
         """
-        print(
-            f"Updating service {self.cluster}:{self.service} to ARN {arn}..."
+        self.log.info(
+            "Updating service {cluster}:{service} to ARN {arn}...",
+            cluster=self.cluster, service=self.service, arn=arn
         )
         self._currentTask.clear()
         self._client.update_service(
@@ -276,9 +287,9 @@ class ECSServiceClient(object):
 
         self.deployTaskDefinition(newTaskDefinition)
 
-        print(
-            f"Deployed image {imageName} "
-            f"to service {self.cluster}:{self.service}."
+        self.log.info(
+            "Deployed image {image} to service {cluster}:{service}.",
+            cluster=self.cluster, service=self.service, image=imageName
         )
 
 
@@ -299,13 +310,11 @@ class ECSServiceClient(object):
         except NoChangesError:
             return
 
-        print(newTaskDefinition)
-
         self.deployTaskDefinition(newTaskDefinition)
 
-        print(
-            f"Deployed task environment "
-            f"to service {self.cluster}:{self.service}."
+        self.log.info(
+            "Deployed task environment to service {cluster}:{service}.",
+            cluster=self.cluster, service=self.service, updates=updates
         )
 
 
@@ -324,7 +333,7 @@ class ECSServiceClient(object):
 
         self.deployTask(taskARN)
 
-        print("Rolled back to prior task ARN:", taskARN)
+        self.log.info("Rolled back to prior task ARN: {arn}", arn=taskARN)
 
 
 
