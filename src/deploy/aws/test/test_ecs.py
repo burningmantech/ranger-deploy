@@ -18,15 +18,17 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
-from attr import Attribute, attrs, attrib
 from typing import Any, Dict, List
 
-from boto3 import client as Boto3Client
+from attr import Attribute, attrib, attrs
+
+from hypothesis import assume, given
+from hypothesis.strategies import dictionaries, integers, text
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from .. import ecs
-from ..ecs import ECSServiceClient
+from ..ecs import ECSServiceClient, NoChangesError
 
 
 __all__ = ()
@@ -38,13 +40,14 @@ class MockBoto3Client(object):
     """
     Mock Boto3 client.
     """
+
     _awsService: str = attrib()
     _currentTaskARN = "arn:mock:task-definition/ranger-service:1"
     _currentImageName = "/rangers/ranger-clubhouse-api:1"
 
 
     @_awsService.validator
-    def _validate_service(self, attribute: Attribute, value: Any):
+    def _validate_service(self, attribute: Attribute, value: Any) -> None:
         assert value == "ecs"
 
 
@@ -60,6 +63,7 @@ class MockBoto3Client(object):
     ) -> Dict[str, Dict]:
         return {
             "taskDefinition": {
+                "taskDefinitionArn": self._currentTaskARN,
                 "family": "ranger-service-fg",
                 "revision": 1,
                 "containerDefinitions": [
@@ -144,3 +148,49 @@ class ECSServiceClientTests(TestCase):
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         imageName = client.currentImageName()
         self.assertEquals(imageName, client._client._currentImageName)
+
+
+    def test_updateTaskDefinition_noChanges(self) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
+
+        self.assertRaises(NoChangesError, client.updateTaskDefinition)
+
+
+    @given(integers(min_value=2))
+    def test_updateTaskDefinition_updateImage(self, tag: int) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
+
+        repo = client.currentImageName().split(":")[0]
+        newImageName = f"{repo}:{tag}"
+
+        newTaskDefinition = client.updateTaskDefinition(newImageName)
+
+        self.assertEquals(
+            newTaskDefinition["containerDefinitions"][0]["image"], newImageName
+        )
+
+
+    @given(dictionaries(text(), text()))
+    def test_updateTaskDefinition_updateEnvironment(
+        self, newEnvironment: Dict[str, str]
+    ) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
+
+        # TRAVIS environment variable makes Travis-CI things happen which we
+        # aren't testing for here.
+        assume("TRAVIS" not in newEnvironment)
+
+        newTaskDefinition = client.updateTaskDefinition(
+            environment=newEnvironment
+        )
+        updatedEnvironment = dict(client._environmentFromJSON(
+            newTaskDefinition["containerDefinitions"][0]["environment"]
+        ))
+
+        # TASK_UPDATED is inserted during updates.
+        del updatedEnvironment["TASK_UPDATED"]
+
+        self.assertEquals(updatedEnvironment, newEnvironment)

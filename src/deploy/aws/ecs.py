@@ -45,7 +45,9 @@ __all__ = (
 
 
 class NoChangesError(Exception):
-    pass
+    """
+    Changes requested without any updates.
+    """
 
 
 
@@ -55,15 +57,33 @@ class ECSServiceClient(object):
     ECS Service Client
     """
 
+    @staticmethod
+    def _environmentAsJSON(
+        environment: TaskEnvironment
+    ) -> List[Dict[str, str]]:
+        return [
+            {"name": key, "value": value}
+            for key, value in environment.items()
+        ]
+
+
+    @staticmethod
+    def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
+        return {e["name"]: e["value"] for e in json}
+
+
     @classmethod
     def main(cls) -> None:
+        """
+        Command line entry point.
+        """
         main()
 
 
     cluster: str
     service: str
 
-    _botoClient = []
+    _botoClient: List[Any] = []
     _currentTask: Dict[str, Any] = Factory(dict)
 
 
@@ -75,6 +95,9 @@ class ECSServiceClient(object):
 
 
     def currentTaskARN(self) -> str:
+        """
+        Look up the ARN for the service's current task.
+        """
         if "arn" not in self._currentTask:
             serviceDescription = self._client.describe_services(
                 cluster=self.cluster, services=[self.service]
@@ -87,6 +110,9 @@ class ECSServiceClient(object):
 
 
     def currentTaskDefinition(self) -> TaskDefinition:
+        """
+        Look up the definition for the service's current task.
+        """
         if "definition" not in self._currentTask:
             currentTaskARN = self.currentTaskARN()
             currentTaskDescription = self._client.describe_task_definition(
@@ -100,6 +126,9 @@ class ECSServiceClient(object):
 
 
     def currentImageName(self) -> str:
+        """
+        Look up the Docker image name used for the service's current task.
+        """
         currentTaskDefinition = self.currentTaskDefinition()
         return currentTaskDefinition["containerDefinitions"][0]["image"]
 
@@ -109,6 +138,10 @@ class ECSServiceClient(object):
         imageName: Optional[str] = None,
         environment: Optional[TaskEnvironment] = None,
     ) -> TaskDefinition:
+        """
+        Update the definition for the service's current task.
+        Returns the updated task definition.
+        """
         currentTaskDefinition = self.currentTaskDefinition()
 
         # We don't handle tasks with multiple containers for now.
@@ -152,10 +185,9 @@ class ECSServiceClient(object):
                     environment[key] = value
 
         # Edit the container environment to the new one.
-        newTaskDefinition["containerDefinitions"][0]["environment"] = [
-            {"name": key, "value": value}
-            for key, value in environment.items()
-        ]
+        newTaskDefinition["containerDefinitions"][0]["environment"] = (
+            self._environmentAsJSON(environment)
+        )
 
         # If no changes are being applied, there's nothing to do.
         if newTaskDefinition == currentTaskDefinition:
@@ -166,6 +198,9 @@ class ECSServiceClient(object):
 
 
     def registerTaskDefinition(self, taskDefinition: TaskDefinition) -> str:
+        """
+        Register a new task definition for the service.
+        """
         print("Registering new task definition...")
         response = self._client.register_task_definition(**taskDefinition)
         newTaskARN = (response["taskDefinition"]["taskDefinitionArn"])
@@ -175,20 +210,26 @@ class ECSServiceClient(object):
 
 
     def currentTaskEnvironment(self) -> TaskEnvironment:
+        """
+        Look up the environment variables used for the service's current task.
+        """
         currentTaskDefinition = self.currentTaskDefinition()
 
         # We don't handle tasks with multiple containers for now.
         assert len(currentTaskDefinition["containerDefinitions"]) == 1
 
-        return {
-            e["name"]: e["value"] for e in
+        return self._environmentFromJSON(
             currentTaskDefinition["containerDefinitions"][0]["environment"]
-        }
+        )
 
 
     def updateTaskEnvironment(
         self, updates: TaskEnvironmentUpdates
     ) -> TaskEnvironment:
+        """
+        Update the environment variables for the service's current task.
+        Returns the updated environment variables.
+        """
         environment = dict(self.currentTaskEnvironment())
 
         for key, value in updates.items():
@@ -203,7 +244,10 @@ class ECSServiceClient(object):
         return environment
 
 
-    def updateService(self, arn: str) -> None:
+    def deployTask(self, arn: str) -> None:
+        """
+        Deploy a new task to the service.
+        """
         print(
             f"Updating service {self.cluster}:{self.service} to ARN {arn}..."
         )
@@ -213,26 +257,36 @@ class ECSServiceClient(object):
         )
 
 
-    def deployNewTaskDefinition(self, taskDefinition: TaskDefinition) -> None:
+    def deployTaskDefinition(self, taskDefinition: TaskDefinition) -> None:
+        """
+        Register a new task definition and deploy it to the service.
+        """
         arn = self.registerTaskDefinition(taskDefinition)
-        self.updateService(arn)
+        self.deployTask(arn)
 
 
     def deployNewImage(self, imageName: str) -> None:
+        """
+        Deploy a new Docker Image to the service.
+        """
         try:
             newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
         except NoChangesError:
             return
 
-        self.deployNewTaskDefinition(newTaskDefinition)
+        self.deployTaskDefinition(newTaskDefinition)
 
         print(
-            f"Deployed new image {imageName} "
+            f"Deployed image {imageName} "
             f"to service {self.cluster}:{self.service}."
         )
 
 
     def deployTaskEnvironment(self, updates: TaskEnvironmentUpdates) -> None:
+        """
+        Deploy a modifications to the environment variables used by the
+        service.
+        """
         if not updates:
             return
 
@@ -247,15 +301,19 @@ class ECSServiceClient(object):
 
         print(newTaskDefinition)
 
-        self.deployNewTaskDefinition(newTaskDefinition)
+        self.deployTaskDefinition(newTaskDefinition)
 
         print(
-            f"Deployed new task environment "
+            f"Deployed task environment "
             f"to service {self.cluster}:{self.service}."
         )
 
 
     def rollback(self) -> None:
+        """
+        Deploy the most recently deployed task definition prior to the one
+        currently used by service.
+        """
         currentTaskDefinition = self.currentTaskDefinition()
 
         family = currentTaskDefinition["family"]
@@ -264,7 +322,7 @@ class ECSServiceClient(object):
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]
 
-        self.updateService(taskARN)
+        self.deployTask(taskARN)
 
         print("Rolled back to prior task ARN:", taskARN)
 
