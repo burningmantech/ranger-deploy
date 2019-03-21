@@ -213,7 +213,7 @@ class ECSServiceClient(object):
         """
         self.log.info("Registering new task definition...")
         response = self._client.register_task_definition(**taskDefinition)
-        newTaskARN = (response["taskDefinition"]["taskDefinitionArn"])
+        newTaskARN = response["taskDefinition"]["taskDefinitionArn"]
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
         return newTaskARN
@@ -238,7 +238,7 @@ class ECSServiceClient(object):
     ) -> TaskEnvironment:
         """
         Update the environment variables for the service's current task.
-        Returns the updated environment variables.
+        Returns the updated task environment.
         """
         environment = dict(self.currentTaskEnvironment())
 
@@ -276,9 +276,9 @@ class ECSServiceClient(object):
         self.deployTask(arn)
 
 
-    def deployNewImage(self, imageName: str) -> None:
+    def deployImage(self, imageName: str) -> None:
         """
-        Deploy a new Docker Image to the service.
+        Deploy a Docker Image to the service.
         """
         try:
             newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
@@ -391,7 +391,7 @@ def staging(
     stagingClient = ECSServiceClient(
         cluster=staging_cluster, service=staging_service
     )
-    stagingClient.deployNewImage(image)
+    stagingClient.deployImage(image)
 
 
 @main.command()
@@ -428,7 +428,7 @@ def production(
         cluster=production_cluster, service=production_service
     )
     stagingImageName = stagingClient.currentImageName()
-    productionClient.deployNewImage(stagingImageName)
+    productionClient.deployImage(stagingImageName)
 
 
 @main.command()

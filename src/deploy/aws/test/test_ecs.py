@@ -28,7 +28,7 @@ from hypothesis.strategies import dictionaries, integers, text
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from .. import ecs
-from ..ecs import ECSServiceClient, NoChangesError
+from ..ecs import ECSServiceClient, NoChangesError, TaskDefinition
 
 
 __all__ = ()
@@ -48,11 +48,56 @@ class MockBoto3Client(object):
         "VARIABLE1": "value1",
         "VARIABLE2": "value2",
     }
+    _taskDefinitions: Dict[str, TaskDefinition] = {}
 
 
     @_awsService.validator
     def _validate_service(self, attribute: Attribute, value: Any) -> None:
         assert value == "ecs"
+
+
+    def __attrs_post_init__(self) -> None:
+        self._taskDefinitions[self._currentTaskARN] = {
+            "taskDefinitionArn": self._currentTaskARN,
+            "family": "ranger-service-fg",
+            "revision": 1,
+            "containerDefinitions": [
+                {
+                    "name": "ranger-service-container",
+                    "image": self._currentImageName,
+                    "cpu": 0,
+                    "memory": 128,
+                    "portMappings": [
+                        {
+                            "containerPort": 80,
+                            "hostPort": 80,
+                            "protocol": "tcp",
+                        },
+                    ],
+                    "essential": True,
+                    "environment": ECSServiceClient._environmentAsJSON(
+                        self._currentEnvironment
+                    ),
+                    "mountPoints": [],
+                    "volumesFrom": [],
+                },
+            ],
+            "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+            "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+            "networkMode": "awsvpc",
+            "volumes": [],
+            "status": "ACTIVE",
+            "requiresAttributes": [
+                {"name": "ecs.capability.execution-role-ecr-pull"},
+                {"name": "com.amazonaws.ecs.capability.ecr-auth"},
+                {"name": "com.amazonaws.ecs.capability.task-iam-role"},
+            ],
+            "placementConstraints": [],
+            "compatibilities": ["EC2", "FARGATE"],
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+        }
 
 
     def describe_services(
@@ -64,56 +109,44 @@ class MockBoto3Client(object):
 
     def describe_task_definition(
         self, taskDefinition: str
-    ) -> Dict[str, Dict]:
-        return {
-            "taskDefinition": {
-                "taskDefinitionArn": self._currentTaskARN,
-                "family": "ranger-service-fg",
-                "revision": 1,
-                "containerDefinitions": [
-                    {
-                        "name": "ranger-service-container",
-                        "image": self._currentImageName,
-                        "cpu": 0,
-                        "memory": 128,
-                        "portMappings": [
-                            {
-                                "containerPort": 80,
-                                "hostPort": 80,
-                                "protocol": "tcp",
-                            },
-                        ],
-                        "essential": True,
-                        "environment": ECSServiceClient._environmentAsJSON(
-                            self._currentEnvironment
-                        ),
-                        "mountPoints": [],
-                        "volumesFrom": [],
-                    },
-                ],
-                "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
-                "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
-                "networkMode": "awsvpc",
-                "volumes": [],
-                "status": "ACTIVE",
-                "requiresAttributes": [
-                    {"name": "ecs.capability.execution-role-ecr-pull"},
-                    {"name": "com.amazonaws.ecs.capability.ecr-auth"},
-                    {"name": "com.amazonaws.ecs.capability.task-iam-role"},
-                ],
-                "placementConstraints": [],
-                "compatibilities": ["EC2", "FARGATE"],
-                "requiresCompatibilities": ["FARGATE"],
-                "cpu": "256",
-                "memory": "512",
-            },
-        }
+    ) -> Dict[str, TaskDefinition]:
+        return {"taskDefinition": self._taskDefinitions[taskDefinition]}
+
+
+    def register_task_definition(
+        self, **taskDefinition: Any
+    ) -> Dict[str, TaskDefinition]:
+        # Come up with a new task ARN
+        maxVersion = 0
+        for arn in self._taskDefinitions:
+            version = int(arn.split(":")[-1])
+            if version > maxVersion:
+                maxVersion = version
+
+        arn = f'{"".join(self._currentTaskARN.split(":")[:-1])}{maxVersion+1}'
+        taskDefinition["taskDefinitionArn"] = arn
+        self._taskDefinitions[arn] = taskDefinition
+
+        return {"taskDefinition": taskDefinition}
+
 
 
 class ECSServiceClientTests(TestCase):
     """
     Tests for :class:`ECSServiceClient`
     """
+
+    def test_environmentAsJSON(self) -> None:
+        raise NotImplementedError()
+
+    test_environmentAsJSON.todo = "not implemented"
+
+
+    def test_environmentFromJSON(self) -> None:
+        raise NotImplementedError()
+
+    test_environmentFromJSON.todo = "not implemented"
+
 
     def test_client(self) -> None:
         """
@@ -132,7 +165,7 @@ class ECSServiceClientTests(TestCase):
         self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         arn = client.currentTaskARN()
-        self.assertEquals(arn, client._client._currentTaskARN)
+        self.assertEqual(arn, client._client._currentTaskARN)
 
 
     def test_currentTaskDefinition(self) -> None:
@@ -150,7 +183,7 @@ class ECSServiceClientTests(TestCase):
         self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         imageName = client.currentImageName()
-        self.assertEquals(imageName, client._client._currentImageName)
+        self.assertEqual(imageName, client._client._currentImageName)
 
 
     def test_updateTaskDefinition_noChanges(self) -> None:
@@ -170,7 +203,7 @@ class ECSServiceClientTests(TestCase):
 
         newTaskDefinition = client.updateTaskDefinition(newImageName)
 
-        self.assertEquals(
+        self.assertEqual(
             newTaskDefinition["containerDefinitions"][0]["image"], newImageName
         )
 
@@ -200,7 +233,7 @@ class ECSServiceClientTests(TestCase):
             updatedEnvironment["TASK_UPDATED"]
         )
 
-        self.assertEquals(updatedEnvironment, expectedEnvironment)
+        self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
     def test_updateTaskDefinition_travis(self) -> None:
@@ -235,4 +268,66 @@ class ECSServiceClientTests(TestCase):
             updatedEnvironment["TASK_UPDATED"]
         )
 
-        self.assertEquals(updatedEnvironment, expectedEnvironment)
+        self.assertEqual(updatedEnvironment, expectedEnvironment)
+
+
+    def test_registerTaskDefinition(self) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
+
+        newImageName = f"{client.currentImageName()}0"
+        newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
+
+        arn = client.registerTaskDefinition(newTaskDefinition)
+        registeredTaskDefinition = (
+            client._client.describe_task_definition(arn)["taskDefinition"]
+        )
+
+        expectedTaskDefinition = dict(newTaskDefinition)
+        expectedTaskDefinition["taskDefinitionArn"] = arn
+
+        self.maxDiff = None
+
+        self.assertEqual(registeredTaskDefinition, expectedTaskDefinition)
+
+
+    def test_currentTaskEnvironment(self) -> None:
+        raise NotImplementedError()
+
+    test_currentTaskEnvironment.todo = "not implemented"
+
+
+    def test_updateTaskEnvironment(self) -> None:
+        raise NotImplementedError()
+
+    test_updateTaskEnvironment.todo = "not implemented"
+
+
+    def test_deployTask(self) -> None:
+        raise NotImplementedError()
+
+    test_deployTask.todo = "not implemented"
+
+
+    def test_deployTaskDefinition(self) -> None:
+        raise NotImplementedError()
+
+    test_deployTaskDefinition.todo = "not implemented"
+
+
+    def test_deployImage(self) -> None:
+        raise NotImplementedError()
+
+    test_deployImage.todo = "not implemented"
+
+
+    def test_deployTaskEnvironment(self) -> None:
+        raise NotImplementedError()
+
+    test_deployTaskEnvironment.todo = "not implemented"
+
+
+    def test_rollback(self) -> None:
+        raise NotImplementedError()
+
+    test_rollback.todo = "not implemented"
