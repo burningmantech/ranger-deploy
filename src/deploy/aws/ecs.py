@@ -74,6 +74,18 @@ class ECSServiceClient(object):
         return {e["name"]: e["value"] for e in json}
 
 
+    @staticmethod
+    def _taskImageName(taskDefinition: TaskDefinition) -> str:
+        return taskDefinition["containerDefinitions"][0]["image"]
+
+
+    @staticmethod
+    def _taskEnvironment(taskDefinition: TaskDefinition) -> TaskEnvironment:
+        return ECSServiceClient._environmentFromJSON(
+            taskDefinition["containerDefinitions"][0]["environment"]
+        )
+
+
     log = Logger()
 
 
@@ -135,7 +147,7 @@ class ECSServiceClient(object):
         Look up the Docker image name used for the service's current task.
         """
         currentTaskDefinition = self.currentTaskDefinition()
-        return currentTaskDefinition["containerDefinitions"][0]["image"]
+        return self._taskImageName(currentTaskDefinition)
 
 
     def updateTaskDefinition(
@@ -184,10 +196,11 @@ class ECSServiceClient(object):
 
         environment = dict(environment)
 
+        # Record the current time
         environment["TASK_UPDATED"] = str(DateTime.utcnow())
 
+        # If we're in Travis CI, record some information about the build.
         if environ.get("TRAVIS", "false") == "true":
-            # If we're in Travis, capture some information about the build.
             for key in (
                 "TRAVIS_COMMIT",
                 "TRAVIS_COMMIT_MESSAGE",
@@ -228,9 +241,7 @@ class ECSServiceClient(object):
         # We don't handle tasks with multiple containers for now.
         assert len(currentTaskDefinition["containerDefinitions"]) == 1
 
-        return self._environmentFromJSON(
-            currentTaskDefinition["containerDefinitions"][0]["environment"]
-        )
+        return self._taskEnvironment(currentTaskDefinition)
 
 
     def updateTaskEnvironment(

@@ -18,12 +18,14 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Mapping, Set, Tuple
 
 from attr import Attribute, attrib, attrs
 
 from hypothesis import assume, given
-from hypothesis.strategies import dictionaries, integers, text
+from hypothesis.strategies import (
+    composite, dictionaries, integers, just, sets, text
+)
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
@@ -34,20 +36,35 @@ from ..ecs import ECSServiceClient, NoChangesError, TaskDefinition
 __all__ = ()
 
 
+@composite
+def set_unset_envs(draw: Callable) -> Tuple[Dict[str, str], Set[str]]:
+    envs = draw(dictionaries(text(), text()))
+    removes = draw(sets(elements=just(tuple(envs))))
+    return (envs, removes)
 
-@attrs(auto_attribs=True, slots=True)
+
+@attrs(auto_attribs=True)
 class MockBoto3Client(object):
     """
     Mock Boto3 client.
     """
 
     _awsService: str = attrib()
+
+    # These need to be updated in update_service
     _currentTaskARN = "arn:mock:task-definition/ranger-service:1"
     _currentImageName = "/rangers/ranger-clubhouse-api:1"
-    _currentEnvironment = {
+    _currentEnvironment: Mapping[str, str] = {
         "VARIABLE1": "value1",
         "VARIABLE2": "value2",
     }
+    _currentCompatibilities = ["EC2", "FARGATE"]
+    _currentRequiresAttributes = [
+        {"name": "ecs.capability.execution-role-ecr-pull"},
+        {"name": "com.amazonaws.ecs.capability.ecr-auth"},
+        {"name": "com.amazonaws.ecs.capability.task-iam-role"},
+    ]
+
     _taskDefinitions: Dict[str, TaskDefinition] = {}
 
 
@@ -87,13 +104,9 @@ class MockBoto3Client(object):
             "networkMode": "awsvpc",
             "volumes": [],
             "status": "ACTIVE",
-            "requiresAttributes": [
-                {"name": "ecs.capability.execution-role-ecr-pull"},
-                {"name": "com.amazonaws.ecs.capability.ecr-auth"},
-                {"name": "com.amazonaws.ecs.capability.task-iam-role"},
-            ],
+            "requiresAttributes": self._currentRequiresAttributes,
             "placementConstraints": [],
-            "compatibilities": ["EC2", "FARGATE"],
+            "compatibilities": self._currentCompatibilities,
             "requiresCompatibilities": ["FARGATE"],
             "cpu": "256",
             "memory": "512",
@@ -123,12 +136,31 @@ class MockBoto3Client(object):
             if version > maxVersion:
                 maxVersion = version
 
-        arn = f'{"".join(self._currentTaskARN.split(":")[:-1])}{maxVersion+1}'
+        arn = (
+            f'{":".join(self._currentTaskARN.split(":")[:-1])}'
+            f":{maxVersion + 1}"
+        )
         taskDefinition["taskDefinitionArn"] = arn
         self._taskDefinitions[arn] = taskDefinition
 
+        taskDefinition["revision"] = maxVersion + 1
+        taskDefinition["status"] = "ACTIVE"
+        taskDefinition["compatibilities"] = self._currentCompatibilities
+        taskDefinition["requiresAttributes"] = self._currentRequiresAttributes
+
         return {"taskDefinition": taskDefinition}
 
+
+    def update_service(
+        self, cluster: str, service: str, taskDefinition: str
+    ) -> None:
+        task = self._taskDefinitions[taskDefinition]
+
+        self._currentTaskARN = taskDefinition
+        self._currentImageName = ECSServiceClient._taskImageName(task)
+        self._currentEnvironment = ECSServiceClient._taskEnvironment(task)
+        self._currentCompatibilities = task["compatibilities"]
+        self._currentRequiresAttributes = task["requiresAttributes"]
 
 
 class ECSServiceClientTests(TestCase):
@@ -210,7 +242,7 @@ class ECSServiceClientTests(TestCase):
         newTaskDefinition = client.updateTaskDefinition(newImageName)
 
         self.assertEqual(
-            newTaskDefinition["containerDefinitions"][0]["image"], newImageName
+            client._taskImageName(newTaskDefinition), newImageName
         )
 
 
@@ -281,7 +313,9 @@ class ECSServiceClientTests(TestCase):
         self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-        newImageName = f"{client.currentImageName()}0"
+        repo, tag = client.currentImageName().split(":")
+        newImageName = f"{repo}:{tag}_new"
+
         newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
 
         arn = client.registerTaskDefinition(newTaskDefinition)
@@ -291,8 +325,14 @@ class ECSServiceClientTests(TestCase):
 
         expectedTaskDefinition = dict(newTaskDefinition)
         expectedTaskDefinition["taskDefinitionArn"] = arn
-
-        self.maxDiff = None
+        expectedTaskDefinition["revision"] = int(arn.split(":")[-1])
+        expectedTaskDefinition["status"] = "ACTIVE"
+        expectedTaskDefinition["compatibilities"] = (
+            client._client._currentCompatibilities
+        )
+        expectedTaskDefinition["requiresAttributes"] = (
+            client._client._currentRequiresAttributes
+        )
 
         self.assertEqual(registeredTaskDefinition, expectedTaskDefinition)
 
@@ -306,16 +346,56 @@ class ECSServiceClientTests(TestCase):
         )
 
 
-    def test_updateTaskEnvironment(self) -> None:
-        raise NotImplementedError()
+    @given(dictionaries(text(), text()))
+    def test_updateTaskEnvironment_set(self, updates: Dict[str, str]) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-    test_updateTaskEnvironment.todo = "not implemented"
+        newEnvironment = client.updateTaskEnvironment(updates)
+        expectedEnvironment = dict(client._client._currentEnvironment)
+        expectedEnvironment.update(updates)
+
+        self.assertEqual(newEnvironment, expectedEnvironment)
+
+
+    @given(set_unset_envs())
+    def test_updateTaskEnvironment_unset(
+        self, instructions: Tuple[Dict[str, str], Set[str]]
+    ) -> None:
+        updates, removes = instructions
+
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
+
+        # Deploy the input updates and get back the result
+        client.deployTaskEnvironment(updates)
+        newEnvironment = client.currentTaskEnvironment()
+
+        newEnvironment = client.updateTaskEnvironment(
+            {k: None for k in removes}
+        )
+
+        expectedEnvironment = dict(client._client._currentEnvironment)
+        expectedEnvironment.update(updates)
+        for remove in removes:
+            del expectedEnvironment[remove]
+
+        self.assertEqual(newEnvironment, expectedEnvironment)
+
+    test_updateTaskEnvironment_unset.todo = "not implemented"
 
 
     def test_deployTask(self) -> None:
-        raise NotImplementedError()
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-    test_deployTask.todo = "not implemented"
+        newImageName = f"{client.currentImageName()}0"
+        newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
+
+        arn = client.registerTaskDefinition(newTaskDefinition)
+        client.deployTask(arn)
+
+        self.assertEqual(client._client._currentTaskARN, arn)
 
 
     def test_deployTaskDefinition(self) -> None:
