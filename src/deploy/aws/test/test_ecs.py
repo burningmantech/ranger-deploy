@@ -137,15 +137,21 @@ class ECSServiceClientTests(TestCase):
     """
 
     def test_environmentAsJSON(self) -> None:
-        raise NotImplementedError()
-
-    test_environmentAsJSON.todo = "not implemented"
+        self.assertEqual(
+            ECSServiceClient._environmentAsJSON(
+                {"foo": "bar", "x": "1"}
+            ),
+            [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}]
+        )
 
 
     def test_environmentFromJSON(self) -> None:
-        raise NotImplementedError()
-
-    test_environmentFromJSON.todo = "not implemented"
+        self.assertEqual(
+            ECSServiceClient._environmentFromJSON(
+                [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}]
+            ),
+            {"foo": "bar", "x": "1"}
+        )
 
 
     def test_client(self) -> None:
