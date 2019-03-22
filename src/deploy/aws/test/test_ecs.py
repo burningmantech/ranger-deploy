@@ -410,22 +410,20 @@ class ECSServiceClientTests(TestCase):
         self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
+        expectedEnvironment = client.currentTaskEnvironment()
+        expectedEnvironment.update(
+            {k: v for k, v in updates.items() if k not in removes}
+        )
+
         # Deploy the input updates and get back the result
         client.deployTaskEnvironment(updates)
-        newEnvironment = client.currentTaskEnvironment()
-
         newEnvironment = client.updateTaskEnvironment(
             {k: None for k in removes}
         )
 
-        expectedEnvironment = dict(client._client._currentEnvironment)
-        expectedEnvironment.update(updates)
-        for remove in removes:
-            del expectedEnvironment[remove]
+        expectedEnvironment["TASK_UPDATED"] = newEnvironment["TASK_UPDATED"]
 
         self.assertEqual(newEnvironment, expectedEnvironment)
-
-    test_updateTaskEnvironment_unset.todo = "not implemented"
 
 
     def test_deployTask(self) -> None:
