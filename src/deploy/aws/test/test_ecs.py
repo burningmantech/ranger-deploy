@@ -410,10 +410,14 @@ class ECSServiceClientTests(TestCase):
         self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-        expectedEnvironment = client.currentTaskEnvironment()
-        expectedEnvironment.update(
-            {k: v for k, v in updates.items() if k not in removes}
-        )
+        expectedEnvironment = dict(client.currentTaskEnvironment())
+        for key, value in updates.items():
+            if key in removes:
+                if key in expectedEnvironment:
+                    del expectedEnvironment[key]
+            else:
+                assert value is not None
+                expectedEnvironment[key] = value
 
         # Deploy the input updates and get back the result
         client.deployTaskEnvironment(updates)
