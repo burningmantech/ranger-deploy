@@ -667,5 +667,6 @@ class CommandLineTests(TestCase):
         self.assertEqual(client.cluster, stagingCluster)
         self.assertEqual(client.service, stagingService)
         self.assertEqual(
-            client.currentImageName(), "/team/service-project:1000"
+            client.currentImageName(),
+            _defaultTaskDefinitions[-2]["containerDefinitions"][0]["image"]
         )
