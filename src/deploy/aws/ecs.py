@@ -100,7 +100,7 @@ class ECSServiceClient(object):
     cluster: str
     service: str
 
-    _botoClient: List[Any] = []
+    _botoClient: List[Any] = Factory(list)
     _currentTask: Dict[str, Any] = Factory(dict)
 
 
