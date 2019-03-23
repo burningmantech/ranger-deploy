@@ -223,6 +223,10 @@ class ECSServiceClientTests(TestCase):
     Tests for :class:`ECSServiceClient`
     """
 
+    def setUp(self) -> None:
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+
+
     def test_environmentAsJSON(self) -> None:
         self.assertEqual(
             ECSServiceClient._environmentAsJSON(
@@ -245,7 +249,6 @@ class ECSServiceClientTests(TestCase):
         """
         :meth:`ECSServiceClient._client` property returns a client.
         """
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         self.assertIsInstance(client._client, MockBoto3Client)
 
@@ -255,14 +258,12 @@ class ECSServiceClientTests(TestCase):
         :meth:`ECSServiceClient.currentTaskARN` returns the ARN of the current
         task.
         """
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         arn = client.currentTaskARN()
         self.assertEqual(arn, client._client._currentTaskARN)
 
 
     def test_currentTaskDefinition(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         taskDefinition = client.currentTaskDefinition()
         self.assertIsInstance(taskDefinition, dict)
@@ -273,7 +274,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_currentImageName(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
         imageName = client.currentImageName()
         self.assertEqual(imageName, client._client._currentImageName)
@@ -281,7 +281,6 @@ class ECSServiceClientTests(TestCase):
 
     @given(integers(min_value=2))
     def test_updateTaskDefinition_updated(self, tag: int) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         repo, oldTag = client.currentImageName().split(":")
@@ -296,14 +295,12 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_updateTaskDefinition_none(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         self.assertRaises(NoChangesError, client.updateTaskDefinition)
 
 
     def test_updateTaskDefinition_same(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         self.assertRaises(
@@ -316,7 +313,6 @@ class ECSServiceClientTests(TestCase):
     def test_updateTaskDefinition_updateEnvironment(
         self, newEnvironment: TaskEnvironment
     ) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         # TRAVIS environment variable makes Travis-CI things happen which we
@@ -341,7 +337,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_updateTaskDefinition_travis(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         # Patch the (local) system environment to pretend we're in Travis CI
@@ -376,7 +371,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_registerTaskDefinition(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         repo, tag = client.currentImageName().split(":")
@@ -404,7 +398,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_currentTaskEnvironment(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         self.assertEqual(
@@ -416,7 +409,6 @@ class ECSServiceClientTests(TestCase):
     def test_updateTaskEnvironment_set(
         self, updates: TaskEnvironmentUpdates
     ) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         newEnvironment = client.updateTaskEnvironment(updates)
@@ -432,7 +424,6 @@ class ECSServiceClientTests(TestCase):
     ) -> None:
         updates, removes = instructions
 
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedEnvironment = dict(client.currentTaskEnvironment())
@@ -456,7 +447,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTask(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         newImageName = f"{client.currentImageName()}0"
@@ -469,7 +459,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTaskDefinition(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         newImageName = f"{client.currentImageName()}0"
@@ -485,7 +474,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployImage_new(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         newImageName = f"{client.currentImageName()}0"
@@ -500,7 +488,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployImage_same(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedImageName = client.currentImageName()
@@ -512,7 +499,6 @@ class ECSServiceClientTests(TestCase):
     def test_deployTaskEnvironment_updates(
         self, updates: TaskEnvironmentUpdates
     ) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedEnvironment = dict(client._client._currentEnvironment)
@@ -527,7 +513,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTaskEnvironment_none(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedEnvironment = dict(client._client._currentEnvironment)
@@ -539,7 +524,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTaskEnvironment_same(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedEnvironment = dict(client._client._currentEnvironment)
@@ -551,7 +535,6 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_rollback(self) -> None:
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedImageName = client.currentImageName()
