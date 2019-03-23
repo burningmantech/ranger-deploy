@@ -19,6 +19,7 @@ Tests for :mod:`deploy.aws.ecs`
 """
 
 import sys
+from copy import deepcopy
 from typing import (
     Any, Callable, Dict, Iterable, List,
     Mapping, Optional, Sequence, Set, Tuple,
@@ -41,6 +42,91 @@ from ..ecs import (
 
 
 __all__ = ()
+
+
+_defaultTaskDefinitions: List[TaskDefinition] = [
+    {
+        "taskDefinitionArn": "arn:mock:task-definition/service:0",
+        "family": "service-fg",
+        "revision": 1,
+        "containerDefinitions": [
+            {
+                "name": "service-container",
+                "image": "/team/service-project:1000",
+                "cpu": 0,
+                "memory": 128,
+                "portMappings": [
+                    {
+                        "containerPort": 80,
+                        "hostPort": 80,
+                        "protocol": "tcp",
+                    },
+                ],
+                "essential": True,
+                "environment": [],
+                "mountPoints": [],
+                "volumesFrom": [],
+            },
+        ],
+        "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+        "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+        "networkMode": "awsvpc",
+        "volumes": [],
+        "status": "ACTIVE",
+        "requiresAttributes": [
+            {"name": "ecs.capability.execution-role-ecr-pull"},
+            {"name": "com.amazonaws.ecs.capability.ecr-auth"},
+            {"name": "com.amazonaws.ecs.capability.task-iam-role"},
+        ],
+        "placementConstraints": [],
+        "compatibilities": ["EC2", "FARGATE"],
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "256",
+        "memory": "512",
+    },
+    {
+        "taskDefinitionArn": "arn:mock:task-definition/service:1",
+        "family": "service-fg",
+        "revision": 1,
+        "containerDefinitions": [
+            {
+                "name": "service-container",
+                "image": "/team/service-project:1001",
+                "cpu": 0,
+                "memory": 128,
+                "portMappings": [
+                    {
+                        "containerPort": 80,
+                        "hostPort": 80,
+                        "protocol": "tcp",
+                    },
+                ],
+                "essential": True,
+                "environment": [
+                    {"name": "VARIABLE1", "value": "value1"},
+                    {"name": "VARIABLE2", "value": "value2"},
+                ],
+                "mountPoints": [],
+                "volumesFrom": [],
+            },
+        ],
+        "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+        "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+        "networkMode": "awsvpc",
+        "volumes": [],
+        "status": "ACTIVE",
+        "requiresAttributes": [
+            {"name": "ecs.capability.execution-role-ecr-pull"},
+            {"name": "com.amazonaws.ecs.capability.ecr-auth"},
+            {"name": "com.amazonaws.ecs.capability.task-iam-role"},
+        ],
+        "placementConstraints": [],
+        "compatibilities": ["EC2", "FARGATE"],
+        "requiresCompatibilities": ["FARGATE"],
+        "cpu": "256",
+        "memory": "512",
+    },
+]
 
 
 def environment_updates(
@@ -70,89 +156,10 @@ class MockBoto3Client(object):
     def _validate_service(self, attribute: Attribute, value: Any) -> None:
         assert value == "ecs"
 
-    _taskDefinitions: List[TaskDefinition] = Factory(lambda: [
-        {
-            "taskDefinitionArn": "arn:mock:task-definition/service:0",
-            "family": "service-fg",
-            "revision": 1,
-            "containerDefinitions": [
-                {
-                    "name": "service-container",
-                    "image": "/team/service-project:1000",
-                    "cpu": 0,
-                    "memory": 128,
-                    "portMappings": [
-                        {
-                            "containerPort": 80,
-                            "hostPort": 80,
-                            "protocol": "tcp",
-                        },
-                    ],
-                    "essential": True,
-                    "environment": [],
-                    "mountPoints": [],
-                    "volumesFrom": [],
-                },
-            ],
-            "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
-            "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
-            "networkMode": "awsvpc",
-            "volumes": [],
-            "status": "ACTIVE",
-            "requiresAttributes": [
-                {"name": "ecs.capability.execution-role-ecr-pull"},
-                {"name": "com.amazonaws.ecs.capability.ecr-auth"},
-                {"name": "com.amazonaws.ecs.capability.task-iam-role"},
-            ],
-            "placementConstraints": [],
-            "compatibilities": ["EC2", "FARGATE"],
-            "requiresCompatibilities": ["FARGATE"],
-            "cpu": "256",
-            "memory": "512",
-        },
-        {
-            "taskDefinitionArn": "arn:mock:task-definition/service:1",
-            "family": "service-fg",
-            "revision": 1,
-            "containerDefinitions": [
-                {
-                    "name": "service-container",
-                    "image": "/team/service-project:1001",
-                    "cpu": 0,
-                    "memory": 128,
-                    "portMappings": [
-                        {
-                            "containerPort": 80,
-                            "hostPort": 80,
-                            "protocol": "tcp",
-                        },
-                    ],
-                    "essential": True,
-                    "environment": [
-                        {"name": "VARIABLE1", "value": "value1"},
-                        {"name": "VARIABLE2", "value": "value2"},
-                    ],
-                    "mountPoints": [],
-                    "volumesFrom": [],
-                },
-            ],
-            "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
-            "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
-            "networkMode": "awsvpc",
-            "volumes": [],
-            "status": "ACTIVE",
-            "requiresAttributes": [
-                {"name": "ecs.capability.execution-role-ecr-pull"},
-                {"name": "com.amazonaws.ecs.capability.ecr-auth"},
-                {"name": "com.amazonaws.ecs.capability.task-iam-role"},
-            ],
-            "placementConstraints": [],
-            "compatibilities": ["EC2", "FARGATE"],
-            "requiresCompatibilities": ["FARGATE"],
-            "cpu": "256",
-            "memory": "512",
-        },
-    ])
+
+    _taskDefinitions: List[TaskDefinition] = Factory(
+        lambda: deepcopy(_defaultTaskDefinitions)
+    )
     _currentTaskARN = "arn:mock:task-definition/service:1"
 
 
