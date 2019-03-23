@@ -648,18 +648,7 @@ class CommandLineTests(TestCase):
     def test_cli_rollback(
         self, stagingCluster: str, stagingService: str
     ) -> None:
-        self.exitStatus.clear()
-        self.clients.clear()
-
         # Because hypothesis and multiple runs
-        self.patch(sys, "argv", [
-            "deploy_aws", "staging",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--image", "some-new-image:0",
-        ])
-        ECSServiceClient.main()
-
         self.exitStatus.clear()
         self.clients.clear()
 
