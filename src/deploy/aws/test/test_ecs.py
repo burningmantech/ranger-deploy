@@ -635,3 +635,41 @@ class CommandLineTests(TestCase):
         self.assertEqual(client.cluster, stagingCluster)
         self.assertEqual(client.service, stagingService)
         self.assertEqual(client.currentImageName(), imageName)
+
+
+    @given(text(min_size=1), text(min_size=1))
+    def test_cli_rollback(
+        self, stagingCluster: str, stagingService: str
+    ) -> None:
+        self.exitStatus.clear()
+        self.clients.clear()
+
+        # Because hypothesis and multiple runs
+        self.patch(sys, "argv", [
+            "deploy_aws", "staging",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+            "--image", "some-new-image:0",
+        ])
+        ECSServiceClient.main()
+
+        self.exitStatus.clear()
+        self.clients.clear()
+
+        self.patch(sys, "argv", [
+            "deploy_aws", "rollback",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 1)
+
+        client = self.clients[0]
+
+        self.assertEqual(client.cluster, stagingCluster)
+        self.assertEqual(client.service, stagingService)
+        self.assertEqual(
+            client.currentImageName(), "/team/service-project:1000"
+        )
