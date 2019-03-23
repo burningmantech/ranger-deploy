@@ -18,7 +18,10 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Set, Tuple
+from typing import (
+    Any, Callable, Dict, Iterable, List,
+    Mapping, Optional, Sequence, Set, Tuple,
+)
 
 from attr import Attribute, attrib, attrs
 
@@ -62,9 +65,12 @@ class MockBoto3Client(object):
     """
 
     _awsService: str = attrib()
+    @_awsService.validator
+    def _validate_service(self, attribute: Attribute, value: Any) -> None:
+        assert value == "ecs"
 
-    _taskDefinitions: Dict[str, TaskDefinition] = {
-        "arn:mock:task-definition/ranger-service:1": {
+    _taskDefinitions: List[TaskDefinition] = attrib(factory=lambda: [
+        {
             "taskDefinitionArn": "arn:mock:task-definition/ranger-service:1",
             "family": "ranger-service-fg",
             "revision": 1,
@@ -106,13 +112,26 @@ class MockBoto3Client(object):
             "cpu": "256",
             "memory": "512",
         },
-    }
+    ])
     _currentTaskARN = "arn:mock:task-definition/ranger-service:1"
+
+
+    def _taskDefinitionWithARN(self, arn: str) -> TaskDefinition:
+        for taskDefinition in self._taskDefinitions:
+            if taskDefinition["taskDefinitionArn"] == arn:
+                return taskDefinition
+
+        raise AssertionError(f"Task definition {arn} not found")
+
+
+    def _listTaskDefinitions(self) -> Iterable[str]:
+        for taskDefinition in self._taskDefinitions:
+            yield taskDefinition["taskDefinitionArn"]
 
 
     @property
     def _currentTaskDefinition(self) -> TaskDefinition:
-        return self._taskDefinitions[self._currentTaskARN]
+        return self._taskDefinitionWithARN(self._currentTaskARN)
 
 
     @property
@@ -142,11 +161,6 @@ class MockBoto3Client(object):
         return self._currentTaskDefinition["requiresAttributes"]
 
 
-    @_awsService.validator
-    def _validate_service(self, attribute: Attribute, value: Any) -> None:
-        assert value == "ecs"
-
-
     def describe_services(
         self, cluster: str, services: Sequence[str]
     ) -> Mapping[str, Sequence[Mapping[str, str]]]:
@@ -157,7 +171,18 @@ class MockBoto3Client(object):
     def describe_task_definition(
         self, taskDefinition: str
     ) -> Mapping[str, TaskDefinition]:
-        return {"taskDefinition": self._taskDefinitions[taskDefinition]}
+        return {"taskDefinition": self._taskDefinitionWithARN(taskDefinition)}
+
+
+    def list_task_definitions(
+        self, familyPrefix: str
+    ) -> Mapping[str, Sequence[str]]:
+        return {
+            "taskDefinitionArns": list(
+                t["taskDefinitionArn"] for t in self._taskDefinitions
+                if t["family"].startswith(familyPrefix)
+            )
+        }
 
 
     def register_task_definition(
@@ -165,7 +190,7 @@ class MockBoto3Client(object):
     ) -> Mapping[str, TaskDefinition]:
         # Come up with a new task ARN
         maxVersion = 0
-        for arn in self._taskDefinitions:
+        for arn in self._listTaskDefinitions():
             version = int(arn.split(":")[-1])
             if version > maxVersion:
                 maxVersion = version
@@ -181,7 +206,7 @@ class MockBoto3Client(object):
         taskDefinition["compatibilities"] = self._currentCompatibilities
         taskDefinition["requiresAttributes"] = self._currentRequiresAttributes
 
-        self._taskDefinitions[arn] = taskDefinition
+        self._taskDefinitions.append(taskDefinition)
 
         return {"taskDefinition": taskDefinition}
 
@@ -189,7 +214,7 @@ class MockBoto3Client(object):
     def update_service(
         self, cluster: str, service: str, taskDefinition: str
     ) -> None:
-        assert taskDefinition in self._taskDefinitions
+        assert taskDefinition in self._listTaskDefinitions()
         self._currentTaskARN = taskDefinition
 
 
@@ -355,7 +380,7 @@ class ECSServiceClientTests(TestCase):
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         repo, tag = client.currentImageName().split(":")
-        newImageName = f"{repo}:{tag}_new"
+        newImageName = f"{repo}:{tag}1"
 
         newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
 
@@ -526,6 +551,16 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_rollback(self) -> None:
-        raise NotImplementedError()
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+        client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-    test_rollback.todo = "not implemented"
+        expectedImageName = client.currentImageName()
+        newImageName = f"{expectedImageName}0"
+
+        client.deployImage(newImageName)
+
+        assert client.currentImageName() == newImageName
+
+        client.rollback()
+
+        self.assertEqual(client.currentImageName(), expectedImageName)
