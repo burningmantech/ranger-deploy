@@ -18,6 +18,7 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
+import sys
 from typing import (
     Any, Callable, Dict, Iterable, List,
     Mapping, Optional, Sequence, Set, Tuple,
@@ -70,6 +71,45 @@ class MockBoto3Client(object):
         assert value == "ecs"
 
     _taskDefinitions: List[TaskDefinition] = Factory(lambda: [
+        {
+            "taskDefinitionArn": "arn:mock:task-definition/service:0",
+            "family": "service-fg",
+            "revision": 1,
+            "containerDefinitions": [
+                {
+                    "name": "service-container",
+                    "image": "/team/service-project:1000",
+                    "cpu": 0,
+                    "memory": 128,
+                    "portMappings": [
+                        {
+                            "containerPort": 80,
+                            "hostPort": 80,
+                            "protocol": "tcp",
+                        },
+                    ],
+                    "essential": True,
+                    "environment": [],
+                    "mountPoints": [],
+                    "volumesFrom": [],
+                },
+            ],
+            "taskRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+            "executionRoleArn": "arn:mock:role/ecsTaskExecutionRole",
+            "networkMode": "awsvpc",
+            "volumes": [],
+            "status": "ACTIVE",
+            "requiresAttributes": [
+                {"name": "ecs.capability.execution-role-ecr-pull"},
+                {"name": "com.amazonaws.ecs.capability.ecr-auth"},
+                {"name": "com.amazonaws.ecs.capability.task-iam-role"},
+            ],
+            "placementConstraints": [],
+            "compatibilities": ["EC2", "FARGATE"],
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+        },
         {
             "taskDefinitionArn": "arn:mock:task-definition/service:1",
             "family": "service-fg",
@@ -544,3 +584,54 @@ class ECSServiceClientTests(TestCase):
         client.rollback()
 
         self.assertEqual(client.currentImageName(), expectedImageName)
+
+
+
+class CommandLineTests(TestCase):
+    """
+    Tests for the command line.
+    """
+
+    def setUp(self) -> None:
+        # Patch exit in case of usage errors
+        self.exitStatus: List[int] = []
+        self.patch(sys, "exit", lambda code=None: self.exitStatus.append(code))
+
+        # Patch boto3 client
+        self.patch(ecs, "Boto3Client", MockBoto3Client)
+
+        # Patch ECSServiceClient constructor so we can track usage
+        self.clients: List[ECSServiceClient] = []
+
+        class RememberMeECSServiceClient(ECSServiceClient):
+            def __init__(innerSelf, cluster: str, service: str) -> None:
+                super().__init__(cluster=cluster, service=service)
+                self.clients.append(innerSelf)
+
+        self.patch(ecs, "ECSServiceClient", RememberMeECSServiceClient)
+
+
+    @given(text(min_size=1), text(min_size=1), text(min_size=1))
+    def test_cli_staging(
+        self, stagingCluster: str, stagingService: str, imageName: str,
+    ) -> None:
+        # Because hypothesis and multiple runs
+        self.exitStatus.clear()
+        self.clients.clear()
+
+        self.patch(sys, "argv", [
+            "deploy_aws", "staging",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+            "--image", imageName,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 1)
+
+        client = self.clients[0]
+
+        self.assertEqual(client.cluster, stagingCluster)
+        self.assertEqual(client.service, stagingService)
+        self.assertEqual(client.currentImageName(), imageName)
