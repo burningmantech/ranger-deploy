@@ -13,11 +13,9 @@ tmp="$(mktemp -t mypy.XXXX)";
 # Callable has no attribute "todo": ... uh, not sure that's a bug, but ...
 # Too many arguments for: https://github.com/python/mypy/issues/2088
 
-mypy "$@"                                                                                             \
-    | grep -v                                                                                         \
-        -e ': note: ".*" defined here'                                                                \
-        -e ': note: (Perhaps setting MYPYPATH .* would help)'                                         \
-        -e ': note: (Stub files are from .*)'                                                         \
+mypy "$@"                                                                     \
+    | grep -v                                                                 \
+        -e ': error: "Callable\[\[[^\]\+\], None\]" has no attribute "todo"'  \
         > "${tmp}" || true;
 
 sort < "${tmp}";

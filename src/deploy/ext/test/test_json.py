@@ -1,3 +1,19 @@
+##
+# See the file COPYRIGHT for copyright information.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
 """
 Tests for :mod:`deploy.ext.json`
 """
@@ -9,11 +25,13 @@ from datetime import (
 from io import BytesIO
 from json import JSONDecodeError
 from textwrap import dedent
-from typing import Callable, cast
+from types import MappingProxyType
+from typing import Any, Callable, Dict, List, cast
 
 from hypothesis import given
 from hypothesis.strategies import (
-    composite, dates, datetimes as _datetimes, integers
+    SearchStrategy, composite, dates, datetimes as _datetimes, dictionaries,
+    integers, lists, one_of, text,
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
@@ -37,9 +55,16 @@ def timezones(draw: Callable) -> TimeZone:
     return timeZone
 
 
-@composite
-def datetimes(draw: Callable) -> DateTime:
-    return draw(_datetimes(timezones=timezones()))
+def datetimes() -> SearchStrategy:
+    return _datetimes(timezones=timezones())
+
+
+def json() -> SearchStrategy:
+    return one_of(
+        integers(), text(),
+        lists(integers()), lists(text()),
+        dictionaries(text(), integers()), dictionaries(text(), text()),
+    )
 
 
 
@@ -48,16 +73,43 @@ class JSONEncodingTests(TestCase):
     Tests for :func:`jsonTextFromObject`
     """
 
-    def test_encodeIterables(self) -> None:
+    @given(lists(json()))
+    def test_encodeIterables(self, items: List[Any]) -> None:
         """
         :func:`jsonTextFromObject` encodes iterables other than :class:`list`
         and :class:`tuple`.
 
-        This indirectly tests :class:`config_service.util.json.Encoder`.
+        This indirectly tests :class:`..json.Encoder`.
         """
         self.assertEqual(
-            jsonTextFromObject(n for n in (1, 2, 3)),
-            "[1,2,3]"
+            jsonTextFromObject(iter(items)),
+            jsonTextFromObject(items),
+        )
+
+
+    @given(dictionaries(text(), json()))
+    def test_encodeMappings(self, items: Dict[str, Any]) -> None:
+        """
+        :func:`jsonTextFromObject` encodes mappings other than :class:`dict`.
+
+        This indirectly tests :class:`..json.Encoder`.
+        """
+        self.assertEqual(
+            jsonTextFromObject(MappingProxyType(items)),
+            jsonTextFromObject(items),
+        )
+
+
+    @given(datetimes())
+    def test_encodeDateTimes(self, dateTime: DateTime) -> None:
+        """
+        :func:`jsonTextFromObject` encodes mappings other than :class:`dict`.
+
+        This indirectly tests :class:`..json.Encoder`.
+        """
+        self.assertEqual(
+            jsonTextFromObject(dateTime),
+            f'"{dateTimeAsRFC3339Text(dateTime)}"',
         )
 
 
@@ -79,7 +131,8 @@ class JSONEncodingTests(TestCase):
         obj = dict(x="Hello", y=["one", "two", "three"])
 
         self.assertEqual(
-            objectFromJSONText(jsonTextFromObject(obj, pretty=False)), obj
+            jsonTextFromObject(obj, pretty=False),
+            '{"x":"Hello","y":["one","two","three"]}'
         )
 
 
