@@ -23,7 +23,7 @@ from typing import (
     Mapping, Optional, Sequence, Set, Tuple,
 )
 
-from attr import Attribute, attrib, attrs
+from attr import Attribute, Factory, attrib, attrs
 
 from hypothesis import assume, given
 from hypothesis.strategies import (
@@ -69,15 +69,15 @@ class MockBoto3Client(object):
     def _validate_service(self, attribute: Attribute, value: Any) -> None:
         assert value == "ecs"
 
-    _taskDefinitions: List[TaskDefinition] = attrib(factory=lambda: [
+    _taskDefinitions: List[TaskDefinition] = Factory(lambda: [
         {
-            "taskDefinitionArn": "arn:mock:task-definition/ranger-service:1",
-            "family": "ranger-service-fg",
+            "taskDefinitionArn": "arn:mock:task-definition/service:1",
+            "family": "service-fg",
             "revision": 1,
             "containerDefinitions": [
                 {
-                    "name": "ranger-service-container",
-                    "image": "/rangers/ranger-clubhouse-api:1",
+                    "name": "service-container",
+                    "image": "/team/service-project:1001",
                     "cpu": 0,
                     "memory": 128,
                     "portMappings": [
@@ -113,7 +113,7 @@ class MockBoto3Client(object):
             "memory": "512",
         },
     ])
-    _currentTaskARN = "arn:mock:task-definition/ranger-service:1"
+    _currentTaskARN = "arn:mock:task-definition/service:1"
 
 
     def _taskDefinitionWithARN(self, arn: str) -> TaskDefinition:
@@ -352,7 +352,7 @@ class ECSServiceClientTests(TestCase):
 
         # Make an unrelated change to avoid NoChangesError
         newTaskDefinition = client.updateTaskDefinition(
-            imageName=f"{client.currentImageName()}0"
+            imageName=f"{client.currentImageName()}4027"
         )
         updatedEnvironment = dict(client._environmentFromJSON(
             newTaskDefinition["containerDefinitions"][0]["environment"]
@@ -374,7 +374,7 @@ class ECSServiceClientTests(TestCase):
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         repo, tag = client.currentImageName().split(":")
-        newImageName = f"{repo}:{tag}1"
+        newImageName = f"{repo}:{tag}1987"
 
         newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
 
@@ -449,7 +449,7 @@ class ECSServiceClientTests(TestCase):
     def test_deployTask(self) -> None:
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-        newImageName = f"{client.currentImageName()}0"
+        newImageName = f"{client.currentImageName()}1934"
         newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
 
         arn = client.registerTaskDefinition(newTaskDefinition)
@@ -461,7 +461,7 @@ class ECSServiceClientTests(TestCase):
     def test_deployTaskDefinition(self) -> None:
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-        newImageName = f"{client.currentImageName()}0"
+        newImageName = f"{client.currentImageName()}9347"
         newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
 
         client.deployTaskDefinition(newTaskDefinition)
@@ -476,7 +476,7 @@ class ECSServiceClientTests(TestCase):
     def test_deployImage_new(self) -> None:
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
-        newImageName = f"{client.currentImageName()}0"
+        newImageName = f"{client.currentImageName()}1046"
 
         client.deployImage(newImageName)
 
@@ -538,12 +538,9 @@ class ECSServiceClientTests(TestCase):
         client = ECSServiceClient(cluster="MyCluster", service="MyService")
 
         expectedImageName = client.currentImageName()
-        newImageName = f"{expectedImageName}0"
+        newImageName = f"{expectedImageName}2957"
 
         client.deployImage(newImageName)
-
-        assert client.currentImageName() == newImageName
-
         client.rollback()
 
         self.assertEqual(client.currentImageName(), expectedImageName)
