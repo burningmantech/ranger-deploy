@@ -798,25 +798,37 @@ class CommandLineTests(TestCase):
 
 
     def tearDown(self) -> None:
-        MockBoto3Client._clearData()
+        self.cleanUp()
 
 
-    @given(text(min_size=1), text(min_size=1), text(min_size=1))
-    def test_cli_staging(
-        self, stagingCluster: str, stagingService: str, imageName: str,
-    ) -> None:
-        # Because hypothesis and multiple runs
+    def cleanUp(self) -> None:
         self.exitStatus.clear()
         self.clients.clear()
         MockBoto3Client._clearData()
 
-        # Add starting data set
+
+    def initClusterAndService(
+        self, cluster: str, service: str, taskARN: str = ""
+    ) -> None:
+        if not taskARN:
+            taskARN = (
+                MockBoto3Client._defaultTaskDefinitions[1]["taskDefinitionArn"]
+            )
         MockBoto3Client._addDefaultTaskDefinitions()
-        MockBoto3Client._addCluster(stagingCluster)
-        MockBoto3Client._addService(
-            stagingCluster, stagingService,
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
-        )
+        if cluster not in MockBoto3Client._services:
+            MockBoto3Client._addCluster(cluster)
+        MockBoto3Client._addService(cluster, service, taskARN)
+
+
+    @given(text(min_size=1), text(min_size=1), text(min_size=1))
+    def test_staging(
+        self, stagingCluster: str, stagingService: str, imageName: str,
+    ) -> None:
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(stagingCluster, stagingService)
 
         # Run "staging" subcommand
         self.patch(sys, "argv", [
@@ -838,21 +850,14 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1))
-    def test_cli_rollback(
+    def test_rollback(
         self, stagingCluster: str, stagingService: str
     ) -> None:
         # Because hypothesis and multiple runs
-        self.exitStatus.clear()
-        self.clients.clear()
-        MockBoto3Client._clearData()
+        self.cleanUp()
 
         # Add starting data set
-        MockBoto3Client._addDefaultTaskDefinitions()
-        MockBoto3Client._addCluster(stagingCluster)
-        MockBoto3Client._addService(
-            stagingCluster, stagingService,
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
-        )
+        self.initClusterAndService(stagingCluster, stagingService)
 
         # Run "rollback" subcommand
         self.patch(sys, "argv", [
@@ -882,7 +887,7 @@ class CommandLineTests(TestCase):
     @given(
         text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
     )
-    def test_cli_production(
+    def test_production(
         self,
         stagingCluster: str, stagingService: str,
         productionCluster: str, productionService: str,
@@ -893,26 +898,13 @@ class CommandLineTests(TestCase):
         )
 
         # Because hypothesis and multiple runs
-        self.exitStatus.clear()
-        self.clients.clear()
-        MockBoto3Client._clearData()
+        self.cleanUp()
 
         # Add starting data set
-        stagingTaskARN = (
-            MockBoto3Client._defaultTaskDefinitions[1]["taskDefinitionArn"]
-        )
-        productionTaskARN = (
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"]
-        )
-        MockBoto3Client._addDefaultTaskDefinitions()
-        MockBoto3Client._addCluster(stagingCluster)
-        MockBoto3Client._addService(
-            stagingCluster, stagingService, stagingTaskARN
-        )
-        if productionCluster != stagingCluster:
-            MockBoto3Client._addCluster(productionCluster)
-        MockBoto3Client._addService(
-            productionCluster, productionService, productionTaskARN
+        self.initClusterAndService(stagingCluster, stagingService)
+        self.initClusterAndService(
+            productionCluster, productionService,
+            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
         )
 
         # Run "production" subcommand
