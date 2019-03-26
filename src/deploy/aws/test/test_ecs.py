@@ -796,6 +796,7 @@ class CommandLineTests(TestCase):
         self.clients.clear()
         MockBoto3Client._clearData()
 
+        # Add starting data set
         MockBoto3Client._addDefaultTaskDefinitions()
         MockBoto3Client._addCluster(stagingCluster)
         MockBoto3Client._addService(
@@ -803,6 +804,7 @@ class CommandLineTests(TestCase):
             MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
         )
 
+        # Run "staging" subcommand
         self.patch(sys, "argv", [
             "deploy_aws", "staging",
             "--staging-cluster", stagingCluster,
@@ -829,6 +831,7 @@ class CommandLineTests(TestCase):
         self.exitStatus.clear()
         self.clients.clear()
 
+        # Add starting data set
         MockBoto3Client._addDefaultTaskDefinitions()
         MockBoto3Client._addCluster(stagingCluster)
         MockBoto3Client._addService(
@@ -836,6 +839,7 @@ class CommandLineTests(TestCase):
             MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
         )
 
+        # Run "rollback" subcommand
         self.patch(sys, "argv", [
             "deploy_aws", "rollback",
             "--staging-cluster", stagingCluster,
@@ -858,3 +862,54 @@ class CommandLineTests(TestCase):
                 ["image"]
             )
         )
+
+
+    @given(
+        text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
+    )
+    def test_cli_production(
+        self,
+        stagingCluster: str, stagingService: str,
+        productionCluster: str, productionService: str,
+    ) -> None:
+        # Because hypothesis and multiple runs
+        self.exitStatus.clear()
+        self.clients.clear()
+
+        # Add starting data set
+        stagingTaskARN = (
+            MockBoto3Client._defaultTaskDefinitions[1]["taskDefinitionArn"]
+        )
+        productionTaskARN = (
+            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"]
+        )
+        MockBoto3Client._addDefaultTaskDefinitions()
+        MockBoto3Client._addCluster(stagingCluster)
+        MockBoto3Client._addService(
+            stagingCluster, stagingService, stagingTaskARN
+        )
+        MockBoto3Client._addCluster(productionCluster)
+        MockBoto3Client._addService(
+            productionCluster, productionService, productionTaskARN
+        )
+
+        # Run "production" subcommand
+        self.patch(sys, "argv", [
+            "deploy_aws", "production",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+            "--production-cluster", productionCluster,
+            "--production-service", productionService,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 2)
+
+        stagingClient, productionClient = self.clients
+
+        self.assertEqual(stagingClient.cluster, stagingCluster)
+        self.assertEqual(stagingClient.service, stagingService)
+        self.assertEqual(productionClient.cluster, productionCluster)
+        self.assertEqual(productionClient.service, productionService)
+        self.assertEqual(productionClient.currentTaskARN(), stagingTaskARN)
