@@ -500,11 +500,11 @@ def compare(
 
     if same:
         echo("Matching environment variables:")
-        for key in same:
+        for key in sorted(same):
             echo(f"    {key} = {stagingEnvironment[key]!r}")
     if different:
         echo("Mismatching environment variables:")
-        for key in different:
+        for key in sorted(different):
             echo(
                 f"    {key} = "
                 f"{stagingEnvironment.get(key)!r} / "
