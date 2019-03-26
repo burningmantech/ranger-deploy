@@ -181,11 +181,17 @@ class MockBoto3Client(object):
 
     @classmethod
     def _addCluster(cls, cluster: str) -> None:
+        if cluster in cls._services:
+            raise AssertionError(f"Cluster {cluster!r} already exists")
         cls._services[cluster] = {}
 
 
     @classmethod
     def _addService(cls, cluster: str, service: str, arn: str) -> None:
+        if service in cls._services[cluster]:
+            raise AssertionError(
+                f"Service {service!r} already exists in cluster {cluster!r}"
+            )
         cls._services[cluster][service] = arn
 
 
@@ -225,6 +231,14 @@ class MockBoto3Client(object):
 
     @classmethod
     def _currentTaskARN(cls, cluster: str, service: str) -> str:
+        if cluster not in cls._services:
+            raise AssertionError(
+                f"Cluster {cluster!r} not in {cls._services.keys()}"
+            )
+        if service not in cls._services[cluster]:
+            raise AssertionError(
+                f"Service {service!r} not in {cls._services[cluster].keys()}"
+            )
         return cls._services[cluster][service]
 
 
@@ -830,6 +844,7 @@ class CommandLineTests(TestCase):
         # Because hypothesis and multiple runs
         self.exitStatus.clear()
         self.clients.clear()
+        MockBoto3Client._clearData()
 
         # Add starting data set
         MockBoto3Client._addDefaultTaskDefinitions()
@@ -872,9 +887,15 @@ class CommandLineTests(TestCase):
         stagingCluster: str, stagingService: str,
         productionCluster: str, productionService: str,
     ) -> None:
+        assume(
+            (stagingCluster, stagingService) !=
+            (productionCluster, productionService)
+        )
+
         # Because hypothesis and multiple runs
         self.exitStatus.clear()
         self.clients.clear()
+        MockBoto3Client._clearData()
 
         # Add starting data set
         stagingTaskARN = (
@@ -888,7 +909,8 @@ class CommandLineTests(TestCase):
         MockBoto3Client._addService(
             stagingCluster, stagingService, stagingTaskARN
         )
-        MockBoto3Client._addCluster(productionCluster)
+        if productionCluster != stagingCluster:
+            MockBoto3Client._addCluster(productionCluster)
         MockBoto3Client._addService(
             productionCluster, productionService, productionTaskARN
         )
@@ -912,4 +934,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(stagingClient.service, stagingService)
         self.assertEqual(productionClient.cluster, productionCluster)
         self.assertEqual(productionClient.service, productionService)
-        self.assertEqual(productionClient.currentTaskARN(), stagingTaskARN)
+        self.assertEqual(
+            stagingClient.currentImageName(),
+            productionClient.currentImageName(),
+        )
