@@ -100,7 +100,7 @@ class ECSServiceClient(object):
     cluster: str
     service: str
 
-    _botoClient: List[Any] = []
+    _botoClient: List[Any] = Factory(list)
     _currentTask: Dict[str, Any] = Factory(dict)
 
 
@@ -270,12 +270,16 @@ class ECSServiceClient(object):
         Deploy a new task to the service.
         """
         self.log.info(
-            "Updating service {cluster}:{service} to ARN {arn}...",
+            "Deploying service {cluster}:{service} to ARN {arn}...",
             cluster=self.cluster, service=self.service, arn=arn
         )
         self._currentTask.clear()
         self._client.update_service(
             cluster=self.cluster, service=self.service, taskDefinition=arn
+        )
+        self.log.info(
+            "Deployed service {cluster}:{service} to ARN {arn}...",
+            cluster=self.cluster, service=self.service, arn=arn
         )
 
 
@@ -296,8 +300,11 @@ class ECSServiceClient(object):
         except NoChangesError:
             return
 
+        self.log.info(
+            "Deploying image {image} to service {cluster}:{service}.",
+            cluster=self.cluster, service=self.service, image=imageName
+        )
         self.deployTaskDefinition(newTaskDefinition)
-
         self.log.info(
             "Deployed image {image} to service {cluster}:{service}.",
             cluster=self.cluster, service=self.service, image=imageName
@@ -321,8 +328,11 @@ class ECSServiceClient(object):
         except NoChangesError:
             return
 
+        self.log.info(
+            "Deploying task environment to service {cluster}:{service}.",
+            cluster=self.cluster, service=self.service, updates=updates
+        )
         self.deployTaskDefinition(newTaskDefinition)
-
         self.log.info(
             "Deployed task environment to service {cluster}:{service}.",
             cluster=self.cluster, service=self.service, updates=updates
@@ -342,8 +352,8 @@ class ECSServiceClient(object):
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]
 
+        self.log.info("Rolling back to prior task ARN: {arn}", arn=taskARN)
         self.deployTask(taskARN)
-
         self.log.info("Rolled back to prior task ARN: {arn}", arn=taskARN)
 
 
