@@ -29,7 +29,8 @@ from attr import Attribute, attrib, attrs
 
 from hypothesis import assume, given
 from hypothesis.strategies import (
-    composite, dictionaries, integers, just, sets, text
+    composite, dictionaries, integers, just,
+    lists, sampled_from, sets, text, tuples,
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
@@ -105,7 +106,12 @@ class MockBoto3Client(object):
                         },
                     ],
                     "essential": True,
-                    "environment": [],
+                    "environment": ECSServiceClient._environmentAsJSON(
+                        {
+                            "version": "0",
+                            "happiness": "true",
+                        }
+                    ),
                     "mountPoints": [],
                     "volumesFrom": [],
                 },
@@ -140,10 +146,14 @@ class MockBoto3Client(object):
                         },
                     ],
                     "essential": True,
-                    "environment": [
-                        {"name": "VARIABLE1", "value": "value1"},
-                        {"name": "VARIABLE2", "value": "value2"},
-                    ],
+                    "environment": ECSServiceClient._environmentAsJSON(
+                        {
+                            "version": "0",
+                            "happiness": "true",
+                            "VARIABLE1": "value1",
+                            "VARIABLE2": "value2",
+                        }
+                    ),
                     "mountPoints": [],
                     "volumesFrom": [],
                 },
@@ -181,14 +191,14 @@ class MockBoto3Client(object):
 
     @classmethod
     def _addCluster(cls, cluster: str) -> None:
-        if cluster in cls._services:
+        if cluster in cls._services:  # pragma: no cover
             raise AssertionError(f"Cluster {cluster!r} already exists")
         cls._services[cluster] = {}
 
 
     @classmethod
     def _addService(cls, cluster: str, service: str, arn: str) -> None:
-        if service in cls._services[cluster]:
+        if service in cls._services[cluster]:  # pragma: no cover
             raise AssertionError(
                 f"Service {service!r} already exists in cluster {cluster!r}"
             )
@@ -231,11 +241,11 @@ class MockBoto3Client(object):
 
     @classmethod
     def _currentTaskARN(cls, cluster: str, service: str) -> str:
-        if cluster not in cls._services:
+        if cluster not in cls._services:  # pragma: no cover
             raise AssertionError(
                 f"Cluster {cluster!r} not in {cls._services.keys()}"
             )
-        if service not in cls._services[cluster]:
+        if service not in cls._services[cluster]:  # pragma: no cover
             raise AssertionError(
                 f"Service {service!r} not in {cls._services[cluster].keys()}"
             )
@@ -614,7 +624,7 @@ class ECSServiceClientTests(TestCase):
         )
 
         expectedEnvironment = dict(client.currentTaskEnvironment())
-        for key, value in updates.items():
+        for key, value in updates.items():  # pragma: no cover
             if key in removes:
                 if key in expectedEnvironment:
                     del expectedEnvironment[key]
@@ -798,25 +808,37 @@ class CommandLineTests(TestCase):
 
 
     def tearDown(self) -> None:
-        MockBoto3Client._clearData()
+        self.cleanUp()
 
 
-    @given(text(min_size=1), text(min_size=1), text(min_size=1))
-    def test_cli_staging(
-        self, stagingCluster: str, stagingService: str, imageName: str,
-    ) -> None:
-        # Because hypothesis and multiple runs
+    def cleanUp(self) -> None:
         self.exitStatus.clear()
         self.clients.clear()
         MockBoto3Client._clearData()
 
-        # Add starting data set
+
+    def initClusterAndService(
+        self, cluster: str, service: str, taskARN: str = ""
+    ) -> None:
+        if not taskARN:
+            taskARN = (
+                MockBoto3Client._defaultTaskDefinitions[1]["taskDefinitionArn"]
+            )
         MockBoto3Client._addDefaultTaskDefinitions()
-        MockBoto3Client._addCluster(stagingCluster)
-        MockBoto3Client._addService(
-            stagingCluster, stagingService,
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
-        )
+        if cluster not in MockBoto3Client._services:
+            MockBoto3Client._addCluster(cluster)
+        MockBoto3Client._addService(cluster, service, taskARN)
+
+
+    @given(text(min_size=1), text(min_size=1), text(min_size=1))
+    def test_staging(
+        self, stagingCluster: str, stagingService: str, imageName: str,
+    ) -> None:
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(stagingCluster, stagingService)
 
         # Run "staging" subcommand
         self.patch(sys, "argv", [
@@ -838,21 +860,14 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1))
-    def test_cli_rollback(
+    def test_rollback(
         self, stagingCluster: str, stagingService: str
     ) -> None:
         # Because hypothesis and multiple runs
-        self.exitStatus.clear()
-        self.clients.clear()
-        MockBoto3Client._clearData()
+        self.cleanUp()
 
         # Add starting data set
-        MockBoto3Client._addDefaultTaskDefinitions()
-        MockBoto3Client._addCluster(stagingCluster)
-        MockBoto3Client._addService(
-            stagingCluster, stagingService,
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
-        )
+        self.initClusterAndService(stagingCluster, stagingService)
 
         # Run "rollback" subcommand
         self.patch(sys, "argv", [
@@ -882,7 +897,7 @@ class CommandLineTests(TestCase):
     @given(
         text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
     )
-    def test_cli_production(
+    def test_production(
         self,
         stagingCluster: str, stagingService: str,
         productionCluster: str, productionService: str,
@@ -893,26 +908,13 @@ class CommandLineTests(TestCase):
         )
 
         # Because hypothesis and multiple runs
-        self.exitStatus.clear()
-        self.clients.clear()
-        MockBoto3Client._clearData()
+        self.cleanUp()
 
         # Add starting data set
-        stagingTaskARN = (
-            MockBoto3Client._defaultTaskDefinitions[1]["taskDefinitionArn"]
-        )
-        productionTaskARN = (
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"]
-        )
-        MockBoto3Client._addDefaultTaskDefinitions()
-        MockBoto3Client._addCluster(stagingCluster)
-        MockBoto3Client._addService(
-            stagingCluster, stagingService, stagingTaskARN
-        )
-        if productionCluster != stagingCluster:
-            MockBoto3Client._addCluster(productionCluster)
-        MockBoto3Client._addService(
-            productionCluster, productionService, productionTaskARN
+        self.initClusterAndService(stagingCluster, stagingService)
+        self.initClusterAndService(
+            productionCluster, productionService,
+            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
         )
 
         # Run "production" subcommand
@@ -937,4 +939,208 @@ class CommandLineTests(TestCase):
         self.assertEqual(
             stagingClient.currentImageName(),
             productionClient.currentImageName(),
+        )
+
+
+    @given(
+        text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
+    )
+    def test_compare(
+        self,
+        stagingCluster: str, stagingService: str,
+        productionCluster: str, productionService: str,
+    ) -> None:
+        assume(
+            (stagingCluster, stagingService) !=
+            (productionCluster, productionService)
+        )
+
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(stagingCluster, stagingService)
+        self.initClusterAndService(
+            productionCluster, productionService,
+            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
+        )
+
+        # Run "compare" subcommand
+        output: List[str] = []
+        self.patch(ecs, "echo", lambda text: output.append(text))
+        self.patch(sys, "argv", [
+            "deploy_aws", "compare",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+            "--production-cluster", productionCluster,
+            "--production-service", productionService,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 2)
+
+        stagingClient, productionClient = self.clients
+
+        self.assertEqual(stagingClient.cluster, stagingCluster)
+        self.assertEqual(stagingClient.service, stagingService)
+        self.assertEqual(productionClient.cluster, productionCluster)
+        self.assertEqual(productionClient.service, productionService)
+
+        self.assertEqual(
+            output,
+            [
+                "Staging task ARN: arn:mock:task-definition/service:1",
+                "Staging container image: /team/service-project:1001",
+                "Producton task ARN: arn:mock:task-definition/service:0",
+                "Producton container image: /team/service-project:1000",
+                "Matching environment variables:",
+                "    happiness = 'true'",
+                "    version = '0'",
+                "Mismatching environment variables:",
+                "    VARIABLE1 = 'value1' / None",
+                "    VARIABLE2 = 'value2' / None",
+            ]
+        )
+
+
+    @given(text(min_size=1), text(min_size=1))
+    def test_environment_get(self, cluster: str, service: str) -> None:
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(cluster, service)
+
+        # Run "compare" subcommand
+        output: List[str] = []
+        self.patch(ecs, "echo", lambda text: output.append(text))
+        self.patch(sys, "argv", [
+            "deploy_aws", "environment",
+            "--cluster", cluster,
+            "--service", service,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 1)
+
+        client = self.clients[0]
+
+        self.assertEqual(client.cluster, cluster)
+        self.assertEqual(client.service, service)
+
+        self.assertEqual(
+            output,
+            [
+                f"Environment variables for {cluster}:{service}:",
+                "    version = '0'",
+                "    happiness = 'true'",
+                "    VARIABLE1 = 'value1'",
+                "    VARIABLE2 = 'value2'",
+            ]
+        )
+
+
+    @given(
+        text(min_size=1), text(min_size=1),
+        lists(tuples(text(), text()), min_size=1),
+    )
+    def test_environment_set(
+        self, cluster: str, service: str, updates: List[Tuple[str, str]]
+    ) -> None:
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(cluster, service)
+
+        # Run "compare" subcommand
+        output: List[str] = []
+        self.patch(ecs, "echo", lambda text: output.append(text))
+        self.patch(sys, "argv", [
+            "deploy_aws", "environment",
+            "--cluster", cluster,
+            "--service", service,
+            *[f"x{k}={v}" for k, v in updates]
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 1)
+
+        client = self.clients[0]
+
+        self.assertEqual(client.cluster, cluster)
+        self.assertEqual(client.service, service)
+
+        resultEnvironment = client.currentTaskEnvironment()
+
+        for key, value in dict(updates).items():
+            key = f"x{key}"
+            self.assertIn(key, resultEnvironment)
+            self.assertEqual(resultEnvironment[key], value)
+
+        self.assertEqual(
+            output,
+            [
+                f"Changing environment variables for {cluster}:{service}:",
+                *[f"    Setting x{u[0]}." for u in updates]
+            ]
+        )
+
+
+    @given(
+        text(min_size=1), text(min_size=1),
+        lists(
+            sampled_from(
+                sorted(
+                    ECSServiceClient._environmentFromJSON(
+                        MockBoto3Client._defaultTaskDefinitions[0]
+                        ["containerDefinitions"][0]
+                        ["environment"]
+                    )
+                )
+            ), min_size=1
+        )
+    )
+    def test_environment_unset(
+        self, cluster: str, service: str, removes: List[str]
+    ) -> None:
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(cluster, service)
+
+        # Run "compare" subcommand
+        output: List[str] = []
+        self.patch(ecs, "echo", lambda text: output.append(text))
+        self.patch(sys, "argv", [
+            "deploy_aws", "environment",
+            "--cluster", cluster,
+            "--service", service,
+            *[f"x{k}" for k in removes]
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(self.exitStatus, [0])
+        self.assertEqual(len(self.clients), 1)
+
+        client = self.clients[0]
+
+        self.assertEqual(client.cluster, cluster)
+        self.assertEqual(client.service, service)
+
+        resultEnvironment = client.currentTaskEnvironment()
+
+        for key in set(removes):
+            self.assertNotIn(f"x{key}", resultEnvironment)
+
+        self.assertEqual(
+            output,
+            [
+                f"Changing environment variables for {cluster}:{service}:",
+                *[f"    Removing x{k}." for k in removes]
+            ]
         )
