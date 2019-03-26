@@ -105,7 +105,12 @@ class MockBoto3Client(object):
                         },
                     ],
                     "essential": True,
-                    "environment": [],
+                    "environment": ECSServiceClient._environmentAsJSON(
+                        {
+                            "version": "0",
+                            "happiness": "true",
+                        }
+                    ),
                     "mountPoints": [],
                     "volumesFrom": [],
                 },
@@ -140,10 +145,14 @@ class MockBoto3Client(object):
                         },
                     ],
                     "essential": True,
-                    "environment": [
-                        {"name": "VARIABLE1", "value": "value1"},
-                        {"name": "VARIABLE2", "value": "value2"},
-                    ],
+                    "environment": ECSServiceClient._environmentAsJSON(
+                        {
+                            "version": "0",
+                            "happiness": "true",
+                            "VARIABLE1": "value1",
+                            "VARIABLE2": "value2",
+                        }
+                    ),
                     "mountPoints": [],
                     "volumesFrom": [],
                 },
@@ -929,4 +938,86 @@ class CommandLineTests(TestCase):
         self.assertEqual(
             stagingClient.currentImageName(),
             productionClient.currentImageName(),
+        )
+
+
+    @given(
+        text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
+    )
+    def test_compare(
+        self,
+        stagingCluster: str, stagingService: str,
+        productionCluster: str, productionService: str,
+    ) -> None:
+        assume(
+            (stagingCluster, stagingService) !=
+            (productionCluster, productionService)
+        )
+
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(stagingCluster, stagingService)
+        self.initClusterAndService(
+            productionCluster, productionService,
+            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
+        )
+
+        # Run "compare" subcommand
+        output: List[str] = []
+        self.patch(ecs, "echo", lambda text: output.append(text))
+        self.patch(sys, "argv", [
+            "deploy_aws", "compare",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+            "--production-cluster", productionCluster,
+            "--production-service", productionService,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(
+            output,
+            [
+                "Staging task ARN: arn:mock:task-definition/service:1",
+                "Staging container image: /team/service-project:1001",
+                "Producton task ARN: arn:mock:task-definition/service:0",
+                "Producton container image: /team/service-project:1000",
+                "Matching environment variables:",
+                "    happiness = 'true'",
+                "    version = '0'",
+                "Mismatching environment variables:",
+                "    VARIABLE1 = 'value1' / None",
+                "    VARIABLE2 = 'value2' / None",
+            ]
+        )
+
+
+    @given(text(min_size=1), text(min_size=1))
+    def test_environment_get(self, cluster: str, service: str) -> None:
+        # Because hypothesis and multiple runs
+        self.cleanUp()
+
+        # Add starting data set
+        self.initClusterAndService(cluster, service)
+
+        # Run "compare" subcommand
+        output: List[str] = []
+        self.patch(ecs, "echo", lambda text: output.append(text))
+        self.patch(sys, "argv", [
+            "deploy_aws", "environment",
+            "--cluster", cluster,
+            "--service", service,
+        ])
+        ECSServiceClient.main()
+
+        self.assertEqual(
+            output,
+            [
+                f"Environment variables for {cluster}:{service}:",
+                "    version = '0'",
+                "    happiness = 'true'",
+                "    VARIABLE1 = 'value1'",
+                "    VARIABLE2 = 'value2'",
+            ]
         )
