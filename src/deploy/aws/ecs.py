@@ -546,3 +546,8 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
             stagingClient.currentTaskEnvironment().items()
         ):
             echo(f"    {key} = {value!r}")
+
+
+
+if __name__ == "__main__":  # pragma: no cover
+    ECSServiceClient.main()
