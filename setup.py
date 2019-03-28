@@ -90,6 +90,7 @@ for tool, (module, function) in script_entry_points.items():
 
 package_data = dict(
     deploy=[
+        "notify/templates/message.*",
     ],
 )
 
