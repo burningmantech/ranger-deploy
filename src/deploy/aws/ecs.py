@@ -29,7 +29,7 @@ from boto3 import client as Boto3Client
 
 from click import (
     argument as commandArgument, echo, group as commandGroup,
-    option as commandOption, version_option as versionOption
+    option as commandOption, version_option as versionOption,
 )
 
 from twisted.logger import Logger
@@ -59,6 +59,10 @@ class ECSServiceClient(object):
     ECS Service Client
     """
 
+    #
+    # Static methods
+    #
+
     @staticmethod
     def _environmentAsJSON(
         environment: TaskEnvironment
@@ -86,6 +90,10 @@ class ECSServiceClient(object):
         )
 
 
+    #
+    # Class attributes
+    #
+
     log = Logger()
 
 
@@ -96,6 +104,10 @@ class ECSServiceClient(object):
         """
         main()
 
+
+    #
+    # Instance attributes
+    #
 
     cluster: str
     service: str
@@ -372,9 +384,8 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         help = f"ECS {optionName} for the {environment} environment"
 
     return commandOption(
-        flag, type=str, metavar="<name>", help=help,
-        envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
-        prompt=True,
+        flag, envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
+        help=help, type=str, metavar="<name>", prompt=True, required=True,
     )
 
 clusterOption           = ecsOption("cluster")
@@ -398,10 +409,10 @@ def main() -> None:
 @stagingServiceOption
 @commandOption(
     "--image",
-    type=str, metavar="<name>",
-    help="Docker image to use",
     envvar="AWS_ECR_IMAGE_NAME",
-    prompt=True,
+    help="Docker image to use",
+    type=str, metavar="<name>",
+    prompt=True, required=True,
 )
 def staging(
     staging_cluster: str, staging_service: str, image: str

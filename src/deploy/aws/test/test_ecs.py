@@ -784,7 +784,7 @@ class ECSServiceClientTests(TestCase):
 
 class CommandLineTests(TestCase):
     """
-    Tests for the command line.
+    Tests for the :class:`ECSServiceClient` command line.
     """
 
     def setUp(self) -> None:

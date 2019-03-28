@@ -20,17 +20,19 @@ Tests for :mod:`deploy.notify.smtp`
 
 from email.message import Message
 from ssl import SSLContext
-from string import ascii_letters, digits
-from typing import (
-    Any, Callable, ClassVar, List, Optional, Tuple, TypeVar, cast
-)
+from typing import Any, ClassVar, List, Optional, Tuple, cast
 
 from attr import Factory, attrs
 
 from hypothesis import given
-from hypothesis.strategies import integers, text
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
+
+from deploy.ext.click import clickTestRun
+from deploy.ext.hypothesis import (
+    ascii_text, email_addresses,
+    port_numbers, repository_ids, user_names,
+)
 
 from .. import smtp
 from ..smtp import SMTPNotifier
@@ -38,20 +40,6 @@ from ..smtp import SMTPNotifier
 
 __all__ = ()
 
-
-T = TypeVar('T')
-DrawCallable = Callable[[Callable[..., T]], T]
-
-
-def ascii_text(
-    min_size: Optional[int] = 0, max_size: Optional[int] = None
-) -> str:
-    """
-    A strategy which generates ASCII-encodable text.
-    """
-    return text(
-        min_size=min_size, max_size=max_size, alphabet=(ascii_letters + digits)
-    )
 
 
 @attrs(auto_attribs=True)
@@ -65,10 +53,10 @@ class MockSMTPServer(object):
 
 
     def send_message(
-        self, message: Message, sender: str, destination: str
+        self, message: Message, sender: str, recipient: str
     ) -> None:
         assert self._logins
-        self._messages.append((sender, destination, message))
+        self._messages.append((sender, recipient, message))
 
 
 
@@ -111,20 +99,25 @@ class SMTPNotifierTests(TestCase):
         MockSMTPSSL._instances.clear()
 
 
-    @given(  # FIXME: Should use text() for commitMessage
-        ascii_text(),                            # smtpPort
-        integers(min_value=1, max_value=65535),  # smtpHost
-        ascii_text(), ascii_text(),    # smtpUser, smtpPassword
-        ascii_text(), ascii_text(),    # senderAddress, destinationAddress
-        ascii_text(), ascii_text(),    # project, repository
-        ascii_text(), ascii_text(),    # buildNumber, buildURL
-        ascii_text(), ascii_text(),    # commitID, commitMessage
+    @given(
+        ascii_text(min_size=1),  # smtpHost
+        port_numbers(),          # smtpPort
+        user_names(),            # smtpUser
+        ascii_text(min_size=1),  # smtpPassword
+        email_addresses(),       # senderAddress
+        email_addresses(),       # recipientAddress
+        ascii_text(min_size=1),  # project
+        repository_ids(),        # repositoryOrganization
+        ascii_text(min_size=1),  # buildNumber
+        ascii_text(min_size=1),  # buildURL
+        ascii_text(min_size=1),  # commitID
+        ascii_text(min_size=1),  # commitMessage  FIXME: use text()
     )
     def test_notifyStaging(
         self,
         smtpHost: str, smtpPort: int,
         smtpUser: str, smtpPassword: str,
-        senderAddress: str, destinationAddress: str,
+        senderAddress: str, recipientAddress: str,
         project: str, repository: str,
         buildNumber: str, buildURL: str,
         commitID: str, commitMessage: str,
@@ -135,7 +128,7 @@ class SMTPNotifierTests(TestCase):
         notifier = SMTPNotifier(
             smtpHost=smtpHost, smtpPort=smtpPort,
             smtpUser=smtpUser, smtpPassword=smtpPassword,
-            senderAddress=senderAddress, destinationAddress=destinationAddress,
+            senderAddress=senderAddress, recipientAddress=recipientAddress,
         )
         notifier.notifyStaging(
             project=project, repository=repository,
@@ -156,7 +149,7 @@ class SMTPNotifierTests(TestCase):
 
         self.assertEqual(len(server._messages), 1)
         self.assertEqual(
-            server._messages[0][0:2], (senderAddress, destinationAddress)
+            server._messages[0][0:2], (senderAddress, recipientAddress)
         )
 
         message = server._messages[0][2]
@@ -211,3 +204,62 @@ class SMTPNotifierTests(TestCase):
                 self.assertEqual(payload, expectedHTML)
             else:  # pragma: no cover
                 raise AssertionError(f"Unexpected content type: {payload}")
+
+
+
+class CommandLineTests(TestCase):
+    """
+    Tests for the :class:`SMTPNotifier` command line.
+    """
+
+    def setUp(self) -> None:
+        self.patch(smtp, "SMTP_SSL", MockSMTPSSL)
+
+
+    def tearDown(self) -> None:
+        MockSMTPSSL._instances.clear()
+
+
+    @given(
+        ascii_text(min_size=1),  # smtpHost
+        port_numbers(),          # smtpPort
+        user_names(),            # smtpUser
+        ascii_text(min_size=1),  # smtpPassword
+        email_addresses(),       # senderAddress
+        email_addresses(),       # recipientAddress
+        ascii_text(min_size=1),  # project
+        repository_ids(),        # repositoryOrganization
+        ascii_text(min_size=1),  # buildNumber
+        ascii_text(min_size=1),  # buildURL
+        ascii_text(min_size=1),  # commitID
+        ascii_text(min_size=1),  # commitMessage  FIXME: use text()
+    )
+    def test_staging(
+        self,
+        smtpHost: str, smtpPort: int,
+        smtpUser: str, smtpPassword: str,
+        senderAddress: str, recipientAddress: str,
+        project: str, repository: str,
+        buildNumber: str, buildURL: str,
+        commitID: str, commitMessage: str,
+    ) -> None:
+        result = clickTestRun(
+            SMTPNotifier.main,
+            [
+                "notify_smtp", "staging",
+                "--project-name", project,
+                "--repository-id", repository,
+                "--build-number", buildNumber,
+                "--build-url", buildURL,
+                "--commit-id", commitID,
+                "--commit-message", commitMessage,
+                "--smtp-host", smtpHost,
+                "--smtp-port", str(smtpPort),
+                "--smtp-user", smtpUser,
+                "--smtp-password", smtpPassword,
+                "--sender", senderAddress,
+                "--recipient", recipientAddress,
+            ],
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
