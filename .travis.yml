@@ -27,7 +27,7 @@ env:
 
 
 install:
-  - pip install tox tox-venv
+  - pip install tox
 
 
 script:
