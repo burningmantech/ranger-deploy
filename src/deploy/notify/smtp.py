@@ -52,7 +52,6 @@ class SMTPNotifier(object):
     def notifyStaging(
         self,
         project: str, repository: str, buildNumber: str, buildURL: str,
-        pullRequestID: str, pullRequestURL: str,
         commitID: str, commitMessage: str,
     ) -> None:
         """
@@ -75,8 +74,6 @@ class SMTPNotifier(object):
                 commitMessage=commitMessage,
                 commitURL=f"https://github.com/{repository}/commit/{commitID}",
                 project=project,
-                pullRequestID=pullRequestID,
-                pullRequestURL=pullRequestURL,
                 repository=repository,
                 title=title,
             )
