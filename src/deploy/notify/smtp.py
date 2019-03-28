@@ -255,7 +255,7 @@ def staging(
     )
 
     notifier.notifyStaging(
-        project=project, repository=repository_id,
+        project=project_name, repository=repository_id,
         buildNumber=build_number, buildURL=build_url,
         commitID=commit_id, commitMessage=commit_message,
     )

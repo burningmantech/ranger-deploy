@@ -22,6 +22,7 @@ from contextlib import contextmanager
 from email.message import Message
 from ssl import SSLContext
 from typing import Any, ClassVar, Iterator, List, Optional, Tuple, Type, cast
+from unittest.mock import patch
 
 from attr import Factory, attrs
 
@@ -239,7 +240,9 @@ class CommandLineTests(TestCase):
         buildNumber: str, buildURL: str,
         commitID: str, commitMessage: str,
     ) -> None:
-        with testingSMTP():
+        with patch(
+            "deploy.notify.smtp.SMTPNotifier.notifyStaging"
+        ) as notifyStaging:
             result = clickTestRun(
                 SMTPNotifier.main,
                 [
@@ -258,5 +261,20 @@ class CommandLineTests(TestCase):
                     "--recipient", recipientAddress,
                 ],
             )
-            self.assertEqual(result.exitCode, 0)
-            self.assertEqual(result.echoOutput, [])
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+
+        self.assertEqual(notifyStaging.call_count, 1)
+        self.assertEqual(notifyStaging.call_args[0], ())
+        self.assertEqual(
+            notifyStaging.call_args[1],
+            dict(
+                project=project,
+                repository=repository,
+                buildNumber=buildNumber,
+                buildURL=buildURL,
+                commitID=commitID,
+                commitMessage=commitMessage,
+            )
+        )
