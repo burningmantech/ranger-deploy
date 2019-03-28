@@ -118,7 +118,6 @@ class SMTPNotifierTests(TestCase):
         ascii_text(), ascii_text(),    # senderAddress, destinationAddress
         ascii_text(), ascii_text(),    # project, repository
         ascii_text(), ascii_text(),    # buildNumber, buildURL
-        ascii_text(), ascii_text(),    # pullRequestID, pullRequestURL
         ascii_text(), ascii_text(),    # commitID, commitMessage
     )
     def test_notifyStaging(
@@ -128,7 +127,6 @@ class SMTPNotifierTests(TestCase):
         senderAddress: str, destinationAddress: str,
         project: str, repository: str,
         buildNumber: str, buildURL: str,
-        pullRequestID: str, pullRequestURL: str,
         commitID: str, commitMessage: str,
     ) -> None:
         # Because hypothesis and multiple runs
@@ -142,7 +140,6 @@ class SMTPNotifierTests(TestCase):
         notifier.notifyStaging(
             project=project, repository=repository,
             buildNumber=buildNumber, buildURL=buildURL,
-            pullRequestID=pullRequestID, pullRequestURL=pullRequestURL,
             commitID=commitID, commitMessage=commitMessage,
         )
 
