@@ -18,9 +18,10 @@
 Tests for :mod:`deploy.notify.smtp`
 """
 
+from contextlib import contextmanager
 from email.message import Message
 from ssl import SSLContext
-from typing import Any, ClassVar, List, Optional, Tuple, cast
+from typing import Any, ClassVar, Iterator, List, Optional, Tuple, Type, cast
 
 from attr import Factory, attrs
 
@@ -86,18 +87,22 @@ class MockSMTPSSL(object):
 
 
 
+@contextmanager
+def testingSMTP() -> Iterator[None]:
+    SMTP_SSL = smtp.SMTP_SSL
+    smtp.SMTP_SSL = cast(Type, MockSMTPSSL)
+
+    yield None
+
+    smtp.SMTP_SSL = SMTP_SSL
+    MockSMTPSSL._instances.clear()
+
+
+
 class SMTPNotifierTests(TestCase):
     """
     Tests for :class:`SMTPNotifier`
     """
-
-    def setUp(self) -> None:
-        self.patch(smtp, "SMTP_SSL", MockSMTPSSL)
-
-
-    def tearDown(self) -> None:
-        MockSMTPSSL._instances.clear()
-
 
     @given(
         ascii_text(min_size=1),  # smtpHost
@@ -123,87 +128,86 @@ class SMTPNotifierTests(TestCase):
         commitID: str, commitMessage: str,
     ) -> None:
         # Because hypothesis and multiple runs
-        MockSMTPSSL._instances.clear()
+        with testingSMTP():
+            notifier = SMTPNotifier(
+                smtpHost=smtpHost, smtpPort=smtpPort,
+                smtpUser=smtpUser, smtpPassword=smtpPassword,
+                senderAddress=senderAddress, recipientAddress=recipientAddress,
+            )
+            notifier.notifyStaging(
+                project=project, repository=repository,
+                buildNumber=buildNumber, buildURL=buildURL,
+                commitID=commitID, commitMessage=commitMessage,
+            )
 
-        notifier = SMTPNotifier(
-            smtpHost=smtpHost, smtpPort=smtpPort,
-            smtpUser=smtpUser, smtpPassword=smtpPassword,
-            senderAddress=senderAddress, recipientAddress=recipientAddress,
-        )
-        notifier.notifyStaging(
-            project=project, repository=repository,
-            buildNumber=buildNumber, buildURL=buildURL,
-            commitID=commitID, commitMessage=commitMessage,
-        )
+            self.assertEqual(len(MockSMTPSSL._instances), 1)
+            instance = MockSMTPSSL._instances[0]
 
-        self.assertEqual(len(MockSMTPSSL._instances), 1)
-        instance = MockSMTPSSL._instances[0]
+            self.assertEqual(len(instance._servers), 1)
+            server = instance._servers[0]
 
-        self.assertEqual(len(instance._servers), 1)
-        server = instance._servers[0]
+            self.assertEqual(instance.host, smtpHost)
+            self.assertEqual(instance.port, smtpPort)
+            self.assertIsInstance(instance.context, SSLContext)
+            self.assertEqual(server._logins, [(smtpUser, smtpPassword)])
 
-        self.assertEqual(instance.host, smtpHost)
-        self.assertEqual(instance.port, smtpPort)
-        self.assertIsInstance(instance.context, SSLContext)
-        self.assertEqual(server._logins, [(smtpUser, smtpPassword)])
+            self.assertEqual(len(server._messages), 1)
+            self.assertEqual(
+                server._messages[0][0:2], (senderAddress, recipientAddress)
+            )
 
-        self.assertEqual(len(server._messages), 1)
-        self.assertEqual(
-            server._messages[0][0:2], (senderAddress, recipientAddress)
-        )
+            message = server._messages[0][2]
+            self.assertTrue(message.is_multipart())
 
-        message = server._messages[0][2]
-        self.assertTrue(message.is_multipart())
+            parts = cast(List[Message], message.get_payload())
+            self.assertTrue(len(parts), 2)
 
-        parts = cast(List[Message], message.get_payload())
-        self.assertTrue(len(parts), 2)
+            title = f"{project} Deployed to Staging"
+            commitURL = f"https://github.com/{repository}/commit/{commitID}"
 
-        title = f"{project} Deployed to Staging"
-        commitURL = f"https://github.com/{repository}/commit/{commitID}"
+            expectedText = (
+                f"{title}\n"
+                f"\n"
+                f"Travis build #{buildNumber} for commit {commitID} has "
+                f"completed successfully and the resulting image has been "
+                f"deployed to the staging environment.\n"
+                f"\n"
+                f"{commitMessage}\n"
+                f"\n"
+                f"Diff: {commitURL}\n"
+                f"Build log: {buildURL}\n"
+            )
 
-        expectedText = (
-            f"{title}\n"
-            f"\n"
-            f"Travis build #{buildNumber} for commit {commitID} has completed "
-            f"successfully and the resulting image has been deployed to the "
-            f"staging environment.\n"
-            f"\n"
-            f"{commitMessage}\n"
-            f"\n"
-            f"Diff: {commitURL}\n"
-            f"Build log: {buildURL}\n"
-        )
+            expectedHTML = (
+                f"<html>\n"
+                f"  <head>{title}</head>\n"
+                f"<body>\n"
+                f"\n"
+                f"  <h1>{title}</h1>\n"
+                f"\n"
+                f"  <p>\n"
+                f"    <a href=\"{buildURL}\">Travis build #{buildNumber}</a>\n"
+                f"    for <a href=\"{commitURL}\">commit {commitID}</a>\n"
+                f"    has completed successfully and the resulting image has\n"
+                f"    been deployed to the staging environment.\n"
+                f"  </p>\n"
+                f"\n"
+                f"  <blockquote>{commitMessage}</blockquote>\n"
+                f"</body>\n"
+                f"</html>\n"
+            )
 
-        expectedHTML = (
-            f"<html>\n"
-            f"  <head>{title}</head>\n"
-            f"<body>\n"
-            f"\n"
-            f"  <h1>{title}</h1>\n"
-            f"\n"
-            f"  <p>\n"
-            f"    <a href=\"{buildURL}\">Travis build #{buildNumber}</a>\n"
-            f"    for <a href=\"{commitURL}\">commit {commitID}</a>\n"
-            f"    has completed successfully and the resulting image has\n"
-            f"    been deployed to the staging environment.\n"
-            f"  </p>\n"
-            f"\n"
-            f"  <blockquote>{commitMessage}</blockquote>\n"
-            f"</body>\n"
-            f"</html>\n"
-        )
+            self.maxDiff = None
+            for part in parts:
+                contentType = part.get_content_type()
+                payload = part.get_payload()
 
-        self.maxDiff = None
-        for part in parts:
-            contentType = part.get_content_type()
-            payload = part.get_payload()
-
-            if contentType == "text/plain":
-                self.assertEqual(payload, expectedText)
-            elif contentType == "text/html":
-                self.assertEqual(payload, expectedHTML)
-            else:  # pragma: no cover
-                raise AssertionError(f"Unexpected content type: {payload}")
+                if contentType == "text/plain":
+                    self.assertEqual(payload, expectedText)
+                elif contentType == "text/html":
+                    self.assertEqual(payload, expectedHTML)
+                else:  # pragma: no cover
+                    raise AssertionError(f"Unexpected content type: {payload}")
 
 
 
@@ -211,14 +215,6 @@ class CommandLineTests(TestCase):
     """
     Tests for the :class:`SMTPNotifier` command line.
     """
-
-    def setUp(self) -> None:
-        self.patch(smtp, "SMTP_SSL", MockSMTPSSL)
-
-
-    def tearDown(self) -> None:
-        MockSMTPSSL._instances.clear()
-
 
     @given(
         ascii_text(min_size=1),  # smtpHost
@@ -243,23 +239,24 @@ class CommandLineTests(TestCase):
         buildNumber: str, buildURL: str,
         commitID: str, commitMessage: str,
     ) -> None:
-        result = clickTestRun(
-            SMTPNotifier.main,
-            [
-                "notify_smtp", "staging",
-                "--project-name", project,
-                "--repository-id", repository,
-                "--build-number", buildNumber,
-                "--build-url", buildURL,
-                "--commit-id", commitID,
-                "--commit-message", commitMessage,
-                "--smtp-host", smtpHost,
-                "--smtp-port", str(smtpPort),
-                "--smtp-user", smtpUser,
-                "--smtp-password", smtpPassword,
-                "--sender", senderAddress,
-                "--recipient", recipientAddress,
-            ],
-        )
-        self.assertEqual(result.exitCode, 0)
-        self.assertEqual(result.echoOutput, [])
+        with testingSMTP():
+            result = clickTestRun(
+                SMTPNotifier.main,
+                [
+                    "notify_smtp", "staging",
+                    "--project-name", project,
+                    "--repository-id", repository,
+                    "--build-number", buildNumber,
+                    "--build-url", buildURL,
+                    "--commit-id", commitID,
+                    "--commit-message", commitMessage,
+                    "--smtp-host", smtpHost,
+                    "--smtp-port", str(smtpPort),
+                    "--smtp-user", smtpUser,
+                    "--smtp-password", smtpPassword,
+                    "--sender", senderAddress,
+                    "--recipient", recipientAddress,
+                ],
+            )
+            self.assertEqual(result.exitCode, 0)
+            self.assertEqual(result.echoOutput, [])
