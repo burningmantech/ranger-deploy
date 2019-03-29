@@ -18,11 +18,11 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
-import sys
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import (
-    Any, Callable, ClassVar, Dict, List,
-    Mapping, Optional, Sequence, Set, Tuple,
+    Any, Callable, ClassVar, Dict, Iterator, List,
+    Mapping, Optional, Sequence, Set, Tuple, Type, cast,
 )
 
 from attr import Attribute, attrib, attrs
@@ -34,6 +34,8 @@ from hypothesis.strategies import (
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
+
+from deploy.ext.click import clickTestRun
 
 from .. import ecs
 from ..ecs import (
@@ -185,6 +187,13 @@ class MockBoto3Client(object):
 
 
     @classmethod
+    def _defaultTaskARNs(cls) -> Sequence[str]:
+        return [
+            taskDefinition["taskDefinitionArn"]
+            for taskDefinition in cls._defaultTaskDefinitions
+        ]
+
+    @classmethod
     def _clearTaskDefinitions(cls) -> None:
         cls._taskDefinitions = {}
 
@@ -211,14 +220,14 @@ class MockBoto3Client(object):
         cls._addService(
             cls._sampleClusterStaging,
             cls._sampleServiceStaging,
-            cls._defaultTaskDefinitions[-1]["taskDefinitionArn"]
+            cls._defaultTaskARNs()[-1]
         )
 
         cls._addCluster(cls._sampleClusterProduction)
         cls._addService(
             cls._sampleClusterProduction,
             cls._sampleServiceProduction,
-            cls._defaultTaskDefinitions[-1]["taskDefinitionArn"]
+            cls._defaultTaskARNs()[-1]
         )
 
 
@@ -361,47 +370,60 @@ class MockBoto3Client(object):
         self._setCurrentTaskARN(cluster, service, taskDefinition)
 
 
+
+@contextmanager
+def testingBoto3() -> Iterator[None]:
+    MockBoto3Client._addDefaultData()
+
+    Boto3Client = ecs.Boto3Client
+    ecs.Boto3Client = MockBoto3Client
+
+    yield
+
+    ecs.Boto3Client = Boto3Client
+
+    MockBoto3Client._clearData()
+
+
+
 class ECSServiceClientTests(TestCase):
     """
     Tests for :class:`ECSServiceClient`
     """
 
-    def setUp(self) -> None:
-        MockBoto3Client._addDefaultData()
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
-
-
-    def tearDown(self) -> None:
-        MockBoto3Client._clearData()
-
-
     def test_environmentAsJSON(self) -> None:
-        self.assertEqual(
-            ECSServiceClient._environmentAsJSON(
-                {"foo": "bar", "x": "1"}
-            ),
-            [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}]
-        )
+        with testingBoto3():
+            self.assertEqual(
+                ECSServiceClient._environmentAsJSON(
+                    {"foo": "bar", "x": "1"}
+                ),
+                [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}]
+            )
 
 
     def test_environmentFromJSON(self) -> None:
-        self.assertEqual(
-            ECSServiceClient._environmentFromJSON(
-                [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}]
-            ),
-            {"foo": "bar", "x": "1"}
-        )
+        with testingBoto3():
+            self.assertEqual(
+                ECSServiceClient._environmentFromJSON(
+                    [
+                        {"name": "foo", "value": "bar"},
+                        {"name": "x",   "value": "1"  },
+                    ]
+                ),
+                {"foo": "bar", "x": "1"}
+            )
 
 
     def test_client(self) -> None:
         """
         :meth:`ECSServiceClient._client` property returns a client.
         """
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
-        self.assertIsInstance(client._client, MockBoto3Client)
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
+            self.assertIsInstance(client._client, MockBoto3Client)
 
 
     def test_currentTaskARN(self) -> None:
@@ -409,421 +431,461 @@ class ECSServiceClientTests(TestCase):
         :meth:`ECSServiceClient.currentTaskARN` returns the ARN of the current
         task.
         """
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
-        arn = client.currentTaskARN()
-        self.assertEqual(
-            arn, client._client._currentTaskARN(client.cluster, client.service)
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
+            arn = client.currentTaskARN()
+            self.assertEqual(
+                arn, client._client._currentTaskARN(
+                    client.cluster, client.service
+                )
+            )
 
 
     def test_currentTaskDefinition(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
-        taskDefinition = client.currentTaskDefinition()
-        self.assertIsInstance(taskDefinition, dict)
-        self.assertTrue(taskDefinition.get("family"))
-        self.assertTrue(taskDefinition.get("revision"))
-        self.assertTrue(taskDefinition.get("containerDefinitions"))
-        self.assertIn("FARGATE", taskDefinition.get("compatibilities", []))
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
+            taskDefinition = client.currentTaskDefinition()
+            self.assertIsInstance(taskDefinition, dict)
+            self.assertTrue(taskDefinition.get("family"))
+            self.assertTrue(taskDefinition.get("revision"))
+            self.assertTrue(taskDefinition.get("containerDefinitions"))
+            self.assertIn("FARGATE", taskDefinition.get("compatibilities", []))
 
 
     def test_currentImageName(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
-        imageName = client.currentImageName()
-        self.assertEqual(
-            imageName,
-            client._client._currentImageName(client.cluster, client.service),
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
+            imageName = client.currentImageName()
+            self.assertEqual(
+                imageName,
+                client._client._currentImageName(
+                    client.cluster, client.service
+                ),
+            )
 
 
     @given(integers(min_value=2))
     def test_updateTaskDefinition_updated(self, tag: int) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        repo, oldTag = client.currentImageName().split(":")
-        assume(int(oldTag) != tag)
-        newImageName = f"{repo}:{tag}"
+            repo, oldTag = client.currentImageName().split(":")
+            assume(int(oldTag) != tag)
+            newImageName = f"{repo}:{tag}"
 
-        newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
+            newTaskDefinition = client.updateTaskDefinition(
+                imageName=newImageName
+            )
 
-        self.assertEqual(
-            client._taskImageName(newTaskDefinition), newImageName
-        )
+            self.assertEqual(
+                client._taskImageName(newTaskDefinition), newImageName
+            )
 
 
     def test_updateTaskDefinition_none(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        self.assertRaises(NoChangesError, client.updateTaskDefinition)
+            self.assertRaises(NoChangesError, client.updateTaskDefinition)
 
 
     def test_updateTaskDefinition_same(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        self.assertRaises(
-            NoChangesError,
-            client.updateTaskDefinition, imageName=client.currentImageName()
-        )
+            self.assertRaises(
+                NoChangesError,
+                client.updateTaskDefinition,
+                imageName=client.currentImageName()
+            )
 
 
     @given(environment_updates(min_size=1))
     def test_updateTaskDefinition_updateEnvironment(
         self, newEnvironment: TaskEnvironment
     ) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        # TRAVIS environment variable makes Travis-CI things happen which we
-        # aren't testing for here.
-        assume("TRAVIS" not in newEnvironment)
+            # TRAVIS environment variable makes Travis-CI things happen which
+            # we aren't testing for here.
+            assume("TRAVIS" not in newEnvironment)
 
-        newTaskDefinition = client.updateTaskDefinition(
-            environment=newEnvironment
-        )
-        updatedEnvironment = dict(client._environmentFromJSON(
-            newTaskDefinition["containerDefinitions"][0]["environment"]
-        ))
-        expectedEnvironment = dict(newEnvironment)
+            newTaskDefinition = client.updateTaskDefinition(
+                environment=newEnvironment
+            )
+            updatedEnvironment = dict(client._environmentFromJSON(
+                newTaskDefinition["containerDefinitions"][0]["environment"]
+            ))
+            expectedEnvironment = dict(newEnvironment)
 
-        # TASK_UPDATED is inserted during updates.
-        self.assertIn("TASK_UPDATED", updatedEnvironment)
-        expectedEnvironment["TASK_UPDATED"] = (
-            updatedEnvironment["TASK_UPDATED"]
-        )
+            # TASK_UPDATED is inserted during updates.
+            self.assertIn("TASK_UPDATED", updatedEnvironment)
+            expectedEnvironment["TASK_UPDATED"] = (
+                updatedEnvironment["TASK_UPDATED"]
+            )
 
-        self.assertEqual(updatedEnvironment, expectedEnvironment)
+            self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
     def test_updateTaskDefinition_travis(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        # Patch the (local) system environment to pretend we're in Travis CI
-        travisEnvironment = {
-            "TRAVIS": "true",
-            "TRAVIS_COMMIT": "0" * 40,
-            "TRAVIS_COMMIT_MESSAGE": "Fixed some stuff",
-            "TRAVIS_JOB_WEB_URL": "https://travis-ci.com/o/r/builds/0",
-            "TRAVIS_PULL_REQUEST_BRANCH": "1",
-            "TRAVIS_TAG": "v0.0.0",
-        }
-        self.patch(ecs, "environ", travisEnvironment)
+            # Patch the (local) system environment to emulate Travis CI
+            travisEnvironment = {
+                "TRAVIS": "true",
+                "TRAVIS_COMMIT": "0" * 40,
+                "TRAVIS_COMMIT_MESSAGE": "Fixed some stuff",
+                "TRAVIS_JOB_WEB_URL": "https://travis-ci.com/o/r/builds/0",
+                "TRAVIS_PULL_REQUEST_BRANCH": "1",
+                "TRAVIS_TAG": "v0.0.0",
+            }
+            self.patch(ecs, "environ", travisEnvironment)
 
-        # Make an unrelated change to avoid NoChangesError
-        newTaskDefinition = client.updateTaskDefinition(
-            imageName=f"{client.currentImageName()}4027"
-        )
-        updatedEnvironment = dict(client._environmentFromJSON(
-            newTaskDefinition["containerDefinitions"][0]["environment"]
-        ))
-        expectedEnvironment = dict(
-            client._client._currentEnvironment(client.cluster, client.service)
-        )
-        expectedEnvironment.update(travisEnvironment)
-        del expectedEnvironment["TRAVIS"]
+            # Make an unrelated change to avoid NoChangesError
+            newTaskDefinition = client.updateTaskDefinition(
+                imageName=f"{client.currentImageName()}4027"
+            )
+            updatedEnvironment = dict(client._environmentFromJSON(
+                newTaskDefinition["containerDefinitions"][0]["environment"]
+            ))
+            expectedEnvironment = dict(
+                client._client._currentEnvironment(
+                    client.cluster, client.service
+                )
+            )
+            expectedEnvironment.update(travisEnvironment)
+            del expectedEnvironment["TRAVIS"]
 
-        # TASK_UPDATED is inserted during updates.
-        self.assertIn("TASK_UPDATED", updatedEnvironment)
-        expectedEnvironment["TASK_UPDATED"] = (
-            updatedEnvironment["TASK_UPDATED"]
-        )
+            # TASK_UPDATED is inserted during updates.
+            self.assertIn("TASK_UPDATED", updatedEnvironment)
+            expectedEnvironment["TASK_UPDATED"] = (
+                updatedEnvironment["TASK_UPDATED"]
+            )
 
-        self.assertEqual(updatedEnvironment, expectedEnvironment)
+            self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
     def test_registerTaskDefinition(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        repo, tag = client.currentImageName().split(":")
-        newImageName = f"{repo}:{tag}1987"
+            repo, tag = client.currentImageName().split(":")
+            newImageName = f"{repo}:{tag}1987"
 
-        newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
+            newTaskDefinition = client.updateTaskDefinition(
+                imageName=newImageName
+            )
 
-        arn = client.registerTaskDefinition(newTaskDefinition)
-        registeredTaskDefinition = (
-            client._client.describe_task_definition(arn)["taskDefinition"]
-        )
+            arn = client.registerTaskDefinition(newTaskDefinition)
+            registeredTaskDefinition = (
+                client._client.describe_task_definition(arn)["taskDefinition"]
+            )
 
-        expectedTaskDefinition = dict(newTaskDefinition)
-        expectedTaskDefinition["taskDefinitionArn"] = arn
-        expectedTaskDefinition["revision"] = int(arn.split(":")[-1])
-        expectedTaskDefinition["status"] = "ACTIVE"
-        expectedTaskDefinition["compatibilities"] = (
-            client._client._defaultCompatibilities
-        )
-        expectedTaskDefinition["requiresAttributes"] = (
-            client._client._defaultRequiresAttributes
-        )
+            expectedTaskDefinition = dict(newTaskDefinition)
+            expectedTaskDefinition["taskDefinitionArn"] = arn
+            expectedTaskDefinition["revision"] = int(arn.split(":")[-1])
+            expectedTaskDefinition["status"] = "ACTIVE"
+            expectedTaskDefinition["compatibilities"] = (
+                client._client._defaultCompatibilities
+            )
+            expectedTaskDefinition["requiresAttributes"] = (
+                client._client._defaultRequiresAttributes
+            )
 
-        self.assertEqual(registeredTaskDefinition, expectedTaskDefinition)
+            self.assertEqual(registeredTaskDefinition, expectedTaskDefinition)
 
 
     def test_currentTaskEnvironment(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        self.assertEqual(
-            client.currentTaskEnvironment(),
-            client._client._currentEnvironment(client.cluster, client.service),
-        )
+            self.assertEqual(
+                client.currentTaskEnvironment(),
+                client._client._currentEnvironment(
+                    client.cluster, client.service
+                ),
+            )
 
 
     @given(dictionaries(text(), text()))
     def test_updateTaskEnvironment_set(
         self, updates: TaskEnvironmentUpdates
     ) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        newEnvironment = client.updateTaskEnvironment(updates)
-        expectedEnvironment = dict(
-            client._client._currentEnvironment(client.cluster, client.service)
-        )
-        expectedEnvironment.update(updates)
+            newEnvironment = client.updateTaskEnvironment(updates)
+            expectedEnvironment = dict(
+                client._client._currentEnvironment(
+                    client.cluster, client.service
+                )
+            )
+            expectedEnvironment.update(updates)
 
-        self.assertEqual(newEnvironment, expectedEnvironment)
+            self.assertEqual(newEnvironment, expectedEnvironment)
 
 
     @given(set_unset_envs())
     def test_updateTaskEnvironment_unset(
         self, instructions: Tuple[TaskEnvironmentUpdates, Set[str]]
     ) -> None:
-        updates, removes = instructions
+        with testingBoto3():
+            updates, removes = instructions
 
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        expectedEnvironment = dict(client.currentTaskEnvironment())
-        for key, value in updates.items():  # pragma: no cover
-            if key in removes:
-                if key in expectedEnvironment:
-                    del expectedEnvironment[key]
-            else:
-                assert value is not None
-                expectedEnvironment[key] = value
+            expectedEnvironment = dict(client.currentTaskEnvironment())
+            for key, value in updates.items():  # pragma: no cover
+                if key in removes:
+                    if key in expectedEnvironment:
+                        del expectedEnvironment[key]
+                else:
+                    assert value is not None
+                    expectedEnvironment[key] = value
 
-        # Deploy the input updates and get back the result
-        client.deployTaskEnvironment(updates)
-        newEnvironment = client.updateTaskEnvironment(
-            {k: None for k in removes}
-        )
+            # Deploy the input updates and get back the result
+            client.deployTaskEnvironment(updates)
+            newEnvironment = client.updateTaskEnvironment(
+                {k: None for k in removes}
+            )
 
-        expectedEnvironment["TASK_UPDATED"] = newEnvironment["TASK_UPDATED"]
+            expectedEnvironment["TASK_UPDATED"] = (
+                newEnvironment["TASK_UPDATED"]
+            )
 
-        self.assertEqual(newEnvironment, expectedEnvironment)
+            self.assertEqual(newEnvironment, expectedEnvironment)
 
 
     def test_deployTask(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        newImageName = f"{client.currentImageName()}1934"
-        newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
+            newImageName = f"{client.currentImageName()}1934"
+            newTaskDefinition = client.updateTaskDefinition(
+                imageName=newImageName
+            )
 
-        arn = client.registerTaskDefinition(newTaskDefinition)
-        client.deployTask(arn)
+            arn = client.registerTaskDefinition(newTaskDefinition)
+            client.deployTask(arn)
 
-        self.assertEqual(
-            client._client._currentTaskARN(client.cluster, client.service), arn
-        )
+            self.assertEqual(
+                client._client._currentTaskARN(client.cluster, client.service),
+                arn,
+            )
 
 
     def test_deployTaskDefinition(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        newImageName = f"{client.currentImageName()}9347"
-        newTaskDefinition = client.updateTaskDefinition(imageName=newImageName)
+            newImageName = f"{client.currentImageName()}9347"
+            newTaskDefinition = client.updateTaskDefinition(
+                imageName=newImageName
+            )
 
-        client.deployTaskDefinition(newTaskDefinition)
+            client.deployTaskDefinition(newTaskDefinition)
 
-        newTaskDefinition = client.currentTaskDefinition()
+            newTaskDefinition = client.currentTaskDefinition()
 
-        self.assertEqual(
-            ECSServiceClient._taskImageName(newTaskDefinition), newImageName
-        )
+            self.assertEqual(
+                ECSServiceClient._taskImageName(newTaskDefinition),
+                newImageName,
+            )
 
 
     def test_deployImage_new(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        newImageName = f"{client.currentImageName()}1046"
+            newImageName = f"{client.currentImageName()}1046"
 
-        client.deployImage(newImageName)
+            client.deployImage(newImageName)
 
-        newTaskDefinition = client.currentTaskDefinition()
+            newTaskDefinition = client.currentTaskDefinition()
 
-        self.assertEqual(
-            ECSServiceClient._taskImageName(newTaskDefinition), newImageName
-        )
+            self.assertEqual(
+                ECSServiceClient._taskImageName(newTaskDefinition),
+                newImageName,
+            )
 
 
     def test_deployImage_same(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        expectedImageName = client.currentImageName()
-        client.deployImage(expectedImageName)
-        self.assertEqual(client.currentImageName(), expectedImageName)
+            expectedImageName = client.currentImageName()
+            client.deployImage(expectedImageName)
+            self.assertEqual(client.currentImageName(), expectedImageName)
 
 
     @given(environment_updates(min_size=1))
     def test_deployTaskEnvironment_updates(
         self, updates: TaskEnvironmentUpdates
     ) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        expectedEnvironment = dict(
-            client._client._currentEnvironment(client.cluster, client.service)
-        )
-        expectedEnvironment.update(updates)
+            expectedEnvironment = dict(
+                client._client._currentEnvironment(
+                    client.cluster, client.service
+                )
+            )
+            expectedEnvironment.update(updates)
 
-        client.deployTaskEnvironment(updates)
-        newEnvironment = client._client._currentEnvironment(
-            client.cluster, client.service
-        )
+            client.deployTaskEnvironment(updates)
+            newEnvironment = client._client._currentEnvironment(
+                client.cluster, client.service
+            )
 
-        expectedEnvironment["TASK_UPDATED"] = newEnvironment["TASK_UPDATED"]
+            expectedEnvironment["TASK_UPDATED"] = (
+                newEnvironment["TASK_UPDATED"]
+            )
 
-        self.assertEqual(newEnvironment, expectedEnvironment)
+            self.assertEqual(newEnvironment, expectedEnvironment)
 
 
     def test_deployTaskEnvironment_none(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        expectedEnvironment = dict(
-            client._client._currentEnvironment(client.cluster, client.service)
-        )
+            expectedEnvironment = dict(
+                client._client._currentEnvironment(
+                    client.cluster, client.service
+                )
+            )
 
-        client.deployTaskEnvironment({})
-        newEnvironment = client._client._currentEnvironment(
-            client.cluster, client.service
-        )
+            client.deployTaskEnvironment({})
+            newEnvironment = client._client._currentEnvironment(
+                client.cluster, client.service
+            )
 
-        self.assertEqual(newEnvironment, expectedEnvironment)
+            self.assertEqual(newEnvironment, expectedEnvironment)
 
 
     def test_deployTaskEnvironment_same(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        expectedEnvironment = dict(
-            client._client._currentEnvironment(client.cluster, client.service)
-        )
+            expectedEnvironment = dict(
+                client._client._currentEnvironment(
+                    client.cluster, client.service
+                )
+            )
 
-        client.deployTaskEnvironment(expectedEnvironment)
-        newEnvironment = client._client._currentEnvironment(
-            client.cluster, client.service
-        )
+            client.deployTaskEnvironment(expectedEnvironment)
+            newEnvironment = client._client._currentEnvironment(
+                client.cluster, client.service
+            )
 
-        self.assertEqual(newEnvironment, expectedEnvironment)
+            self.assertEqual(newEnvironment, expectedEnvironment)
 
 
     def test_rollback(self) -> None:
-        client = ECSServiceClient(
-            cluster=MockBoto3Client._sampleClusterStaging,
-            service=MockBoto3Client._sampleServiceStaging,
-        )
+        with testingBoto3():
+            client = ECSServiceClient(
+                cluster=MockBoto3Client._sampleClusterStaging,
+                service=MockBoto3Client._sampleServiceStaging,
+            )
 
-        expectedImageName = client.currentImageName()
-        newImageName = f"{expectedImageName}2957"
+            expectedImageName = client.currentImageName()
+            newImageName = f"{expectedImageName}2957"
 
-        client.deployImage(newImageName)
-        client.rollback()
+            client.deployImage(newImageName)
+            client.rollback()
 
-        self.assertEqual(client.currentImageName(), expectedImageName)
+            self.assertEqual(client.currentImageName(), expectedImageName)
+
+
+
+@contextmanager
+def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
+    clients: List[ECSServiceClient] = []
+
+    class RememberMeECSServiceClient(ECSServiceClient):
+        def __init__(self, cluster: str, service: str) -> None:
+            super().__init__(cluster=cluster, service=service)
+            clients.append(self)
+
+    Client = ecs.ECSServiceClient
+    ecs.ECSServiceClient = cast(Type, RememberMeECSServiceClient)
+
+    yield clients
+
+    ecs.ECSServiceClient = Client
+
+    clients.clear()
 
 
 
 class CommandLineTests(TestCase):
     """
-    Tests for the command line.
+    Tests for the :class:`ECSServiceClient` command line.
     """
-
-    def setUp(self) -> None:
-        # Patch exit in case of usage errors
-        self.exitStatus: List[int] = []
-        self.patch(sys, "exit", lambda code=None: self.exitStatus.append(code))
-
-        # Patch boto3 client
-        MockBoto3Client._addDefaultData()
-        self.patch(ecs, "Boto3Client", MockBoto3Client)
-
-        # Patch ECSServiceClient constructor so we can track usage
-        self.clients: List[ECSServiceClient] = []
-
-        class RememberMeECSServiceClient(ECSServiceClient):
-            def __init__(innerSelf, cluster: str, service: str) -> None:
-                super().__init__(cluster=cluster, service=service)
-                self.clients.append(innerSelf)
-
-        self.patch(ecs, "ECSServiceClient", RememberMeECSServiceClient)
-
-
-    def tearDown(self) -> None:
-        self.cleanUp()
-
-
-    def cleanUp(self) -> None:
-        self.exitStatus.clear()
-        self.clients.clear()
-        MockBoto3Client._clearData()
-
 
     def initClusterAndService(
         self, cluster: str, service: str, taskARN: str = ""
     ) -> None:
         if not taskARN:
-            taskARN = (
-                MockBoto3Client._defaultTaskDefinitions[1]["taskDefinitionArn"]
-            )
+            taskARN = MockBoto3Client._defaultTaskARNs()[1]
         MockBoto3Client._addDefaultTaskDefinitions()
         if cluster not in MockBoto3Client._services:
             MockBoto3Client._addCluster(cluster)
@@ -834,64 +896,70 @@ class CommandLineTests(TestCase):
     def test_staging(
         self, stagingCluster: str, stagingService: str, imageName: str,
     ) -> None:
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
 
-        # Add starting data set
-        self.initClusterAndService(stagingCluster, stagingService)
+            # Run "staging" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "staging",
+                    "--staging-cluster", stagingCluster,
+                    "--staging-service", stagingService,
+                    "--image", imageName,
+                ]
+            )
 
-        # Run "staging" subcommand
-        self.patch(sys, "argv", [
-            "deploy_aws", "staging",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--image", imageName,
-        ])
-        ECSServiceClient.main()
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
 
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 1)
+            self.assertEqual(client.cluster, stagingCluster)
+            self.assertEqual(client.service, stagingService)
+            self.assertEqual(client.currentImageName(), imageName)
 
-        client = self.clients[0]
-
-        self.assertEqual(client.cluster, stagingCluster)
-        self.assertEqual(client.service, stagingService)
-        self.assertEqual(client.currentImageName(), imageName)
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
 
     @given(text(min_size=1), text(min_size=1))
     def test_rollback(
         self, stagingCluster: str, stagingService: str
     ) -> None:
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
 
-        # Add starting data set
-        self.initClusterAndService(stagingCluster, stagingService)
-
-        # Run "rollback" subcommand
-        self.patch(sys, "argv", [
-            "deploy_aws", "rollback",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-        ])
-        ECSServiceClient.main()
-
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 1)
-
-        client = self.clients[0]
-
-        self.assertEqual(client.cluster, stagingCluster)
-        self.assertEqual(client.service, stagingService)
-        self.assertEqual(
-            client.currentImageName(),
-            (
-                client._client._defaultTaskDefinitions[-2]
-                ["containerDefinitions"][0]
-                ["image"]
+            # Run "rollback" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "rollback",
+                    "--staging-cluster", stagingCluster,
+                    "--staging-service", stagingService,
+                ]
             )
-        )
+
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertEqual(client.cluster, stagingCluster)
+            self.assertEqual(client.service, stagingService)
+            self.assertEqual(
+                client.currentImageName(),
+                (
+                    client._client._defaultTaskDefinitions[-2]
+                    ["containerDefinitions"][0]
+                    ["image"]
+                )
+            )
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
 
     @given(
@@ -907,39 +975,42 @@ class CommandLineTests(TestCase):
             (productionCluster, productionService)
         )
 
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+            self.initClusterAndService(
+                productionCluster, productionService,
+                MockBoto3Client._defaultTaskARNs()[0],
+            )
 
-        # Add starting data set
-        self.initClusterAndService(stagingCluster, stagingService)
-        self.initClusterAndService(
-            productionCluster, productionService,
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
-        )
+            # Run "production" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "production",
+                    "--staging-cluster", stagingCluster,
+                    "--staging-service", stagingService,
+                    "--production-cluster", productionCluster,
+                    "--production-service", productionService,
+                ]
+            )
 
-        # Run "production" subcommand
-        self.patch(sys, "argv", [
-            "deploy_aws", "production",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--production-cluster", productionCluster,
-            "--production-service", productionService,
-        ])
-        ECSServiceClient.main()
+            self.assertEqual(len(clients), 2)
+            stagingClient, productionClient = clients
 
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 2)
+            self.assertEqual(stagingClient.cluster, stagingCluster)
+            self.assertEqual(stagingClient.service, stagingService)
+            self.assertEqual(productionClient.cluster, productionCluster)
+            self.assertEqual(productionClient.service, productionService)
+            self.assertEqual(
+                stagingClient.currentImageName(),
+                productionClient.currentImageName(),
+            )
 
-        stagingClient, productionClient = self.clients
-
-        self.assertEqual(stagingClient.cluster, stagingCluster)
-        self.assertEqual(stagingClient.service, stagingService)
-        self.assertEqual(productionClient.cluster, productionCluster)
-        self.assertEqual(productionClient.service, productionService)
-        self.assertEqual(
-            stagingClient.currentImageName(),
-            productionClient.currentImageName(),
-        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
 
     @given(
@@ -955,91 +1026,83 @@ class CommandLineTests(TestCase):
             (productionCluster, productionService)
         )
 
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+            self.initClusterAndService(
+                productionCluster, productionService,
+                MockBoto3Client._defaultTaskARNs()[0],
+            )
 
-        # Add starting data set
-        self.initClusterAndService(stagingCluster, stagingService)
-        self.initClusterAndService(
-            productionCluster, productionService,
-            MockBoto3Client._defaultTaskDefinitions[0]["taskDefinitionArn"],
-        )
+            # Run "compare" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "compare",
+                    "--staging-cluster", stagingCluster,
+                    "--staging-service", stagingService,
+                    "--production-cluster", productionCluster,
+                    "--production-service", productionService,
+                ]
+            )
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "compare",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--production-cluster", productionCluster,
-            "--production-service", productionService,
+            self.assertEqual(len(clients), 2)
+            stagingClient, productionClient = clients
+
+            self.assertEqual(stagingClient.cluster, stagingCluster)
+            self.assertEqual(stagingClient.service, stagingService)
+            self.assertEqual(productionClient.cluster, productionCluster)
+            self.assertEqual(productionClient.service, productionService)
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [
+            ("Staging task ARN: arn:mock:task-definition/service:1", {}),
+            ("Staging container image: /team/service-project:1001", {}),
+            ("Producton task ARN: arn:mock:task-definition/service:0", {}),
+            ("Producton container image: /team/service-project:1000", {}),
+            ("Matching environment variables:", {}),
+            ("    happiness = 'true'", {}),
+            ("    version = '0'", {}),
+            ("Mismatching environment variables:", {}),
+            ("    VARIABLE1 = 'value1' / None", {}),
+            ("    VARIABLE2 = 'value2' / None", {}),
         ])
-        ECSServiceClient.main()
-
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 2)
-
-        stagingClient, productionClient = self.clients
-
-        self.assertEqual(stagingClient.cluster, stagingCluster)
-        self.assertEqual(stagingClient.service, stagingService)
-        self.assertEqual(productionClient.cluster, productionCluster)
-        self.assertEqual(productionClient.service, productionService)
-
-        self.assertEqual(
-            output,
-            [
-                "Staging task ARN: arn:mock:task-definition/service:1",
-                "Staging container image: /team/service-project:1001",
-                "Producton task ARN: arn:mock:task-definition/service:0",
-                "Producton container image: /team/service-project:1000",
-                "Matching environment variables:",
-                "    happiness = 'true'",
-                "    version = '0'",
-                "Mismatching environment variables:",
-                "    VARIABLE1 = 'value1' / None",
-                "    VARIABLE2 = 'value2' / None",
-            ]
-        )
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
 
     @given(text(min_size=1), text(min_size=1))
     def test_environment_get(self, cluster: str, service: str) -> None:
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(cluster, service)
 
-        # Add starting data set
-        self.initClusterAndService(cluster, service)
+            # Run "environment" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "environment",
+                    "--cluster", cluster,
+                    "--service", service,
+                ]
+            )
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "environment",
-            "--cluster", cluster,
-            "--service", service,
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertEqual(client.cluster, cluster)
+            self.assertEqual(client.service, service)
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [
+            (f"Environment variables for {cluster}:{service}:", {}),
+            (f"    version = '0'", {}),
+            (f"    happiness = 'true'", {}),
+            (f"    VARIABLE1 = 'value1'", {}),
+            (f"    VARIABLE2 = 'value2'", {}),
         ])
-        ECSServiceClient.main()
-
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 1)
-
-        client = self.clients[0]
-
-        self.assertEqual(client.cluster, cluster)
-        self.assertEqual(client.service, service)
-
-        self.assertEqual(
-            output,
-            [
-                f"Environment variables for {cluster}:{service}:",
-                "    version = '0'",
-                "    happiness = 'true'",
-                "    VARIABLE1 = 'value1'",
-                "    VARIABLE2 = 'value2'",
-            ]
-        )
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
 
     @given(
@@ -1049,45 +1112,45 @@ class CommandLineTests(TestCase):
     def test_environment_set(
         self, cluster: str, service: str, updates: List[Tuple[str, str]]
     ) -> None:
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(cluster, service)
 
-        # Add starting data set
-        self.initClusterAndService(cluster, service)
+            # Run "environment" subcommand
+            # Prefix variable names with "x" to make sure they start with a
+            # letter
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "environment",
+                    "--cluster", cluster,
+                    "--service", service,
+                    # a letter
+                    *[f"x{k}={v}" for k, v in updates]
+                ]
+            )
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "environment",
-            "--cluster", cluster,
-            "--service", service,
-            *[f"x{k}={v}" for k, v in updates]
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertEqual(client.cluster, cluster)
+            self.assertEqual(client.service, service)
+
+            resultEnvironment = client.currentTaskEnvironment()
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [
+            (f"Changing environment variables for {cluster}:{service}:", {})
+        ] + [
+            (f"    Setting x{k}.", {}) for k, v in updates
         ])
-        ECSServiceClient.main()
-
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 1)
-
-        client = self.clients[0]
-
-        self.assertEqual(client.cluster, cluster)
-        self.assertEqual(client.service, service)
-
-        resultEnvironment = client.currentTaskEnvironment()
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
         for key, value in dict(updates).items():
             key = f"x{key}"
             self.assertIn(key, resultEnvironment)
             self.assertEqual(resultEnvironment[key], value)
-
-        self.assertEqual(
-            output,
-            [
-                f"Changing environment variables for {cluster}:{service}:",
-                *[f"    Setting x{u[0]}." for u in updates]
-            ]
-        )
 
 
     @given(
@@ -1107,40 +1170,39 @@ class CommandLineTests(TestCase):
     def test_environment_unset(
         self, cluster: str, service: str, removes: List[str]
     ) -> None:
-        # Because hypothesis and multiple runs
-        self.cleanUp()
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(cluster, service)
 
-        # Add starting data set
-        self.initClusterAndService(cluster, service)
+            # Run "environment" subcommand
+            # Prefix variable names with "x" to make sure they start with a
+            # letter
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "environment",
+                    "--cluster", cluster,
+                    "--service", service,
+                    *[f"x{k}" for k in removes]
+                ]
+            )
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "environment",
-            "--cluster", cluster,
-            "--service", service,
-            *[f"x{k}" for k in removes]
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertEqual(client.cluster, cluster)
+            self.assertEqual(client.service, service)
+
+            resultEnvironment = client.currentTaskEnvironment()
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [
+            (f"Changing environment variables for {cluster}:{service}:", {})
+        ] + [
+            (f"    Removing x{k}.", {}) for k in removes
         ])
-        ECSServiceClient.main()
-
-        self.assertEqual(self.exitStatus, [0])
-        self.assertEqual(len(self.clients), 1)
-
-        client = self.clients[0]
-
-        self.assertEqual(client.cluster, cluster)
-        self.assertEqual(client.service, service)
-
-        resultEnvironment = client.currentTaskEnvironment()
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
         for key in set(removes):
             self.assertNotIn(f"x{key}", resultEnvironment)
-
-        self.assertEqual(
-            output,
-            [
-                f"Changing environment variables for {cluster}:{service}:",
-                *[f"    Removing x{k}." for k in removes]
-            ]
-        )

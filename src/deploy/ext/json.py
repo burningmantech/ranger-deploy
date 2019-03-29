@@ -1,4 +1,3 @@
-# -*- test-case-name: deploy.ext.test.test_json -*-
 """
 Extensions to :mod:`json`
 """

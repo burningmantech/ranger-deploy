@@ -27,22 +27,29 @@ from attr import Factory, attrs
 
 from boto3 import client as Boto3Client
 
+import click
 from click import (
-    argument as commandArgument, echo, group as commandGroup,
-    option as commandOption, version_option as versionOption
+    argument as commandArgument, group as commandGroup,
+    option as commandOption, version_option as versionOption,
 )
 
 from twisted.logger import Logger
 
-TaskDefinition = Mapping[str, Any]
-TaskEnvironment = Mapping[str, str]
-TaskEnvironmentUpdates = Mapping[str, Optional[str]]
+from deploy.ext.logger import startLogging
 
 
 __all__ = (
+    "TaskDefinition",
+    "TaskEnvironment",
+    "TaskEnvironmentUpdates",
     "NoChangesError",
     "ECSServiceClient",
 )
+
+
+TaskDefinition = Mapping[str, Any]
+TaskEnvironment = Mapping[str, str]
+TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
 
@@ -58,6 +65,10 @@ class ECSServiceClient(object):
     """
     ECS Service Client
     """
+
+    #
+    # Static methods
+    #
 
     @staticmethod
     def _environmentAsJSON(
@@ -86,6 +97,10 @@ class ECSServiceClient(object):
         )
 
 
+    #
+    # Class attributes
+    #
+
     log = Logger()
 
 
@@ -96,6 +111,10 @@ class ECSServiceClient(object):
         """
         main()
 
+
+    #
+    # Instance attributes
+    #
 
     cluster: str
     service: str
@@ -116,6 +135,10 @@ class ECSServiceClient(object):
         Look up the ARN for the service's current task.
         """
         if "arn" not in self._currentTask:
+            self.log.debug(
+                "Looking up current task ARN for {cluster}:{service}...",
+                cluster=self.cluster, service=self.service,
+            )
             serviceDescription = self._client.describe_services(
                 cluster=self.cluster, services=[self.service]
             )
@@ -132,6 +155,9 @@ class ECSServiceClient(object):
         """
         if "definition" not in self._currentTask:
             currentTaskARN = self.currentTaskARN()
+            self.log.debug(
+                "Looking up task definition for {arn}...", arn=currentTaskARN
+            )
             currentTaskDescription = self._client.describe_task_definition(
                 taskDefinition=currentTaskARN
             )
@@ -189,9 +215,6 @@ class ECSServiceClient(object):
             self._environmentAsJSON(environment)
         )
         if newTaskDefinition == currentTaskDefinition:
-            self.log.info(
-                "No changes made to task definition. Nothing to deploy."
-            )
             raise NoChangesError()
 
         environment = dict(environment)
@@ -224,7 +247,7 @@ class ECSServiceClient(object):
         """
         Register a new task definition for the service.
         """
-        self.log.info("Registering new task definition...")
+        self.log.debug("Registering new task definition...")
         response = self._client.register_task_definition(**taskDefinition)
         newTaskARN = response["taskDefinition"]["taskDefinitionArn"]
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
@@ -269,8 +292,8 @@ class ECSServiceClient(object):
         """
         Deploy a new task to the service.
         """
-        self.log.info(
-            "Deploying service {cluster}:{service} to ARN {arn}...",
+        self.log.debug(
+            "Deploying task ARN {arn} to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, arn=arn
         )
         self._currentTask.clear()
@@ -278,7 +301,7 @@ class ECSServiceClient(object):
             cluster=self.cluster, service=self.service, taskDefinition=arn
         )
         self.log.info(
-            "Deployed service {cluster}:{service} to ARN {arn}...",
+            "Deployed task ARN {arn} to service {cluster}:{service}.",
             cluster=self.cluster, service=self.service, arn=arn
         )
 
@@ -298,10 +321,13 @@ class ECSServiceClient(object):
         try:
             newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
         except NoChangesError:
+            self.log.info(
+                "Image is the unchanged. Nothing to deploy."
+            )
             return
 
-        self.log.info(
-            "Deploying image {image} to service {cluster}:{service}.",
+        self.log.debug(
+            "Deploying image {image} to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, image=imageName
         )
         self.deployTaskDefinition(newTaskDefinition)
@@ -326,10 +352,13 @@ class ECSServiceClient(object):
                 environment=newTaskEnvironment
             )
         except NoChangesError:
+            self.log.info(
+                "No changes made to task environment. Nothing to deploy."
+            )
             return
 
-        self.log.info(
-            "Deploying task environment to service {cluster}:{service}.",
+        self.log.debug(
+            "Deploying task environment to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, updates=updates
         )
         self.deployTaskDefinition(newTaskDefinition)
@@ -352,9 +381,7 @@ class ECSServiceClient(object):
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]
 
-        self.log.info("Rolling back to prior task ARN: {arn}", arn=taskARN)
         self.deployTask(taskARN)
-        self.log.info("Rolled back to prior task ARN: {arn}", arn=taskARN)
 
 
 
@@ -372,9 +399,8 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         help = f"ECS {optionName} for the {environment} environment"
 
     return commandOption(
-        flag, type=str, metavar="<name>", help=help,
-        envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
-        prompt=True,
+        flag, envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
+        help=help, type=str, metavar="<name>", prompt=True, required=True,
     )
 
 clusterOption           = ecsOption("cluster")
@@ -391,6 +417,7 @@ def main() -> None:
     """
     AWS Elastic Container Service deployment tool.
     """
+    startLogging()
 
 
 @main.command()
@@ -398,10 +425,10 @@ def main() -> None:
 @stagingServiceOption
 @commandOption(
     "--image",
-    type=str, metavar="<name>",
-    help="Docker image to use",
     envvar="AWS_ECR_IMAGE_NAME",
-    prompt=True,
+    help="Docker image to use",
+    type=str, metavar="<name>",
+    prompt=True, required=True,
 )
 def staging(
     staging_cluster: str, staging_service: str, image: str
@@ -475,8 +502,8 @@ def compare(
         ("Staging", stagingClient),
         ("Producton", productionClient),
     ):
-        echo(f"{name} task ARN: {client.currentTaskARN()}")
-        echo(f"{name} container image: {client.currentImageName()}")
+        click.echo(f"{name} task ARN: {client.currentTaskARN()}")
+        click.echo(f"{name} container image: {client.currentImageName()}")
 
     stagingEnvironment = stagingClient.currentTaskEnvironment()
     productionEnvironment = productionClient.currentTaskEnvironment()
@@ -499,13 +526,13 @@ def compare(
             different.add(key)
 
     if same:
-        echo("Matching environment variables:")
+        click.echo("Matching environment variables:")
         for key in sorted(same):
-            echo(f"    {key} = {stagingEnvironment[key]!r}")
+            click.echo(f"    {key} = {stagingEnvironment[key]!r}")
     if different:
-        echo("Mismatching environment variables:")
+        click.echo("Mismatching environment variables:")
         for key in sorted(different):
-            echo(
+            click.echo(
                 f"    {key} = "
                 f"{stagingEnvironment.get(key)!r} / "
                 f"{productionEnvironment.get(key)!r}"
@@ -528,24 +555,23 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     """
     stagingClient = ECSServiceClient(cluster=cluster, service=service)
     if arguments:
-        echo(f"Changing environment variables for {cluster}:{service}:")
+        click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
         for arg in arguments:
             if "=" in arg:
                 key, value = arg.split("=", 1)
                 updates[key] = value
-                echo(f"    Setting {key}.")
+                click.echo(f"    Setting {key}.")
             else:
                 updates[arg] = None
-                echo(f"    Removing {arg}.")
+                click.echo(f"    Removing {arg}.")
 
         stagingClient.deployTaskEnvironment(updates)
     else:
-        echo(f"Environment variables for {cluster}:{service}:")
-        for key, value in (
-            stagingClient.currentTaskEnvironment().items()
-        ):
-            echo(f"    {key} = {value!r}")
+        currentTaskEnvironment = stagingClient.currentTaskEnvironment()
+        click.echo(f"Environment variables for {cluster}:{service}:")
+        for key, value in currentTaskEnvironment.items():
+            click.echo(f"    {key} = {value!r}")
 
 
 

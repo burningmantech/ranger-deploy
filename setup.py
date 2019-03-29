@@ -77,7 +77,8 @@ entry_points = {
 }
 
 script_entry_points = {
-    "aws": ("deploy.aws.ecs", "ECSServiceClient.main"),
+    "aws":         ("deploy.aws.ecs",     "ECSServiceClient.main"),
+    "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"    ),
 }
 
 for tool, (module, function) in script_entry_points.items():
@@ -90,6 +91,7 @@ for tool, (module, function) in script_entry_points.items():
 
 package_data = dict(
     deploy=[
+        "notify/templates/message.*",
     ],
 )
 
