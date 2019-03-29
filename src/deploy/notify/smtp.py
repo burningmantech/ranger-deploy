@@ -24,13 +24,14 @@ from html import escape as escapeHTML
 from pkgutil import get_data as readResource
 from smtplib import SMTP_SSL
 from ssl import create_default_context as SSLContext
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple, Union
 
 from attr import attrs
 
 from click import (
-    UsageError, group as commandGroup,
-    option as commandOption, version_option as versionOption,
+    BadParameter, Context as ClickContext, Option, Parameter,
+    group as commandGroup, option as commandOption,
+    version_option as versionOption,
 )
 
 from twisted.logger import Logger
@@ -138,6 +139,17 @@ class SMTPNotifier(object):
 # Command line
 #
 
+def validateRepositoryID(
+    ctx: ClickContext, param: Union[Option, Parameter], value: str
+) -> Tuple[str, str, str]:
+    try:
+        organization, project = value.split("/")
+    except ValueError:
+        raise BadParameter(f"Invalid repository ID: {value}")
+
+    return (value, organization, project)
+
+
 @commandGroup()
 @versionOption()
 def main() -> None:
@@ -161,6 +173,7 @@ def main() -> None:
     help="repository",
     type=str, metavar="<organization>/<project>",
     prompt=True, required=True,
+    callback=validateRepositoryID,
 )
 @commandOption(
     "--build-number",
@@ -233,7 +246,7 @@ def main() -> None:
     prompt=True, required=True,
 )
 def staging(
-    project_name: Optional[str], repository_id: str,
+    project_name: Optional[str], repository_id: Tuple[str, str, str],
     build_number: str, build_url: str, commit_id: str, commit_message: str,
     smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
     sender: str, recipient: str,
@@ -241,10 +254,7 @@ def staging(
     """
     Send an email notification of a deployment to the staging environment.
     """
-    try:
-        organization, project = repository_id.split("/")
-    except ValueError:
-        raise UsageError(f"Invalid repository ID: {repository_id}")
+    repository, organization, project = repository_id
 
     if project_name is None:
         project_name = project
@@ -259,7 +269,7 @@ def staging(
     )
 
     notifier.notifyStaging(
-        project=project_name, repository=repository_id,
+        project=project_name, repository=repository,
         buildNumber=build_number, buildURL=build_url,
         commitID=commit_id, commitMessage=commit_message,
     )

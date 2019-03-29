@@ -345,6 +345,7 @@ class CommandLineTests(TestCase):
             (
                 "Usage: notify_smtp staging [OPTIONS]\n"
                 "\n"
-                "Error: Invalid repository ID: some-org/some-project/garbage\n"
+                "Error: Invalid value for \"--repository-id\": "
+                "Invalid repository ID: some-org/some-project/garbage\n"
             )
         )
