@@ -9,13 +9,13 @@ set -u
 
 tmp="$(mktemp -t mypy.XXXX)";
 
-# Bugs filed:
-# Callable has no attribute "todo": ... uh, not sure that's a bug, but ...
-# Too many arguments for: https://github.com/python/mypy/issues/2088
+# Callable has no attribute "todo": because trial
+# Cannot assign to a type: https://github.com/python/mypy/issues/1152
 
 mypy "$@"                                                                     \
     | grep -v                                                                 \
         -e ': error: "Callable\[\[[^\]\+\], None\]" has no attribute "todo"'  \
+        -e ': error: Cannot assign to a type'                                 \
         > "${tmp}" || true;
 
 sort < "${tmp}";
