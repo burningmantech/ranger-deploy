@@ -135,6 +135,10 @@ class ECSServiceClient(object):
         Look up the ARN for the service's current task.
         """
         if "arn" not in self._currentTask:
+            self.log.info(
+                "Looking up current task ARN for {cluster}:{service}...",
+                cluster=self.cluster, service=self.service,
+            )
             serviceDescription = self._client.describe_services(
                 cluster=self.cluster, services=[self.service]
             )
@@ -151,6 +155,9 @@ class ECSServiceClient(object):
         """
         if "definition" not in self._currentTask:
             currentTaskARN = self.currentTaskARN()
+            self.log.info(
+                "Looking up task definition for {arn}...", arn=currentTaskARN
+            )
             currentTaskDescription = self._client.describe_task_definition(
                 taskDefinition=currentTaskARN
             )
@@ -409,6 +416,7 @@ def main() -> None:
     """
     AWS Elastic Container Service deployment tool.
     """
+    startLogging()
 
 
 @main.command()

@@ -35,6 +35,8 @@ from click import (
 
 from twisted.logger import Logger
 
+from deploy.ext.logger import startLogging
+
 
 __all__ = (
     "SMTPNotifier",
@@ -86,6 +88,7 @@ class SMTPNotifier(object):
         self.log.info(
             "Sending email notification for project {project} ({repository}) "
             "build {buildNumber} of commit {commitID}...",
+            project=project, repository=repository,
             buildNumber=buildNumber, buildURL=buildURL,
             commitID=commitID, commitMessage=commitMessage,
         )
@@ -141,6 +144,7 @@ def main() -> None:
     """
     SMTP notification tool.
     """
+    startLogging()
 
 
 @main.command()

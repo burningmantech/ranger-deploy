@@ -5,7 +5,10 @@ Extensions to :mod:`click`
 import sys
 from enum import Enum, auto
 from io import StringIO
-from typing import Any, Callable, List, Mapping, Optional, Tuple, Union, cast
+from typing import (
+    Any, Callable, List, Mapping, Optional, Sequence, Tuple, Union, cast
+)
+from unittest.mock import patch
 
 from attr import Factory, attrs
 
@@ -37,6 +40,8 @@ class ClickTestResult(object):
     stdin:  StringIO = Factory(StringIO)
     stdout: StringIO = Factory(StringIO)
     stderr: StringIO = Factory(StringIO)
+
+    beginLoggingToCalls: Sequence[Tuple[Sequence[str], Mapping[str, str]]] = ()
 
 
 def clickTestRun(
@@ -73,7 +78,12 @@ def clickTestRun(
     echo = click.echo
     click.echo = cast(Callable, captureEcho)
 
-    main()
+    with patch(
+        "twisted.logger.globalLogBeginner.beginLoggingTo"
+    ) as beginLoggingTo:
+        main()
+
+    result.beginLoggingToCalls = beginLoggingTo.call_args_list
 
     sys.stdin  = stdin
     sys.stdout = stdout
