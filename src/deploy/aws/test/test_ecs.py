@@ -18,7 +18,6 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
-import sys
 from copy import deepcopy
 from typing import (
     Any, Callable, ClassVar, Dict, List,
@@ -34,6 +33,8 @@ from hypothesis.strategies import (
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
+
+from deploy.ext.click import clickTestRun
 
 from .. import ecs
 from ..ecs import (
@@ -788,10 +789,6 @@ class CommandLineTests(TestCase):
     """
 
     def setUp(self) -> None:
-        # Patch exit in case of usage errors
-        self.exitStatus: List[int] = []
-        self.patch(sys, "exit", lambda code=None: self.exitStatus.append(code))
-
         # Patch boto3 client
         MockBoto3Client._addDefaultData()
         self.patch(ecs, "Boto3Client", MockBoto3Client)
@@ -812,7 +809,6 @@ class CommandLineTests(TestCase):
 
 
     def cleanUp(self) -> None:
-        self.exitStatus.clear()
         self.clients.clear()
         MockBoto3Client._clearData()
 
@@ -841,15 +837,20 @@ class CommandLineTests(TestCase):
         self.initClusterAndService(stagingCluster, stagingService)
 
         # Run "staging" subcommand
-        self.patch(sys, "argv", [
-            "deploy_aws", "staging",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--image", imageName,
-        ])
-        ECSServiceClient.main()
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "staging",
+                "--staging-cluster", stagingCluster,
+                "--staging-service", stagingService,
+                "--image", imageName,
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 1)
 
         client = self.clients[0]
@@ -870,14 +871,19 @@ class CommandLineTests(TestCase):
         self.initClusterAndService(stagingCluster, stagingService)
 
         # Run "rollback" subcommand
-        self.patch(sys, "argv", [
-            "deploy_aws", "rollback",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-        ])
-        ECSServiceClient.main()
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "rollback",
+                "--staging-cluster", stagingCluster,
+                "--staging-service", stagingService,
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 1)
 
         client = self.clients[0]
@@ -918,16 +924,21 @@ class CommandLineTests(TestCase):
         )
 
         # Run "production" subcommand
-        self.patch(sys, "argv", [
-            "deploy_aws", "production",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--production-cluster", productionCluster,
-            "--production-service", productionService,
-        ])
-        ECSServiceClient.main()
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "production",
+                "--staging-cluster", stagingCluster,
+                "--staging-service", stagingService,
+                "--production-cluster", productionCluster,
+                "--production-service", productionService,
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 2)
 
         stagingClient, productionClient = self.clients
@@ -966,18 +977,35 @@ class CommandLineTests(TestCase):
         )
 
         # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "compare",
-            "--staging-cluster", stagingCluster,
-            "--staging-service", stagingService,
-            "--production-cluster", productionCluster,
-            "--production-service", productionService,
-        ])
-        ECSServiceClient.main()
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "compare",
+                "--staging-cluster", stagingCluster,
+                "--staging-service", stagingService,
+                "--production-cluster", productionCluster,
+                "--production-service", productionService,
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stderr.getvalue(), "")
+        self.assertEqual(
+            result.stdout.getvalue(),
+            (
+                "Staging task ARN: arn:mock:task-definition/service:1\n"
+                "Staging container image: /team/service-project:1001\n"
+                "Producton task ARN: arn:mock:task-definition/service:0\n"
+                "Producton container image: /team/service-project:1000\n"
+                "Matching environment variables:\n"
+                "    happiness = 'true'\n"
+                "    version = '0'\n"
+                "Mismatching environment variables:\n"
+                "    VARIABLE1 = 'value1' / None\n"
+                "    VARIABLE2 = 'value2' / None\n"
+            )
+        )
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 2)
 
         stagingClient, productionClient = self.clients
@@ -986,22 +1014,6 @@ class CommandLineTests(TestCase):
         self.assertEqual(stagingClient.service, stagingService)
         self.assertEqual(productionClient.cluster, productionCluster)
         self.assertEqual(productionClient.service, productionService)
-
-        self.assertEqual(
-            output,
-            [
-                "Staging task ARN: arn:mock:task-definition/service:1",
-                "Staging container image: /team/service-project:1001",
-                "Producton task ARN: arn:mock:task-definition/service:0",
-                "Producton container image: /team/service-project:1000",
-                "Matching environment variables:",
-                "    happiness = 'true'",
-                "    version = '0'",
-                "Mismatching environment variables:",
-                "    VARIABLE1 = 'value1' / None",
-                "    VARIABLE2 = 'value2' / None",
-            ]
-        )
 
 
     @given(text(min_size=1), text(min_size=1))
@@ -1012,34 +1024,35 @@ class CommandLineTests(TestCase):
         # Add starting data set
         self.initClusterAndService(cluster, service)
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "environment",
-            "--cluster", cluster,
-            "--service", service,
-        ])
-        ECSServiceClient.main()
+        # Run "environment" subcommand
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "environment",
+                "--cluster", cluster,
+                "--service", service,
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stderr.getvalue(), "")
+        self.assertEqual(
+            result.stdout.getvalue(),
+            (
+                f"Environment variables for {cluster}:{service}:\n"
+                f"    version = '0'\n"
+                f"    happiness = 'true'\n"
+                f"    VARIABLE1 = 'value1'\n"
+                f"    VARIABLE2 = 'value2'\n"
+            )
+        )
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 1)
 
         client = self.clients[0]
 
         self.assertEqual(client.cluster, cluster)
         self.assertEqual(client.service, service)
-
-        self.assertEqual(
-            output,
-            [
-                f"Environment variables for {cluster}:{service}:",
-                "    version = '0'",
-                "    happiness = 'true'",
-                "    VARIABLE1 = 'value1'",
-                "    VARIABLE2 = 'value2'",
-            ]
-        )
 
 
     @given(
@@ -1055,18 +1068,29 @@ class CommandLineTests(TestCase):
         # Add starting data set
         self.initClusterAndService(cluster, service)
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "environment",
-            "--cluster", cluster,
-            "--service", service,
-            *[f"x{k}={v}" for k, v in updates]
-        ])
-        ECSServiceClient.main()
+        # Run "environment" subcommand
+        # Prefix variable names with "x" to make sure they start with a letter
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "environment",
+                "--cluster", cluster,
+                "--service", service,
+                # a letter
+                *[f"x{k}={v}" for k, v in updates]
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stderr.getvalue(), "")
+        self.assertEqual(
+            result.stdout.getvalue(),
+            "".join((
+                f"Changing environment variables for {cluster}:{service}:\n",
+                *[f"    Setting x{u[0]}.\n" for u in updates]
+            ))
+        )
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 1)
 
         client = self.clients[0]
@@ -1080,14 +1104,6 @@ class CommandLineTests(TestCase):
             key = f"x{key}"
             self.assertIn(key, resultEnvironment)
             self.assertEqual(resultEnvironment[key], value)
-
-        self.assertEqual(
-            output,
-            [
-                f"Changing environment variables for {cluster}:{service}:",
-                *[f"    Setting x{u[0]}." for u in updates]
-            ]
-        )
 
 
     @given(
@@ -1113,18 +1129,28 @@ class CommandLineTests(TestCase):
         # Add starting data set
         self.initClusterAndService(cluster, service)
 
-        # Run "compare" subcommand
-        output: List[str] = []
-        self.patch(ecs, "echo", lambda text: output.append(text))
-        self.patch(sys, "argv", [
-            "deploy_aws", "environment",
-            "--cluster", cluster,
-            "--service", service,
-            *[f"x{k}" for k in removes]
-        ])
-        ECSServiceClient.main()
+        # Run "environment" subcommand
+        # Prefix variable names with "x" to make sure they start with a letter
+        result = clickTestRun(
+            ECSServiceClient.main,
+            [
+                "deploy_aws", "environment",
+                "--cluster", cluster,
+                "--service", service,
+                *[f"x{k}" for k in removes]
+            ]
+        )
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stderr.getvalue(), "")
+        self.assertEqual(
+            result.stdout.getvalue(),
+            "".join((
+                f"Changing environment variables for {cluster}:{service}:\n",
+                *[f"    Removing x{k}.\n" for k in removes]
+            ))
+        )
 
-        self.assertEqual(self.exitStatus, [0])
         self.assertEqual(len(self.clients), 1)
 
         client = self.clients[0]
@@ -1136,11 +1162,3 @@ class CommandLineTests(TestCase):
 
         for key in set(removes):
             self.assertNotIn(f"x{key}", resultEnvironment)
-
-        self.assertEqual(
-            output,
-            [
-                f"Changing environment variables for {cluster}:{service}:",
-                *[f"    Removing x{k}." for k in removes]
-            ]
-        )
