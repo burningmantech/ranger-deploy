@@ -135,7 +135,7 @@ class ECSServiceClient(object):
         Look up the ARN for the service's current task.
         """
         if "arn" not in self._currentTask:
-            self.log.info(
+            self.log.debug(
                 "Looking up current task ARN for {cluster}:{service}...",
                 cluster=self.cluster, service=self.service,
             )
@@ -155,7 +155,7 @@ class ECSServiceClient(object):
         """
         if "definition" not in self._currentTask:
             currentTaskARN = self.currentTaskARN()
-            self.log.info(
+            self.log.debug(
                 "Looking up task definition for {arn}...", arn=currentTaskARN
             )
             currentTaskDescription = self._client.describe_task_definition(
@@ -215,9 +215,6 @@ class ECSServiceClient(object):
             self._environmentAsJSON(environment)
         )
         if newTaskDefinition == currentTaskDefinition:
-            self.log.info(
-                "No changes made to task definition. Nothing to deploy."
-            )
             raise NoChangesError()
 
         environment = dict(environment)
@@ -250,7 +247,7 @@ class ECSServiceClient(object):
         """
         Register a new task definition for the service.
         """
-        self.log.info("Registering new task definition...")
+        self.log.debug("Registering new task definition...")
         response = self._client.register_task_definition(**taskDefinition)
         newTaskARN = response["taskDefinition"]["taskDefinitionArn"]
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
@@ -295,8 +292,8 @@ class ECSServiceClient(object):
         """
         Deploy a new task to the service.
         """
-        self.log.info(
-            "Deploying service {cluster}:{service} to ARN {arn}...",
+        self.log.debug(
+            "Deploying task ARN {arn} to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, arn=arn
         )
         self._currentTask.clear()
@@ -304,7 +301,7 @@ class ECSServiceClient(object):
             cluster=self.cluster, service=self.service, taskDefinition=arn
         )
         self.log.info(
-            "Deployed service {cluster}:{service} to ARN {arn}...",
+            "Deployed task ARN {arn} to service {cluster}:{service}.",
             cluster=self.cluster, service=self.service, arn=arn
         )
 
@@ -324,10 +321,13 @@ class ECSServiceClient(object):
         try:
             newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
         except NoChangesError:
+            self.log.info(
+                "Image is the unchanged. Nothing to deploy."
+            )
             return
 
-        self.log.info(
-            "Deploying image {image} to service {cluster}:{service}.",
+        self.log.debug(
+            "Deploying image {image} to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, image=imageName
         )
         self.deployTaskDefinition(newTaskDefinition)
@@ -352,10 +352,13 @@ class ECSServiceClient(object):
                 environment=newTaskEnvironment
             )
         except NoChangesError:
+            self.log.info(
+                "No changes made to task environment. Nothing to deploy."
+            )
             return
 
-        self.log.info(
-            "Deploying task environment to service {cluster}:{service}.",
+        self.log.debug(
+            "Deploying task environment to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, updates=updates
         )
         self.deployTaskDefinition(newTaskDefinition)
@@ -378,9 +381,7 @@ class ECSServiceClient(object):
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]
 
-        self.log.info("Rolling back to prior task ARN: {arn}", arn=taskARN)
         self.deployTask(taskARN)
-        self.log.info("Rolled back to prior task ARN: {arn}", arn=taskARN)
 
 
 
