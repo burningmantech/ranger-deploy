@@ -35,15 +35,21 @@ from click import (
 
 from twisted.logger import Logger
 
-TaskDefinition = Mapping[str, Any]
-TaskEnvironment = Mapping[str, str]
-TaskEnvironmentUpdates = Mapping[str, Optional[str]]
+from deploy.ext.logger import startLogging
 
 
 __all__ = (
+    "TaskDefinition",
+    "TaskEnvironment",
+    "TaskEnvironmentUpdates",
     "NoChangesError",
     "ECSServiceClient",
 )
+
+
+TaskDefinition = Mapping[str, Any]
+TaskEnvironment = Mapping[str, str]
+TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
 
@@ -553,10 +559,9 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
 
         stagingClient.deployTaskEnvironment(updates)
     else:
+        currentTaskEnvironment = stagingClient.currentTaskEnvironment()
         click.echo(f"Environment variables for {cluster}:{service}:")
-        for key, value in (
-            stagingClient.currentTaskEnvironment().items()
-        ):
+        for key, value in currentTaskEnvironment.items():
             click.echo(f"    {key} = {value!r}")
 
 
