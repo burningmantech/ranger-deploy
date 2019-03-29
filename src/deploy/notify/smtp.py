@@ -23,7 +23,7 @@ from email.mime.text import MIMEText
 from html import escape as escapeHTML
 from pkgutil import get_data as readResource
 from smtplib import SMTP_SSL
-from ssl import create_default_context as SSLContext
+from ssl import Purpose, create_default_context
 from typing import Callable, Optional, Tuple, Union
 
 from attr import attrs
@@ -127,7 +127,7 @@ class SMTPNotifier(object):
         message.attach(MIMEText(text, "plain"))
         message.attach(MIMEText(html, "html"))
 
-        context = SSLContext()
+        context = create_default_context(purpose=Purpose.CLIENT_AUTH)
         with SMTP_SSL(self.smtpHost, self.smtpPort, context=context) as relay:
             relay.login(self.smtpUser, self.smtpPassword)
             relay.send_message(
