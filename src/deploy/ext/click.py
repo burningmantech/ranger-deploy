@@ -4,6 +4,7 @@ Extensions to :mod:`click`
 
 import sys
 from enum import Enum, auto
+from io import StringIO
 from typing import Any, Callable, List, Mapping, Optional, Tuple, Union, cast
 
 from attr import Factory, attrs
@@ -30,8 +31,12 @@ class ClickTestResult(object):
     """
 
     exitCode: Union[int, None, Internal] = Internal.UNSET
+
     echoOutput: List[Tuple[str, Mapping]] = Factory(list)
 
+    stdin:  StringIO = Factory(StringIO)
+    stdout: StringIO = Factory(StringIO)
+    stderr: StringIO = Factory(StringIO)
 
 
 def clickTestRun(
@@ -44,12 +49,20 @@ def clickTestRun(
 
     result = ClickTestResult()
 
-    def captureExit(code: Optional[int] = None) -> None:
-        # assert result.exitCode == Internal.UNSET, "repeated call to exit()"
-        result.exitCode = code
+    stdin  = sys.stdin
+    stdout = sys.stdout
+    stderr = sys.stderr
+
+    sys.stdin  = result.stdin
+    sys.stdout = result.stdout
+    sys.stderr = result.stderr
 
     argv = sys.argv
     sys.argv = arguments
+
+    def captureExit(code: Optional[int] = None) -> None:
+        # assert result.exitCode == Internal.UNSET, "repeated call to exit()"
+        result.exitCode = code
 
     exit = sys.exit
     sys.exit = cast(Callable, captureExit)
@@ -62,8 +75,11 @@ def clickTestRun(
 
     main()
 
-    sys.argv = argv
-    sys.exit = exit
+    sys.stdin  = stdin
+    sys.stdout = stdout
+    sys.stderr = stderr
+    sys.argv   = argv
+    sys.exit   = exit
     click.echo = echo
 
     return result

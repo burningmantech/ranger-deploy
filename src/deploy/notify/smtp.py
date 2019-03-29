@@ -149,84 +149,84 @@ def main() -> None:
     envvar="PROJECT_NAME",
     help="project name",
     type=str, metavar="<name>",
-    prompt=True, required=False,
+    prompt=False, required=False,
 )
 @commandOption(
     "--repository-id",
     envvar="REPOSITORY_ID",
     help="repository",
     type=str, metavar="<organization>/<project>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--build-number",
     envvar="BUILD_NUMBER",
     help="build number",
     type=str, metavar="<number>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--build-url",
     envvar="BUILD_URL",
     help="build URL",
     type=str, metavar="<url>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--commit-id",
     envvar="COMMIT_ID",
     help="commit ID",
     type=str, metavar="<id>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--commit-message",
     envvar="COMMIT_MESSAGE",
     help="commit message",
     type=str, metavar="<message>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--smtp-host",
     envvar="NOTIFY_SMTP_HOST",
     help="SMTP server host name",
     type=str, metavar="<host>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--smtp-port",
     envvar="NOTIFY_SMTP_PORT",
     help="SMTP server port",
     type=int, metavar="<port>",
-    prompt=True, required=False, default=465,
+    prompt=False, required=False, default=465,
 )
 @commandOption(
     "--smtp-user",
     envvar="NOTIFY_SMTP_USER",
     help="SMTP user name",
     type=str, metavar="<user>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--smtp-password",
     envvar="NOTIFY_SMTP_PASSWORD",
     help="SMTP user password",
     type=str, metavar="<password>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--sender",
     envvar="NOTIFY_EMAIL_SENDER",
     help="email sender address",
     type=str, metavar="<address>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 @commandOption(
     "--recipient",
     envvar="NOTIFY_EMAIL_RECIPIENT",
     help="email recipient address",
     type=str, metavar="<address>",
-    prompt=True, required=False,
+    prompt=True, required=True,
 )
 def staging(
     project_name: Optional[str], repository_id: str,

@@ -264,11 +264,14 @@ class CommandLineTests(TestCase):
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
         self.assertEqual(notifyStaging.call_count, 1)
-        self.assertEqual(notifyStaging.call_args[0], ())
+        args, kwargs = notifyStaging.call_args
+        self.assertEqual(args, ())
         self.assertEqual(
-            notifyStaging.call_args[1],
+            kwargs,
             dict(
                 project=project,
                 repository=repository,
@@ -276,5 +279,72 @@ class CommandLineTests(TestCase):
                 buildURL=buildURL,
                 commitID=commitID,
                 commitMessage=commitMessage,
+            )
+        )
+
+
+    def test_staging_noProject(self) -> None:
+        """
+        If --project-name is not given, the project name is derived from the
+        repository ID.
+        """
+        with patch(
+            "deploy.notify.smtp.SMTPNotifier.notifyStaging"
+        ) as notifyStaging:
+            result = clickTestRun(
+                SMTPNotifier.main,
+                [
+                    "notify_smtp", "staging",
+                    "--repository-id", "some-org/some-project",
+                    "--build-number", "build-number",
+                    "--build-url", "http://example.com/",
+                    "--commit-id", "101010",
+                    "--commit-message", "Hello",
+                    "--smtp-host", "mail.example.com",
+                    "--smtp-user", "user",
+                    "--smtp-password", "password",
+                    "--sender", "sender@example.com",
+                    "--recipient", "recipient@example.com",
+                ],
+            )
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(notifyStaging.call_count, 1)
+        args, kwargs = notifyStaging.call_args
+        self.assertEqual(kwargs["project"], "some-project")
+
+
+    def test_staging_badRepository(self) -> None:
+        """
+        A bad repository ID results in a usage error.
+        """
+        with patch(
+            "deploy.notify.smtp.SMTPNotifier.notifyStaging"
+        ):
+            result = clickTestRun(
+                SMTPNotifier.main,
+                [
+                    "notify_smtp", "staging",
+                    "--repository-id", "some-org/some-project/garbage",
+                    "--build-number", "build-number",
+                    "--build-url", "http://example.com/",
+                    "--commit-id", "101010",
+                    "--commit-message", "Hello",
+                    "--smtp-host", "mail.example.com",
+                    "--smtp-user", "user",
+                    "--smtp-password", "password",
+                    "--sender", "sender@example.com",
+                    "--recipient", "recipient@example.com",
+                ],
+            )
+
+        self.assertEqual(result.exitCode, 2)
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(
+            result.stderr.getvalue(),
+            (
+                "Usage: notify_smtp staging [OPTIONS]\n"
+                "\n"
+                "Error: Invalid repository ID: some-org/some-project/garbage\n"
             )
         )
