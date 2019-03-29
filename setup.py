@@ -106,7 +106,7 @@ install_requirements = [
     # Direct dependencies
     "attrs==19.1.0",
     "arrow==0.13.1",
-    "boto3==1.9.122",
+    "boto3==1.9.124",
     "click==7.0",
     "twisted==18.9.0",
 
