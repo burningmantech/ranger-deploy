@@ -27,8 +27,9 @@ from attr import Factory, attrs
 
 from boto3 import client as Boto3Client
 
+import click
 from click import (
-    argument as commandArgument, echo, group as commandGroup,
+    argument as commandArgument, group as commandGroup,
     option as commandOption, version_option as versionOption,
 )
 
@@ -486,8 +487,8 @@ def compare(
         ("Staging", stagingClient),
         ("Producton", productionClient),
     ):
-        echo(f"{name} task ARN: {client.currentTaskARN()}")
-        echo(f"{name} container image: {client.currentImageName()}")
+        click.echo(f"{name} task ARN: {client.currentTaskARN()}")
+        click.echo(f"{name} container image: {client.currentImageName()}")
 
     stagingEnvironment = stagingClient.currentTaskEnvironment()
     productionEnvironment = productionClient.currentTaskEnvironment()
@@ -510,13 +511,13 @@ def compare(
             different.add(key)
 
     if same:
-        echo("Matching environment variables:")
+        click.echo("Matching environment variables:")
         for key in sorted(same):
-            echo(f"    {key} = {stagingEnvironment[key]!r}")
+            click.echo(f"    {key} = {stagingEnvironment[key]!r}")
     if different:
-        echo("Mismatching environment variables:")
+        click.echo("Mismatching environment variables:")
         for key in sorted(different):
-            echo(
+            click.echo(
                 f"    {key} = "
                 f"{stagingEnvironment.get(key)!r} / "
                 f"{productionEnvironment.get(key)!r}"
@@ -539,24 +540,24 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     """
     stagingClient = ECSServiceClient(cluster=cluster, service=service)
     if arguments:
-        echo(f"Changing environment variables for {cluster}:{service}:")
+        click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
         for arg in arguments:
             if "=" in arg:
                 key, value = arg.split("=", 1)
                 updates[key] = value
-                echo(f"    Setting {key}.")
+                click.echo(f"    Setting {key}.")
             else:
                 updates[arg] = None
-                echo(f"    Removing {arg}.")
+                click.echo(f"    Removing {arg}.")
 
         stagingClient.deployTaskEnvironment(updates)
     else:
-        echo(f"Environment variables for {cluster}:{service}:")
+        click.echo(f"Environment variables for {cluster}:{service}:")
         for key, value in (
             stagingClient.currentTaskEnvironment().items()
         ):
-            echo(f"    {key} = {value!r}")
+            click.echo(f"    {key} = {value!r}")
 
 
 

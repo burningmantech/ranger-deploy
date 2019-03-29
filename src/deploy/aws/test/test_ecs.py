@@ -988,23 +988,20 @@ class CommandLineTests(TestCase):
             ]
         )
         self.assertEqual(result.exitCode, 0)
-        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.echoOutput, [
+            ("Staging task ARN: arn:mock:task-definition/service:1", {}),
+            ("Staging container image: /team/service-project:1001", {}),
+            ("Producton task ARN: arn:mock:task-definition/service:0", {}),
+            ("Producton container image: /team/service-project:1000", {}),
+            ("Matching environment variables:", {}),
+            ("    happiness = 'true'", {}),
+            ("    version = '0'", {}),
+            ("Mismatching environment variables:", {}),
+            ("    VARIABLE1 = 'value1' / None", {}),
+            ("    VARIABLE2 = 'value2' / None", {}),
+        ])
+        self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
-        self.assertEqual(
-            result.stdout.getvalue(),
-            (
-                "Staging task ARN: arn:mock:task-definition/service:1\n"
-                "Staging container image: /team/service-project:1001\n"
-                "Producton task ARN: arn:mock:task-definition/service:0\n"
-                "Producton container image: /team/service-project:1000\n"
-                "Matching environment variables:\n"
-                "    happiness = 'true'\n"
-                "    version = '0'\n"
-                "Mismatching environment variables:\n"
-                "    VARIABLE1 = 'value1' / None\n"
-                "    VARIABLE2 = 'value2' / None\n"
-            )
-        )
 
         self.assertEqual(len(self.clients), 2)
 
@@ -1034,18 +1031,15 @@ class CommandLineTests(TestCase):
             ]
         )
         self.assertEqual(result.exitCode, 0)
-        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.echoOutput, [
+            (f"Environment variables for {cluster}:{service}:", {}),
+            (f"    version = '0'", {}),
+            (f"    happiness = 'true'", {}),
+            (f"    VARIABLE1 = 'value1'", {}),
+            (f"    VARIABLE2 = 'value2'", {}),
+        ])
+        self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
-        self.assertEqual(
-            result.stdout.getvalue(),
-            (
-                f"Environment variables for {cluster}:{service}:\n"
-                f"    version = '0'\n"
-                f"    happiness = 'true'\n"
-                f"    VARIABLE1 = 'value1'\n"
-                f"    VARIABLE2 = 'value2'\n"
-            )
-        )
 
         self.assertEqual(len(self.clients), 1)
 
@@ -1081,15 +1075,13 @@ class CommandLineTests(TestCase):
             ]
         )
         self.assertEqual(result.exitCode, 0)
-        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.echoOutput, [
+            (f"Changing environment variables for {cluster}:{service}:", {})
+        ] + [
+            (f"    Setting x{k}.", {}) for k, v in updates
+        ])
+        self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
-        self.assertEqual(
-            result.stdout.getvalue(),
-            "".join((
-                f"Changing environment variables for {cluster}:{service}:\n",
-                *[f"    Setting x{u[0]}.\n" for u in updates]
-            ))
-        )
 
         self.assertEqual(len(self.clients), 1)
 
@@ -1141,15 +1133,13 @@ class CommandLineTests(TestCase):
             ]
         )
         self.assertEqual(result.exitCode, 0)
-        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.echoOutput, [
+            (f"Changing environment variables for {cluster}:{service}:", {})
+        ] + [
+            (f"    Removing x{k}.", {}) for k in removes
+        ])
+        self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
-        self.assertEqual(
-            result.stdout.getvalue(),
-            "".join((
-                f"Changing environment variables for {cluster}:{service}:\n",
-                *[f"    Removing x{k}.\n" for k in removes]
-            ))
-        )
 
         self.assertEqual(len(self.clients), 1)
 
