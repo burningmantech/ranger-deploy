@@ -31,11 +31,12 @@ from attr import attrs
 from click import (
     BadParameter, Context as ClickContext, Option, Parameter,
     group as commandGroup, option as commandOption,
-    version_option as versionOption,
+    pass_context as passContext, version_option as versionOption,
 )
 
 from twisted.logger import Logger
 
+from deploy.ext.click import readConfig
 from deploy.ext.logger import startLogging
 
 
@@ -152,10 +153,36 @@ def validateRepositoryID(
 
 @commandGroup()
 @versionOption()
-def main() -> None:
+@commandOption(
+    "--profile",
+    help="Profile to load from configuration file",
+    type=str, metavar="<name>", prompt=False, required=False,
+)
+@passContext
+def main(ctx: ClickContext, profile: Optional[str]) -> None:
     """
     SMTP notification tool.
     """
+    if ctx.default_map is None:
+        commonDefaults = readConfig(profile=profile)
+
+        commonDefaults.setdefault(
+            "cluster", commonDefaults.get("staging_cluster")
+        )
+        commonDefaults.setdefault(
+            "service", commonDefaults.get("staging_service")
+        )
+
+        ctx.default_map = {
+            command: commonDefaults for command in (
+                "staging",
+                "rollback",
+                "production",
+                "compare",
+                "environment",
+            )
+        }
+
     startLogging()
 
 
