@@ -3,10 +3,12 @@ Extensions to :mod:`click`
 """
 
 import sys
+from configparser import ConfigParser, ExtendedInterpolation
 from enum import Enum, auto
 from io import StringIO
+from pathlib import Path
 from typing import (
-    Any, Callable, List, Mapping, Optional, Sequence, Tuple, Union, cast
+    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
 )
 from unittest.mock import patch
 
@@ -18,7 +20,11 @@ import click
 __all__ = (
     "clickTestRun",
     "ClickTestResult",
+    "readConfig",
 )
+
+
+defaultConfigPath = Path("~/.ranger-deploy.ini")
 
 
 
@@ -42,6 +48,7 @@ class ClickTestResult(object):
     stderr: StringIO = Factory(StringIO)
 
     beginLoggingToCalls: Sequence[Tuple[Sequence[str], Mapping[str, str]]] = ()
+
 
 
 def clickTestRun(
@@ -93,3 +100,28 @@ def clickTestRun(
     click.echo = echo
 
     return result
+
+
+def readConfig(
+    profile: str = "default", path: Path = defaultConfigPath
+) -> Dict[str, str]:
+    """
+    Read configuration from the given path using the given profile.
+    """
+    path = path.expanduser()
+
+    parser = ConfigParser(
+        delimiters=("=",),
+        comment_prefixes=("#",),
+        interpolation=ExtendedInterpolation(),
+        strict=True,
+        default_section="default",
+    )
+    parser.read(path)
+
+    try:
+        section = parser[profile]
+    except KeyError:
+        return {}
+
+    return dict(section.items())

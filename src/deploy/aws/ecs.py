@@ -29,12 +29,14 @@ from boto3 import client as Boto3Client
 
 import click
 from click import (
-    argument as commandArgument, group as commandGroup,
-    option as commandOption, version_option as versionOption,
+    Context as ClickContext, argument as commandArgument,
+    group as commandGroup, option as commandOption,
+    pass_context as passContext, version_option as versionOption,
 )
 
 from twisted.logger import Logger
 
+from deploy.ext.click import readConfig
 from deploy.ext.logger import startLogging
 
 
@@ -314,7 +316,7 @@ class ECSServiceClient(object):
         self.deployTask(arn)
 
 
-    def deployImage(self, imageName: str) -> None:
+    def deployImage(self, imageName: str, trialRun: bool = False) -> None:
         """
         Deploy a Docker Image to the service.
         """
@@ -330,7 +332,8 @@ class ECSServiceClient(object):
             "Deploying image {image} to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, image=imageName
         )
-        self.deployTaskDefinition(newTaskDefinition)
+        if not trialRun:
+            self.deployTaskDefinition(newTaskDefinition)
         self.log.info(
             "Deployed image {image} to service {cluster}:{service}.",
             cluster=self.cluster, service=self.service, image=imageName
@@ -413,10 +416,36 @@ productionServiceOption = ecsOption("service", "production")
 
 @commandGroup()
 @versionOption()
-def main() -> None:
+@commandOption(
+    "--profile",
+    help="Profile to load from configuration file",
+    type=str, metavar="<name>", prompt=False, required=False,
+)
+@passContext
+def main(ctx: ClickContext, profile: Optional[str]) -> None:
     """
     AWS Elastic Container Service deployment tool.
     """
+    if ctx.default_map is None:
+        commonDefaults = readConfig(profile=profile)
+
+        commonDefaults.setdefault(
+            "cluster", commonDefaults.get("staging_cluster")
+        )
+        commonDefaults.setdefault(
+            "service", commonDefaults.get("staging_service")
+        )
+
+        ctx.default_map = {
+            command: commonDefaults for command in (
+                "staging",
+                "rollback",
+                "production",
+                "compare",
+                "environment",
+            )
+        }
+
     startLogging()
 
 
@@ -427,11 +456,13 @@ def main() -> None:
     "--image",
     envvar="AWS_ECR_IMAGE_NAME",
     help="Docker image to use",
-    type=str, metavar="<name>",
-    prompt=True, required=True,
+    type=str, metavar="<name>", prompt=True, required=True,
+)
+@commandOption(
+    "--trial-run", is_flag=True, help="Trial run only (do not deploy)"
 )
 def staging(
-    staging_cluster: str, staging_service: str, image: str
+    staging_cluster: str, staging_service: str, image: str, trial_run: bool,
 ) -> None:
     """
     Deploy a new image to the staging environment.
@@ -439,7 +470,7 @@ def staging(
     stagingClient = ECSServiceClient(
         cluster=staging_cluster, service=staging_service
     )
-    stagingClient.deployImage(image)
+    stagingClient.deployImage(image, trialRun=trial_run)
 
 
 @main.command()

@@ -13,12 +13,13 @@ ranger-deploy
 
 Deployment tools for Ranger services.
 
+
 Deploying to Amazon Web Services
 --------------------------------
 
 Services may be deployed to AWS via the ``deploy_aws`` command.  ``deploy_aws`` will presently only supported for deployments to the Elastic Container Service and has only been tested with services using Fargate.
 
-``deploy_aws`` has a number of subcommands:
+``deploy_aws`` has the following subcommands:
 
 ``staging``
   Updates the staging environment to use a new Docker image.
@@ -54,3 +55,148 @@ The following environment variables are used if the corresponding command line o
 
 ``AWS_ECS_SERVICE_PRODUCTION``
   ``--production-service``
+
+``deploy_aws`` can alternatively be run as ``python -m deploy.aws.ecs``.
+
+
+Sending Email Notifications
+---------------------------
+
+An email notification can be sent after a deployment by running ``deploy_notify_smtp``.
+
+``deploy_notify_smtp`` has the following subcommands:
+
+``staging``
+  Sends a notification for a deployment to the staging environment.
+
+For usage information, run::
+
+  deploy_notify_smtp <subcommand> --help
+
+The following environment variables are used if the corresponding command line options are omitted:
+
+``PROJECT_NAME``
+  ``--project-name``
+
+``REPOSITORY_ID``
+  ``--repository-id``
+
+``BUILD_NUMBER``
+  ``--build-number``
+
+``BUILD_URL``
+  ``--build-url``
+
+``COMMIT_ID``
+  ``--commit-id``
+
+``COMMIT_MESSAGE``
+  ``--commit-message``
+
+``NOTIFY_SMTP_HOST``
+  ``--smtp-host``
+
+``NOTIFY_SMTP_PORT``
+  ``--smtp-port``
+
+``NOTIFY_SMTP_USER``
+  ``--smtp-user``
+
+``NOTIFY_SMTP_PASSWORD``
+  ``--smtp-password``
+
+``NOTIFY_EMAIL_SENDER``
+  ``--sender``
+
+``NOTIFY_EMAIL_RECIPIENT``
+  ``--recipient``
+
+
+Configuration
+-------------
+
+A configuration file ``~/ranger-deploy.ini`` may be used to specify defaults for any of the above arguments.
+This file uses a simple INI format in which configuration keys correspond to command line options, with each sections named after a configuration profile.
+For configuration keys, remove leading hyphens and replace hyphens with underbars.
+For example::
+
+  [rangers]
+
+  github_org = burningmantech
+
+  staging_cluster    = rangers
+  production_cluster = rangers
+
+  smtp_host     = smtp.example.com
+  smtp_port     = 465
+  smtp_user     = some_user
+  smtp_password = C70D9FB9-53BC-489A-A08D-567D281583D9
+  sender        = sender@example.com
+  recipient     = recipient@example.com
+
+
+  [clubhouse-api]
+
+  repository_id = ${rangers:github_org}/ranger-clubhouse-api
+
+  staging_cluster    = ${rangers:staging_cluster}
+  production_cluster = ${rangers:production_cluster}
+  staging_service    = ranger-clubhouse-api-staging-fg
+  production_service = ranger-clubhouse-api-production-fg
+
+  smtp_host     = ${rangers:smtp_host}
+  smtp_port     = ${rangers:smtp_port}
+  smtp_user     = ${rangers:smtp_user}
+  smtp_password = ${rangers:smtp_password}
+  sender        = ${rangers:sender}
+  recipient     = ${rangers:recipient}
+
+
+  [clubhouse-web]
+
+  repository_id = ${rangers:github_org}/ranger-clubhouse-web
+
+  staging_cluster    = ${rangers:staging_cluster}
+  production_cluster = ${rangers:production_cluster}
+  staging_service    = ranger-clubhouse-web-staging-fg
+  production_service = ranger-clubhouse-web-production-fg
+
+  smtp_host     = ${rangers:smtp_host}
+  smtp_port     = ${rangers:smtp_port}
+  smtp_user     = ${rangers:smtp_user}
+  smtp_password = ${rangers:smtp_password}
+  sender        = ${rangers:sender}
+  recipient     = ${rangers:recipient}
+
+  [clubhouse-classic]
+
+  repository_id = ${rangers:github_org}/ranger-secret-clubhouse
+
+  staging_cluster    = ${rangers:staging_cluster}
+  production_cluster = ${rangers:production_cluster}
+  staging_service    = ranger-secret-clubhouse-staging-fg
+  production_service = ranger-secret-clubhouse-production-fg
+
+  smtp_host     = ${rangers:smtp_host}
+  smtp_port     = ${rangers:smtp_port}
+  smtp_user     = ${rangers:smtp_user}
+  smtp_password = ${rangers:smtp_password}
+  sender        = ${rangers:sender}
+  recipient     = ${rangers:recipient}
+
+
+  [ims]
+
+  repository_id = ${rangers:github_org}/ranger-ims-server
+
+  staging_cluster    = ${rangers:staging_cluster}
+  production_cluster = ${rangers:production_cluster}
+  staging_service    = ranger-ims-staging-fg
+  production_service = ranger-ims-production-fg
+
+  smtp_host     = ${rangers:smtp_host}
+  smtp_port     = ${rangers:smtp_port}
+  smtp_user     = ${rangers:smtp_user}
+  smtp_password = ${rangers:smtp_password}
+  sender        = ${rangers:sender}
+  recipient     = ${rangers:recipient}
