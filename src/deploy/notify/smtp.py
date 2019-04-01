@@ -279,7 +279,7 @@ def staging(
     sender: str, recipient: str,
 ) -> None:
     """
-    Send an email notification of a deployment to the staging environment.
+    Send an email notification of a deployment to staging.
     """
     repository, organization, project = repository_id
 
