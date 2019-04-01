@@ -316,7 +316,7 @@ class ECSServiceClient(object):
         self.deployTask(arn)
 
 
-    def deployImage(self, imageName: str) -> None:
+    def deployImage(self, imageName: str, trialRun: bool = False) -> None:
         """
         Deploy a Docker Image to the service.
         """
@@ -332,7 +332,8 @@ class ECSServiceClient(object):
             "Deploying image {image} to service {cluster}:{service}...",
             cluster=self.cluster, service=self.service, image=imageName
         )
-        self.deployTaskDefinition(newTaskDefinition)
+        if not trialRun:
+            self.deployTaskDefinition(newTaskDefinition)
         self.log.info(
             "Deployed image {image} to service {cluster}:{service}.",
             cluster=self.cluster, service=self.service, image=imageName
@@ -457,8 +458,11 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     help="Docker image to use",
     type=str, metavar="<name>", prompt=True, required=True,
 )
+@commandOption(
+    "--trial-run", is_flag=True, help="Trial run only (do not deploy)"
+)
 def staging(
-    staging_cluster: str, staging_service: str, image: str
+    staging_cluster: str, staging_service: str, image: str, trial_run: bool,
 ) -> None:
     """
     Deploy a new image to the staging environment.
@@ -466,7 +470,7 @@ def staging(
     stagingClient = ECSServiceClient(
         cluster=staging_cluster, service=staging_service
     )
-    stagingClient.deployImage(image)
+    stagingClient.deployImage(image, trialRun=trial_run)
 
 
 @main.command()

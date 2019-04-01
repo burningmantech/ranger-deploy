@@ -924,6 +924,43 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
 
+    @given(text(min_size=1), text(min_size=1), text(min_size=1))
+    def test_staging_trial(
+        self, stagingCluster: str, stagingService: str, imageName: str,
+    ) -> None:
+        with testingBoto3(), testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+
+            startingImageName = MockBoto3Client._currentImageName(
+                cluster=stagingCluster, service=stagingService
+            )
+
+            # Run "staging" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws", "staging",
+                    "--staging-cluster", stagingCluster,
+                    "--staging-service", stagingService,
+                    "--image", imageName,
+                    "--trial-run",
+                ]
+            )
+
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertEqual(client.cluster, stagingCluster)
+            self.assertEqual(client.service, stagingService)
+            self.assertEqual(client.currentImageName(), startingImageName)
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
+
+
     @given(text(min_size=1), text(min_size=1))
     def test_rollback(
         self, stagingCluster: str, stagingService: str
