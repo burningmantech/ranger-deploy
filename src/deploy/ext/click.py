@@ -20,6 +20,7 @@ import click
 __all__ = (
     "clickTestRun",
     "ClickTestResult",
+    "readConfig",
 )
 
 
@@ -104,6 +105,9 @@ def clickTestRun(
 def readConfig(
     profile: str = "default", path: Path = defaultConfigPath
 ) -> Dict[str, str]:
+    """
+    Read configuration from the given path using the given profile.
+    """
     path = path.expanduser()
 
     parser = ConfigParser(

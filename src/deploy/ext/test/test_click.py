@@ -19,6 +19,7 @@ Tests for :mod:`deploy.ext.click`
 """
 
 from pathlib import Path
+from typing import Dict
 
 from hypothesis import assume, given, note
 from hypothesis.strategies import characters, dictionaries, text
@@ -70,7 +71,9 @@ class ReadConfigTests(TestCase):
             ),
         ),
     )
-    def test_readConfig(self, profile, configDict) -> None:
+    def test_readConfig(
+        self, profile: str, configDict: Dict[str, str]
+    ) -> None:
         assume("]" not in profile)  # No "]" in profile
 
         configLines = [f"[{profile}]\n"]
