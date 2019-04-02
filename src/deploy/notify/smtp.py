@@ -166,20 +166,9 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     if ctx.default_map is None:
         commonDefaults = readConfig(profile=profile)
 
-        commonDefaults.setdefault(
-            "cluster", commonDefaults.get("staging_cluster")
-        )
-        commonDefaults.setdefault(
-            "service", commonDefaults.get("staging_service")
-        )
-
         ctx.default_map = {
             command: commonDefaults for command in (
                 "staging",
-                "rollback",
-                "production",
-                "compare",
-                "environment",
             )
         }
 

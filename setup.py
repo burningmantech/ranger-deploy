@@ -77,7 +77,8 @@ entry_points = {
 }
 
 script_entry_points = {
-    "aws":         ("deploy.aws.ecs",     "ECSServiceClient.main"),
+    "aws_ecr":     ("deploy.aws.ecr",     "ECRServiceClient.main"),
+    "aws_ecs":     ("deploy.aws.ecs",     "ECSServiceClient.main"),
     "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"    ),
 }
 
@@ -108,6 +109,7 @@ install_requirements = [
     "arrow==0.13.1",
     "boto3==1.9.124",
     "click==7.0",
+    "docker==3.7.2",  # [tls]
     "twisted==18.9.0",
 
     # Indirect dependencies

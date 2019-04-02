@@ -14,12 +14,12 @@ ranger-deploy
 Deployment tools for Ranger services.
 
 
-Deploying to Amazon Web Services
---------------------------------
+Deploying to Amazon Web Services Elastic Container Service
+----------------------------------------------------------
 
-Services may be deployed to AWS via the ``deploy_aws`` command.  ``deploy_aws`` will presently only supported for deployments to the Elastic Container Service and has only been tested with services using Fargate.
+Services may be deployed to AWS via the ``deploy_aws_ecs`` command.  ``deploy_aws_ecs`` will presently only supported for deployments to the Elastic Container Service and has only been tested with services using Fargate.
 
-``deploy_aws`` has the following subcommands:
+``deploy_aws_ecs`` has the following subcommands:
 
 ``staging``
   Updates the staging environment to use a new Docker image.
@@ -40,7 +40,7 @@ Services may be deployed to AWS via the ``deploy_aws`` command.  ``deploy_aws`` 
 
 For usage information, run::
 
-  deploy_aws <subcommand> --help
+  deploy_aws_ecs <subcommand> --help
 
 The following environment variables are used if the corresponding command line options are omitted:
 
@@ -56,7 +56,7 @@ The following environment variables are used if the corresponding command line o
 ``AWS_ECS_SERVICE_PRODUCTION``
   ``--production-service``
 
-``deploy_aws`` can alternatively be run as ``python -m deploy.aws.ecs``.
+``deploy_aws_ecs`` can alternatively be run as ``python -m deploy.aws.ecs``.
 
 
 Sending Email Notifications
