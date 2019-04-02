@@ -29,7 +29,7 @@ from attr import Attribute, attrib, attrs
 
 from hypothesis import assume, given
 from hypothesis.strategies import (
-    composite, dictionaries, integers, just,
+    characters, composite, dictionaries, integers, just,
     lists, sampled_from, sets, text, tuples,
 )
 
@@ -1129,7 +1129,18 @@ class CommandLineTests(TestCase):
 
     @given(
         text(min_size=1), text(min_size=1),
-        lists(tuples(text(), text()), min_size=1),
+        lists(  # updates
+            tuples(
+                text(  # updates/keys
+                    alphabet=characters(
+                        blacklist_categories=("Cs",),
+                        blacklist_characters="=",
+                    ),
+                ),
+                text(),  # updates/values
+            ),
+            min_size=1
+        ),
     )
     def test_environment_set(
         self, cluster: str, service: str, updates: List[Tuple[str, str]]
