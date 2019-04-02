@@ -25,7 +25,7 @@ from datetime import (
 from ssl import (
     OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_TLSv1, OP_NO_TLSv1_1, PROTOCOL_TLS
 )
-from typing import Any, ClassVar, List, Optional
+from typing import Any, ClassVar, Iterable, List, Optional
 
 from attr import Factory, attrs
 
@@ -40,6 +40,7 @@ from click import (
 from docker import (
     APIClient as DockerClient, from_env as dockerClientFromEnvironment
 )
+from docker.models.images import Image
 
 from twisted.logger import Logger
 
@@ -180,6 +181,13 @@ class ECRServiceClient(object):
         self.log.info("Logged into ECR Docker registry.", idToken=idToken)
 
 
+    def listImages(self) -> Iterable[Image]:
+        """
+        List images.
+        """
+        return self._docker.images.list()
+
+
 
 #
 # Command line
@@ -225,3 +233,13 @@ def authorization() -> None:
 def login() -> None:
     client = ECRServiceClient()
     client.login()
+
+
+@main.command(name="list")
+def listImages() -> None:
+    client = ECRServiceClient()
+    client.login()
+    images = client.listImages()
+    for image in images:
+        tags = ", ".join(t for t in image.tags)
+        click.echo(f"{image.id}: {tags}")
