@@ -846,14 +846,15 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
     clients: List[ECSServiceClient] = []
 
     class RememberMeECSServiceClient(ECSServiceClient):
-        def __init__(self, cluster: str, service: str) -> None:
-            super().__init__(cluster=cluster, service=service)
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
             clients.append(self)
 
     Client = ecs.ECSServiceClient
     ecs.ECSServiceClient = cast(Type, RememberMeECSServiceClient)
 
-    yield clients
+    with testingBoto3ECS():
+        yield clients
 
     ecs.ECSServiceClient = Client
 
@@ -881,7 +882,7 @@ class CommandLineTests(TestCase):
     def test_staging(
         self, stagingCluster: str, stagingService: str, imageName: str,
     ) -> None:
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
@@ -889,7 +890,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "staging",
+                    "deploy_aws_ecs", "staging",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--image", imageName,
@@ -913,7 +914,7 @@ class CommandLineTests(TestCase):
     def test_staging_trial(
         self, stagingCluster: str, stagingService: str, imageName: str,
     ) -> None:
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
@@ -925,7 +926,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "staging",
+                    "deploy_aws_ecs", "staging",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--image", imageName,
@@ -950,7 +951,7 @@ class CommandLineTests(TestCase):
     def test_rollback(
         self, stagingCluster: str, stagingService: str
     ) -> None:
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
@@ -958,7 +959,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "rollback",
+                    "deploy_aws_ecs", "rollback",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                 ]
@@ -997,7 +998,7 @@ class CommandLineTests(TestCase):
             (productionCluster, productionService)
         )
 
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
             self.initClusterAndService(
@@ -1009,7 +1010,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "production",
+                    "deploy_aws_ecs", "production",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--production-cluster", productionCluster,
@@ -1048,7 +1049,7 @@ class CommandLineTests(TestCase):
             (productionCluster, productionService)
         )
 
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
             self.initClusterAndService(
@@ -1060,7 +1061,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "compare",
+                    "deploy_aws_ecs", "compare",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--production-cluster", productionCluster,
@@ -1095,7 +1096,7 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1))
     def test_environment_get(self, cluster: str, service: str) -> None:
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(cluster, service)
 
@@ -1103,7 +1104,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "environment",
+                    "deploy_aws_ecs", "environment",
                     "--cluster", cluster,
                     "--service", service,
                 ]
@@ -1145,7 +1146,7 @@ class CommandLineTests(TestCase):
     def test_environment_set(
         self, cluster: str, service: str, updates: List[Tuple[str, str]]
     ) -> None:
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(cluster, service)
 
@@ -1155,7 +1156,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "environment",
+                    "deploy_aws_ecs", "environment",
                     "--cluster", cluster,
                     "--service", service,
                     # a letter
@@ -1203,7 +1204,7 @@ class CommandLineTests(TestCase):
     def test_environment_unset(
         self, cluster: str, service: str, removes: List[str]
     ) -> None:
-        with testingBoto3ECS(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(cluster, service)
 
@@ -1213,7 +1214,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "environment",
+                    "deploy_aws_ecs", "environment",
                     "--cluster", cluster,
                     "--service", service,
                     *[f"x{k}" for k in removes]

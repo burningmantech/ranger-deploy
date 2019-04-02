@@ -25,12 +25,14 @@ from datetime import (
 )
 from ssl import Options as SSLOptions
 from typing import (
-    Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple
+    Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Type, cast
 )
 
 from attr import Attribute, attrib, attrs
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
+
+from deploy.ext.click import clickTestRun
 
 from .. import ecr
 from ..ecr import ECRAuthorizationToken, ECRServiceClient
@@ -194,6 +196,9 @@ class ECRServiceClientTests(TestCase):
         with testingDocker():
             client = ECRServiceClient()
             self.assertIsInstance(client._docker, MockDockerClient)
+            self.assertEqual(
+                client._tlsVersion, ECRServiceClient._tlsVersion
+            )
 
 
     def test_authorizationToken_new(self) -> None:
@@ -248,4 +253,80 @@ class ECRServiceClientTests(TestCase):
     def test_login(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
+            assert client._docker._login is None
+
             client.login()
+
+            self.assertIsNotNone(client._docker._login)
+
+
+
+@contextmanager
+def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
+    clients: List[ECRServiceClient] = []
+
+    class RememberMeECRServiceClient(ECRServiceClient):
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            clients.append(self)
+
+    Client = ecr.ECRServiceClient
+    ecr.ECRServiceClient = cast(Type, RememberMeECRServiceClient)
+
+    with testingBoto3ECR(), testingDocker():
+        yield clients
+
+    ecr.ECRServiceClient = Client
+
+    clients.clear()
+
+
+
+class CommandLineTests(TestCase):
+    """
+    Tests for the :class:`ECRServiceClient` command line.
+    """
+
+    def test_authorization(self) -> None:
+        with testingECRServiceClient() as clients:
+            # Run "authorization" subcommand
+            result = clickTestRun(
+                ECRServiceClient.main, ["deploy_aws_ecr", "authorization"]
+            )
+
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertFalse(client._dockerClient)
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(
+            result.echoOutput[0:3],
+            [
+                ("User: AWS", {}),
+                ("Password: see-kreht", {}),
+                ("Proxy endpoint: https://101010101010.ecr.aws", {}),
+            ],
+        )
+        self.assertTrue(result.echoOutput[3][0].startswith("Expiration: "))
+        self.assertEqual(len(result.echoOutput), 4)
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
+
+
+    def test_login(self) -> None:
+        with testingECRServiceClient() as clients:
+            # Run "login" subcommand
+            result = clickTestRun(
+                ECRServiceClient.main, ["deploy_aws_ecr", "login"]
+            )
+
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            self.assertIsNotNone(client._docker._login)
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
