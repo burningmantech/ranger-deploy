@@ -84,7 +84,7 @@ class ReadConfigTests(TestCase):
         #    don't start with a comment character.
         #  * "$" is removed from values so that we don't trigger interpolation.
         configDict = {
-            f"x{k.lower().strip()}": v.strip().replace("$", "")
+            f"x{k.lower().strip()}": v.replace("$", "").strip()
             for k, v in configDict.items()
         }
 
