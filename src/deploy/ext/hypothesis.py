@@ -2,9 +2,11 @@
 Extensions to :mod:`hypothesis`
 """
 
+from os import environ
 from string import ascii_letters, digits, printable
 from typing import Callable, Optional
 
+from hypothesis import HealthCheck, settings
 from hypothesis.strategies import SearchStrategy, composite, integers, text
 
 
@@ -16,6 +18,17 @@ __all__ = (
     "email_addresses",
     "repository_ids",
 )
+
+
+settings.register_profile(
+    "CI",
+    deadline=None,
+    max_examples=settings().max_examples * 10,
+    suppress_health_check=(HealthCheck.too_slow,),
+)
+
+if environ.get("CI", "False").lower() in ("true", "yes", "1"):
+    settings.load_profile("CI")
 
 
 def ascii_text(
