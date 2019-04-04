@@ -20,29 +20,28 @@ Tests for :mod:`deploy.aws.ecr`
 
 from base64 import b64encode
 from contextlib import contextmanager
-from datetime import (
-    datetime as DateTime, timedelta as TimeDelta, timezone as TimeZone
-)
+from datetime import timedelta as TimeDelta
+from hashlib import sha256
 from ssl import Options as SSLOptions
 from typing import (
     Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Type, cast
 )
 
-from attr import Attribute, attrib, attrs
+from attr import Attribute, Factory, attrib, attrs
+
+from docker.errors import ImageNotFound
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
-from deploy.ext.click import clickTestRun
+from deploy.ext.click import ClickTestResult, clickTestRun
 
 from .. import ecr
-from ..ecr import ECRAuthorizationToken, ECRServiceClient
+from ..ecr import (
+    ECRAuthorizationToken, ECRServiceClient, InvalidImageNameError, utcNow
+)
 
 
 __all__ = ()
-
-
-def utcNow() -> DateTime:
-    return DateTime.utcnow().replace(tzinfo=TimeZone.utc)
 
 
 
@@ -101,14 +100,79 @@ class MockBoto3ECRClient(object):
 
 
 @attrs(auto_attribs=True)
+class MockImage(object):
+    id: str
+    tags: List[str]
+
+
+    def tag(self, repository: str, tag: Optional[str] = None) -> bool:
+        assert ":" not in repository
+        assert tag is not None
+        name = f"{repository}:{tag}"
+        self.tags.append(name)
+        return True
+
+
+
+@attrs(auto_attribs=True)
+class MockImagesAPI(object):
+    _parent: "MockDockerClient"
+
+
+    def list(self) -> List[MockImage]:
+        return self._parent._localImages
+
+
+    def get(self, name: str) -> MockImage:
+        for image in self.list():
+            if name in image.tags:
+                return image
+
+        raise ImageNotFound(name)
+
+
+    def push(
+        self, repository: str, tag: Optional[str] = None,
+        stream: bool = False, decode: bool = False,
+        auth_config: Optional[Dict[str, str]] = None,
+    ) -> str:
+        assert ":" not in repository
+        assert tag is not None
+
+        assert not stream, "streaming not implemented"
+        assert not decode, "decode not implemented"
+
+        raise NotImplementedError()
+
+        return ""
+
+
+
+def hash(text: str) -> str:
+    return sha256(text.encode("utf-8")).hexdigest()
+
+
+
+@attrs(auto_attribs=True)
 class MockDockerClient(object):
     """
     Mock Docker client.
     """
 
+    @staticmethod
+    def _defaultLocalImages() -> List[MockImage]:
+        return [
+            MockImage(id=hash("1"), tags=["image:1"]),
+            MockImage(id=hash("2"), tags=["image:2"]),
+            MockImage(id=hash("3"), tags=["image:3"]),
+        ]
+
     #
     # Class attributes
     #
+
+    _localImages: ClassVar[List[MockImage]] = []
+
 
     @classmethod
     def _fromEnvironment(
@@ -119,12 +183,13 @@ class MockDockerClient(object):
 
     @classmethod
     def _setUp(cls) -> None:
-        pass
+        # Copy images so that we aren't sharing mutable tags
+        cls._localImages.extend(cls._defaultLocalImages())
 
 
     @classmethod
     def _tearDown(cls) -> None:
-        pass
+        cls._localImages.clear()
 
 
     #
@@ -133,6 +198,8 @@ class MockDockerClient(object):
 
     _sslVersion: SSLOptions
     _login: Optional[Tuple[str, str, str]] = None
+
+    images: MockImagesAPI = Factory(MockImagesAPI, takes_self=True)
 
 
     def login(
@@ -172,6 +239,25 @@ def testingDocker() -> Iterator[None]:
     ecr.dockerClientFromEnvironment = dockerClientFromEnvironment
 
     MockDockerClient._tearDown()
+
+
+
+class ECRAuthorizationTokenTests(TestCase):
+    """
+    Tests for :class:`ECRAuthorizationToken`
+    """
+
+    def test_credentials(self) -> None:
+        token = ECRAuthorizationToken(
+            username="user",
+            password="password",
+            expiration=utcNow(),
+            proxyEndpoint="https://foo.example.com/ecr",
+        )
+        self.assertEqual(
+            token.credentials(),
+            dict(username=token.username, password=token.password),
+        )
 
 
 
@@ -250,14 +336,113 @@ class ECRServiceClientTests(TestCase):
                 self.assertNotEqual(newToken, token)
 
 
-    def test_login(self) -> None:
+    # def test_login(self) -> None:
+    #     with testingBoto3ECR(), testingDocker():
+    #         client = ECRServiceClient()
+    #         assert client._docker._login is None
+
+    #         client.login()
+
+    #         self.assertIsNotNone(client._docker._login)
+
+
+    def test_listImages(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            assert client._docker._login is None
+            images = client.listImages()
 
-            client.login()
+            self.assertEqual(images, MockDockerClient._localImages)
 
-            self.assertIsNotNone(client._docker._login)
+
+    def test_imageWithName(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            image = client.imageWithName("image:1")
+            self.assertIn("image:1", image.tags)
+
+
+    def test_imageWithName_invalid(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                InvalidImageNameError, client.imageWithName, "image"
+            )
+
+
+    def test_imageWithName_notFound(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                ImageNotFound, client.imageWithName, "xyzzy:fnord"
+            )
+
+
+    def test_tag(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            image = client.imageWithName("image:1")
+            assert image.tags == ["image:1"]
+
+            client.tag("image:1", "test:latest")
+            image = client.imageWithName("image:1")
+            self.assertIn("test:latest", image.tags)
+
+
+    def test_imageWithName_invalidExisting(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                InvalidImageNameError, client.tag, "image", "test:latest"
+            )
+
+
+    def test_tag_invalidNew(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                InvalidImageNameError, client.tag, "image:1", "test"
+            )
+
+
+    def test_tag_doesntExist(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                ImageNotFound, client.tag, "xyzzy:fnord", "test:latest"
+            )
+
+
+    def test_push(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            client.push("image:1", "test:latest")
+            raise NotImplementedError()
+
+    test_push.todo = "unimplemented"
+
+
+    def test_push_invalidLocal(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                InvalidImageNameError, client.push, "image", "test:latest"
+            )
+
+
+    def test_push_invalidECR(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                InvalidImageNameError, client.push, "image:1", "test"
+            )
+
+
+    def test_push_doesntExist(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            self.assertRaises(
+                ImageNotFound, client.push, "xyzzy:fnord", "test:latest"
+            )
 
 
 
@@ -297,6 +482,7 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
 
+            # Should not have needed to invoke Docker here
             self.assertFalse(client._dockerClient)
 
         self.assertEqual(result.exitCode, 0)
@@ -314,17 +500,60 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
 
-    def test_login(self) -> None:
+    # def test_login(self) -> None:
+    #     with testingECRServiceClient() as clients:
+    #         # Run "login" subcommand
+    #         result = clickTestRun(
+    #             ECRServiceClient.main, ["deploy_aws_ecr", "login"]
+    #         )
+
+    #         self.assertEqual(len(clients), 1)
+    #         client = clients[0]
+
+    #         self.assertIsNotNone(client._docker._login)
+
+    #     self.assertEqual(result.exitCode, 0)
+    #     self.assertEqual(result.echoOutput, [])
+    #     self.assertEqual(result.stdout.getvalue(), "")
+    #     self.assertEqual(result.stderr.getvalue(), "")
+
+
+    def test_list(self) -> None:
         with testingECRServiceClient() as clients:
-            # Run "login" subcommand
+            # Run "authorization" subcommand
             result = clickTestRun(
-                ECRServiceClient.main, ["deploy_aws_ecr", "login"]
+                ECRServiceClient.main, ["deploy_aws_ecr", "list"]
+            )
+
+            self.assertEqual(len(clients), 1)
+
+        expectedEchoOutput: ClickTestResult.echoOutputType = []
+        for image in MockDockerClient._defaultLocalImages():
+            tags = ", ".join(image.tags)
+            expectedEchoOutput.append(
+                (f"{image.id}: {tags}", {})
+            )
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, expectedEchoOutput)
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
+
+
+    def test_tag(self) -> None:
+        with testingECRServiceClient() as clients:
+            # Run "authorization" subcommand
+            result = clickTestRun(
+                ECRServiceClient.main, [
+                    "deploy_aws_ecr", "tag", "image:1", "test:latest"
+                ]
             )
 
             self.assertEqual(len(clients), 1)
             client = clients[0]
 
-            self.assertIsNotNone(client._docker._login)
+            image = client.imageWithName("image:1")
+            self.assertIn("test:latest", image.tags)
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])

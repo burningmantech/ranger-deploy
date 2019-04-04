@@ -25,7 +25,7 @@ from datetime import (
 from ssl import (
     OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_TLSv1, OP_NO_TLSv1_1, PROTOCOL_TLS
 )
-from typing import Any, ClassVar, Iterable, List, Optional
+from typing import Any, ClassVar, Dict, Iterable, List, Optional
 
 from attr import Factory, attrs
 
@@ -49,11 +49,23 @@ from deploy.ext.logger import startLogging
 
 
 __all__ = (
+    "InvalidImageNameError",
     "ECRAuthorizationToken",
     "ECRServiceClient",
 )
 
 Boto3ECRClient = Any
+
+
+def utcNow() -> DateTime:
+    return DateTime.utcnow().replace(tzinfo=TimeZone.utc)
+
+
+
+class InvalidImageNameError(Exception):
+    """
+    Invalid Docker image name.
+    """
 
 
 
@@ -68,6 +80,16 @@ class ECRAuthorizationToken(object):
     expiration: DateTime
     proxyEndpoint: str
 
+    def credentials(self) -> Dict[str, str]:
+        """
+        Returns credentials as required by the auth_config argument to
+        docker.client.images.push().
+        """
+        return {
+            "username": self.username,
+            "password": self.password,
+        }
+
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -75,6 +97,19 @@ class ECRServiceClient(object):
     """
     EC2 Container Registry Client
     """
+
+    @staticmethod
+    def validateImageName(name: str) -> None:
+        """
+        Validate an image name.
+        Note: ECRServiceClient always requires image names to include the tag;
+        ":latest" is not inferred if the tag is missing.
+        """
+        try:
+            repository, tag = name.split(":")
+        except ValueError:
+            raise InvalidImageNameError(name)
+
 
     #
     # Class attributes
@@ -131,7 +166,7 @@ class ECRServiceClient(object):
         if self._authorizationToken:
             expiration = self._authorizationToken[0].expiration
 
-            now = DateTime.utcnow().replace(tzinfo=TimeZone.utc)
+            now = utcNow()
 
             # Subtract refresh window from expiration time so we aren't using a
             # token that's nearly expired.
@@ -163,22 +198,22 @@ class ECRServiceClient(object):
         return self._authorizationToken[0]
 
 
-    def login(self) -> None:
-        """
-        Log Docker into ECR,
-        """
-        token = self.authorizationToken()
-        self.log.debug("Logging into ECR Docker registry...")
-        response = self._docker.login(
-            username=token.username,
-            password=token.password,
-            registry=token.proxyEndpoint,
-            reauth=True,
-        )
-        idToken = response["IdentityToken"]
-        status = response["Status"]
-        assert status == "Login Succeeded"
-        self.log.info("Logged into ECR Docker registry.", idToken=idToken)
+    # def login(self) -> None:
+    #     """
+    #     Log Docker into ECR.
+    #     """
+    #     token = self.authorizationToken()
+    #     self.log.debug("Logging into ECR Docker registry...")
+    #     response = self._docker.login(
+    #         username=token.username,
+    #         password=token.password,
+    #         registry=token.proxyEndpoint,
+    #         reauth=True,
+    #     )
+    #     idToken = response["IdentityToken"]
+    #     status = response["Status"]
+    #     assert status == "Login Succeeded"
+    #     self.log.info("Logged into ECR Docker registry.", idToken=idToken)
 
 
     def listImages(self) -> Iterable[Image]:
@@ -186,6 +221,63 @@ class ECRServiceClient(object):
         List images.
         """
         return self._docker.images.list()
+
+
+    def imageWithName(self, name: str) -> Image:
+        """
+        Look up the named image.
+        """
+        self.validateImageName(name)
+        return self._docker.images.get(name)
+
+
+    def tag(self, existingName: str, newName: str) -> None:
+        """
+        Tag an image.
+        """
+        image = self.imageWithName(existingName)
+
+        try:
+            repository, tag = newName.split(":")
+        except ValueError:
+            raise InvalidImageNameError(newName)
+
+        image.tag(repository=repository, tag=tag)
+
+        self.log.info(
+            "Tagged image {image.short_id} ({existingName}) as {newName}.",
+            image=image, existingName=existingName, newName=newName,
+        )
+
+
+    def push(self, localName: str, ecrName: str) -> None:
+        """
+        Tag a local image named localName with ecrName and push the image to
+        ECR with the new tag.
+        """
+        self.validateImageName(localName)
+
+        try:
+            repository, tag = ecrName.split(":")
+        except ValueError:
+            raise InvalidImageNameError(ecrName)
+
+        image = self._docker.images.get(localName)
+        image.tag(repository, tag)
+
+        credentials = self.authorizationToken().credentials()
+
+        self.log.debug(
+            "Pushing image {image.short_id} ({localName}) "
+            "to ECR with name {ecrName}...",
+            image=image, localName=localName, ecrName=ecrName,
+        )
+        self._docker.images.push(repository, tag, auth_config=credentials)
+        self.log.info(
+            "Pushed image {image.short_id} ({localName}) "
+            "to ECR with name {ecrName}.",
+            image=image, localName=localName, ecrName=ecrName,
+        )
 
 
 
@@ -210,6 +302,9 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 
         ctx.default_map = {
             command: commonDefaults for command in (
+                "authorization",
+                "list",
+                "tag",
             )
         }
 
@@ -229,17 +324,32 @@ def authorization() -> None:
     click.echo(f"Expiration: {token.expiration}")
 
 
-@main.command()
-def login() -> None:
-    client = ECRServiceClient()
-    client.login()
+# @main.command()
+# def login() -> None:
+#     client = ECRServiceClient()
+#     client.login()
 
 
 @main.command(name="list")
 def listImages() -> None:
     client = ECRServiceClient()
-    client.login()
     images = client.listImages()
     for image in images:
         tags = ", ".join(t for t in image.tags)
         click.echo(f"{image.id}: {tags}")
+
+
+@main.command()
+@click.argument("existing-name")
+@click.argument("new-name")
+def tag(existing_name: str, new_name: str) -> None:
+    client = ECRServiceClient()
+    client.tag(existing_name, new_name)
+
+
+@main.command()
+@click.argument("local-name")
+@click.argument("ecr-name")
+def push(local_name: str, ecr_name: str) -> None:
+    client = ECRServiceClient()
+    client.push(local_name, ecr_name)

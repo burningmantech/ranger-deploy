@@ -90,6 +90,7 @@ class ReadConfigTests(TestCase):
 
         configLines = [f"[{profile}]\n"]
         for key, value in configDict.items():
+            assume(not value.startswith("="))
             configLines.append(f"{key} = {value}\n")
 
         configText = "\n".join(configLines) + "\n"
