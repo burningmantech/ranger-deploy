@@ -25,7 +25,8 @@ from hashlib import sha256
 from json import JSONDecodeError
 from ssl import Options as SSLOptions
 from typing import (
-    Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Type, cast
+    Any, ClassVar, Dict, Iterator, List,
+    Optional, Sequence, Tuple, Type, Union, cast,
 )
 
 from attr import Attribute, Factory, attrib, attrs
@@ -140,24 +141,75 @@ class MockImagesAPI(object):
         raise ImageNotFound(name)
 
 
+    def _fromECR(self, name: str) -> Optional[MockImage]:
+        images: List[MockImage] = []
+        for image in self._parent._cloudImages:
+            if name in image.tags:
+                images.append(image)
+
+        if not images:
+            return None
+
+        assert len(images) == 1
+
+        return images[0]
+
+
     def push(
         self, repository: str, tag: Optional[str] = None,
         stream: bool = False, decode: bool = False,
         auth_config: Optional[Dict[str, str]] = None,
-    ) -> str:
+    ) -> Union[str, Iterator[str]]:
         assert ":" not in repository
         assert tag is not None
 
-        assert not stream, "streaming not implemented"
         assert not decode, "decode not implemented"
 
         name = f"{repository}:{tag}"
 
         image = self.get(name)
+        ecrImage = MockImage(id=image.id, tags=[name])
 
-        raise NotImplementedError(image)
+        # Untag any existing images with the same name
+        existing = self._fromECR(name)
+        if existing is not None:
+            existing.tags.remove(name)
 
-        return ""
+        self._parent._cloudImages.append(ecrImage)
+
+        size   = len(image.id)
+        digest = f"sha256:{sha256Hash(image.id)}"
+
+        # Fake some activity
+        json = [
+            {"status": f"The push refers to repository [{repository}]"},
+            {"status": "Preparing", "id": image.id, "progressDetail": {}},
+            {"status": "Waiting", "id": image.id, "progressDetail": {}},
+            {
+                "status": "Pushing", "id": image.id,
+                "progressDetail": {"current": 0, "total": size},
+            },
+            {
+                "status": "Pushing", "id": image.id,
+                "progressDetail": {"current": int(size / 2), "total": size},
+            },
+            {
+                "status": "Pushing", "id": image.id,
+                "progressDetail": {"current": size, "total": size},
+            },
+            {"status": "Pushed", "id": image.id, "progressDetail": {}},
+            {"status": f"{tag}: digest: {digest} size: {size}"},
+            {
+                "aux": {"Tag": tag, "Digest": digest, "Size": size},
+                "progressDetail": {},
+            },
+        ]
+        jsonStream = (jsonTextFromObject(j) for j in json)
+
+        if stream:
+            return jsonStream
+        else:
+            return "\n".join(jsonStream) + "\n"
 
 
 
@@ -388,17 +440,19 @@ class ECRServiceClientTests(TestCase):
     def test_imageWithName_invalid(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                InvalidImageNameError, client.imageWithName, "image"
+            name = "image"
+            e = self.assertRaises(
+                InvalidImageNameError, client.imageWithName, name
             )
+            self.assertEqual(str(e), name)
 
 
     def test_imageWithName_notFound(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                ImageNotFound, client.imageWithName, "xyzzy:fnord"
-            )
+            name = "xyzzy:fnord"
+            e = self.assertRaises(ImageNotFound, client.imageWithName, name)
+            self.assertEqual(str(e), name)
 
 
     def test_tag(self) -> None:
@@ -415,58 +469,76 @@ class ECRServiceClientTests(TestCase):
     def test_imageWithName_invalidExisting(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                InvalidImageNameError, client.tag, "image", "test:latest"
+            name = "image"
+            e = self.assertRaises(
+                InvalidImageNameError, client.tag, name, "test:latest"
             )
+            self.assertEqual(str(e), name)
 
 
     def test_tag_invalidNew(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                InvalidImageNameError, client.tag, "image:1", "test"
+            name = "test"
+            e = self.assertRaises(
+                InvalidImageNameError, client.tag, "image:1", name
             )
+            self.assertEqual(str(e), name)
 
 
     def test_tag_doesntExist(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                ImageNotFound, client.tag, "xyzzy:fnord", "test:latest"
+            name = "xyzzy:fnord"
+            e = self.assertRaises(
+                ImageNotFound, client.tag, name, "test:latest"
             )
+            self.assertEqual(str(e), name)
 
 
     def test_push(self) -> None:
         with testingBoto3ECR(), testingDocker():
-            client = ECRServiceClient()
-            client.push("image:1", "test:latest")
-            raise NotImplementedError()
+            localTag = "image:1"
+            ecrTag = "test:latest"
 
-    test_push.todo = "unimplemented"
+            client = ECRServiceClient()
+            client.push(localTag, ecrTag)
+
+            image = client._docker.images._fromECR(ecrTag)
+
+            self.assertIsNotNone(image, client._docker._cloudImages)
+            self.assertIn(ecrTag, image.tags)
+            self.assertNotIn(localTag, image.tags)
 
 
     def test_push_invalidLocal(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                InvalidImageNameError, client.push, "image", "test:latest"
+            name = "image"
+            e = self.assertRaises(
+                InvalidImageNameError, client.push, name, "test:latest"
             )
+            self.assertEqual(str(e), name)
 
 
     def test_push_invalidECR(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                InvalidImageNameError, client.push, "image:1", "test"
+            name = "test"
+            e = self.assertRaises(
+                InvalidImageNameError, client.push, "image:1", name
             )
+            self.assertEqual(str(e), name)
 
 
     def test_push_doesntExist(self) -> None:
         with testingBoto3ECR(), testingDocker():
             client = ECRServiceClient()
-            self.assertRaises(
-                ImageNotFound, client.push, "xyzzy:fnord", "test:latest"
+            name = "xyzzy:fnord"
+            e = self.assertRaises(
+                ImageNotFound, client.push, name, "test:latest"
             )
+            self.assertEqual(str(e), name)
 
 
 
@@ -551,11 +623,12 @@ class DockerPushResponseHandlerTests(TestCase):
         assume(status not in ImagePushState.__members__)
 
         handler = DockerPushResponseHandler(repository="repo", tag="latest")
-        self.assertRaises(
+        e = self.assertRaises(
             DockerServiceError,
             handler._handleImageStatusUpdate,
             json={"status": status, "id": "1", "progressDetail": {}},
         )
+        self.assertEqual(str(e), f"Unknown status: {status}")
 
 
     def test_handleImageStatusUpdate_preparing(self) -> None:
