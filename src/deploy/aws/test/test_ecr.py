@@ -124,6 +124,9 @@ class MockImage(object):
 
 @attrs(auto_attribs=True)
 class MockImagesAPI(object):
+    _fakeNewsError = "This error is fake news."
+
+
     _parent: "MockDockerClient"
 
 
@@ -161,6 +164,7 @@ class MockImagesAPI(object):
     ) -> Union[str, Iterator[str]]:
         assert ":" not in repository
         assert tag is not None
+        assert stream is True
 
         assert not decode, "decode not implemented"
 
@@ -203,9 +207,11 @@ class MockImagesAPI(object):
                 "progressDetail": {},
             },
         ]
-        jsonStream = (jsonTextFromObject(j) for j in json)
 
-        return jsonStream if stream else "\n".join(jsonStream) + "\n"
+        if self._parent._generateErrors:
+            json += [{"errorDetail": self._fakeNewsError}]
+
+        return (jsonTextFromObject(j) for j in json)
 
 
 
@@ -269,6 +275,7 @@ class MockDockerClient(object):
     #
 
     _sslVersion: SSLOptions
+    _generateErrors = False
 
     images: MockImagesAPI = Factory(MockImagesAPI, takes_self=True)
 
@@ -484,6 +491,42 @@ class ECRServiceClientTests(TestCase):
             self.assertIsNotNone(image, client._docker._cloudImages)
             self.assertIn(ecrTag, image.tags)
             self.assertNotIn(localTag, image.tags)
+
+
+    def test_push_error(self) -> None:
+        with testingBoto3ECR(), testingDocker():
+            client = ECRServiceClient()
+            client._docker._generateErrors = True
+
+            with logCapture() as events:
+                client.push("image:1", "test:latest")
+
+                failureEvents = [
+                    event for event in events
+                    if "failure" in event
+                ]
+
+            self.assertEqual(len(failureEvents), 1)
+
+            failureEvent: Dict[str, Any] = failureEvents[0]
+
+            fakeNewsError = MockImagesAPI._fakeNewsError
+
+            self.assertEqual(
+                failureEvent["log_format"],
+                "While handling push response line: {line}",
+            )
+            self.assertEqual(
+                failureEvent["line"],
+                f'{{"errorDetail":"{fakeNewsError}"}}',
+            )
+
+            handler: DockerPushResponseHandler = failureEvent["log_source"]
+
+            self.assertEqual(len(handler.errors), 1)
+            self.assertEqual(handler.errors[0], fakeNewsError)
+
+        self.flushLoggedErrors()
 
 
     def test_push_invalidLocal(self) -> None:
@@ -913,17 +956,17 @@ class DockerPushResponseHandlerTests(TestCase):
                 if event["log_source"] is handler and "failure" in event
             ]
 
-            self.assertEqual(len(failureEvents), 1)
+        self.assertEqual(len(failureEvents), 1)
 
-            failureEvent = failureEvents[0]
+        failureEvent = failureEvents[0]
 
-            self.assertEqual(
-                failureEvent["log_format"],
-                "While handling push response line: {line}",
-            )
-            self.assertEqual(failureEvent["line"], "#")
+        self.assertEqual(
+            failureEvent["log_format"],
+            "While handling push response line: {line}",
+        )
+        self.assertEqual(failureEvent["line"], "#")
 
-            self.flushLoggedErrors()
+        self.flushLoggedErrors()
 
 
     def test_handleResponse_text(self) -> None:

@@ -457,12 +457,13 @@ class DockerPushResponseHandler(object):
         for line in payload.split("\n"):
             try:
                 self._handleLine(line)
-            except Exception:
+            except Exception as e:
                 from twisted.python.failure import Failure
                 self.log.critical(
                     "While handling push response line: {line}",
                     line=line, failure=Failure()
                 )
+                self._error(str(e))
 
 
     def handleResponse(self, response: Union[str, Iterable[str]]) -> None:
