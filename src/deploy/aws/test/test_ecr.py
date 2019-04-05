@@ -25,8 +25,7 @@ from hashlib import sha256
 from json import JSONDecodeError
 from ssl import Options as SSLOptions
 from typing import (
-    Any, ClassVar, Dict, Iterator, List,
-    Optional, Sequence, Tuple, Type, Union, cast,
+    Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Type, Union, cast
 )
 
 from attr import Attribute, Factory, attrib, attrs
@@ -206,10 +205,7 @@ class MockImagesAPI(object):
         ]
         jsonStream = (jsonTextFromObject(j) for j in json)
 
-        if stream:
-            return jsonStream
-        else:
-            return "\n".join(jsonStream) + "\n"
+        return jsonStream if stream else "\n".join(jsonStream) + "\n"
 
 
 
@@ -273,19 +269,8 @@ class MockDockerClient(object):
     #
 
     _sslVersion: SSLOptions
-    _login: Optional[Tuple[str, str, str]] = None
 
     images: MockImagesAPI = Factory(MockImagesAPI, takes_self=True)
-
-
-    def login(
-        self, username: str, password: str, registry: str, reauth: bool
-    ) -> Dict[str, str]:
-        self._login = (username, password, registry)
-        return {
-            "IdentityToken": "",
-            "Status": "Login Succeeded",
-        }
 
 
 
@@ -410,16 +395,6 @@ class ECRServiceClientTests(TestCase):
                 newToken = client.authorizationToken()
 
                 self.assertNotEqual(newToken, token)
-
-
-    # def test_login(self) -> None:
-    #     with testingBoto3ECR(), testingDocker():
-    #         client = ECRServiceClient()
-    #         assert client._docker._login is None
-
-    #         client.login()
-
-    #         self.assertIsNotNone(client._docker._login)
 
 
     def test_listImages(self) -> None:
@@ -1043,24 +1018,6 @@ class CommandLineTests(TestCase):
         self.assertEqual(len(result.echoOutput), 4)
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
-
-
-    # def test_login(self) -> None:
-    #     with testingECRServiceClient() as clients:
-    #         # Run "login" subcommand
-    #         result = clickTestRun(
-    #             ECRServiceClient.main, ["deploy_aws_ecr", "login"]
-    #         )
-
-    #         self.assertEqual(len(clients), 1)
-    #         client = clients[0]
-
-    #         self.assertIsNotNone(client._docker._login)
-
-    #     self.assertEqual(result.exitCode, 0)
-    #     self.assertEqual(result.echoOutput, [])
-    #     self.assertEqual(result.stdout.getvalue(), "")
-    #     self.assertEqual(result.stderr.getvalue(), "")
 
 
     def test_list(self) -> None:

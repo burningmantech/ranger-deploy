@@ -206,24 +206,6 @@ class ECRServiceClient(object):
         return self._authorizationToken[0]
 
 
-    # def login(self) -> None:
-    #     """
-    #     Log Docker into ECR.
-    #     """
-    #     token = self.authorizationToken()
-    #     self.log.debug("Logging into ECR Docker registry...")
-    #     response = self._docker.login(
-    #         username=token.username,
-    #         password=token.password,
-    #         registry=token.proxyEndpoint,
-    #         reauth=True,
-    #     )
-    #     idToken = response["IdentityToken"]
-    #     status = response["Status"]
-    #     assert status == "Login Succeeded"
-    #     self.log.info("Logged into ECR Docker registry.", idToken=idToken)
-
-
     def listImages(self) -> Iterable[Image]:
         """
         List images.
@@ -281,7 +263,7 @@ class ECRServiceClient(object):
             image=image, localName=localName, ecrName=ecrName,
         )
         response = self._docker.images.push(
-            repository, tag, auth_config=credentials
+            repository, tag, auth_config=credentials, stream=True
         )
         handler = DockerPushResponseHandler(repository=repository, tag=tag)
         handler.handleResponse(response=response)
@@ -534,12 +516,6 @@ def authorization() -> None:
     click.echo(f"Password: {token.password}")
     click.echo(f"Proxy endpoint: {token.proxyEndpoint}")
     click.echo(f"Expiration: {token.expiration}")
-
-
-# @main.command()
-# def login() -> None:
-#     client = ECRServiceClient()
-#     client.login()
 
 
 @main.command(name="list")
