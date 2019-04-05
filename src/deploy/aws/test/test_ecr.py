@@ -439,13 +439,16 @@ class ECRServiceClientTests(TestCase):
 
     def test_tag(self) -> None:
         with testingBoto3ECR(), testingDocker():
-            client = ECRServiceClient()
-            image = client.imageWithName("image:1")
-            assert image.tags == ["image:1"]
+            existingName = "image:1"
+            newName = "test:latest"
 
-            client.tag("image:1", "test:latest")
-            image = client.imageWithName("image:1")
-            self.assertIn("test:latest", image.tags)
+            client = ECRServiceClient()
+            image = client.imageWithName(existingName)
+            assert image.tags == [existingName]
+
+            client.tag(existingName, newName)
+            image = client.imageWithName(existingName)
+            self.assertIn(newName, image.tags)
 
 
     def test_imageWithName_invalidExisting(self) -> None:
@@ -481,15 +484,15 @@ class ECRServiceClientTests(TestCase):
     def test_push(self) -> None:
         with testingBoto3ECR(), testingDocker():
             localTag = "image:1"
-            ecrTag = "test:latest"
+            ecrName = "test:latest"
 
             client = ECRServiceClient()
-            client.push(localTag, ecrTag)
+            client.push(localTag, ecrName)
 
-            image = client._docker.images._fromECR(ecrTag)
+            image = client._docker.images._fromECR(ecrName)
 
             self.assertIsNotNone(image, client._docker._cloudImages)
-            self.assertIn(ecrTag, image.tags)
+            self.assertIn(ecrName, image.tags)
             self.assertNotIn(localTag, image.tags)
 
 
@@ -1087,18 +1090,50 @@ class CommandLineTests(TestCase):
 
     def test_tag(self) -> None:
         with testingECRServiceClient() as clients:
+            existingName = "image:1"
+            newName = "test:latest"
+
             # Run "authorization" subcommand
             result = clickTestRun(
                 ECRServiceClient.main, [
-                    "deploy_aws_ecr", "tag", "image:1", "test:latest"
+                    "deploy_aws_ecr", "tag", existingName, newName
                 ]
             )
 
             self.assertEqual(len(clients), 1)
             client = clients[0]
 
-            image = client.imageWithName("image:1")
-            self.assertIn("test:latest", image.tags)
+            image = client.imageWithName(existingName)
+            self.assertIn(newName, image.tags)
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
+
+
+    def test_push(self) -> None:
+        with testingECRServiceClient() as clients:
+            existingName = "image:1"
+            ecrName = "cloud:latest"
+
+            # Run "authorization" subcommand
+            result = clickTestRun(
+                ECRServiceClient.main, [
+                    "deploy_aws_ecr", "push", existingName, ecrName
+                ]
+            )
+
+            self.assertEqual(len(clients), 1)
+            client = clients[0]
+
+            # Tag should exist locally
+            image = client.imageWithName(ecrName)
+            self.assertIsNotNone(image)
+
+            # And it should exist in ECR
+            image = client._docker.images._fromECR(ecrName)
+            self.assertIsNotNone(image)
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
