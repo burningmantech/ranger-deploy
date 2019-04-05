@@ -22,10 +22,11 @@ from base64 import b64decode
 from datetime import (
     datetime as DateTime, timedelta as TimeDelta, timezone as TimeZone
 )
+from enum import IntEnum
 from ssl import (
     OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_TLSv1, OP_NO_TLSv1_1, PROTOCOL_TLS
 )
-from typing import Any, ClassVar, Dict, Iterable, List, Optional
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union
 
 from attr import Factory, attrs
 
@@ -45,6 +46,7 @@ from docker.models.images import Image
 from twisted.logger import Logger
 
 from deploy.ext.click import readConfig
+from deploy.ext.json import objectFromJSONText
 from deploy.ext.logger import startLogging
 
 
@@ -60,6 +62,12 @@ Boto3ECRClient = Any
 def utcNow() -> DateTime:
     return DateTime.utcnow().replace(tzinfo=TimeZone.utc)
 
+
+
+class DockerServiceError(Exception):
+    """
+    Error from Docker service.
+    """
 
 
 class InvalidImageNameError(Exception):
@@ -272,12 +280,216 @@ class ECRServiceClient(object):
             "to ECR with name {ecrName}...",
             image=image, localName=localName, ecrName=ecrName,
         )
-        self._docker.images.push(repository, tag, auth_config=credentials)
+        response = self._docker.images.push(
+            repository, tag, auth_config=credentials
+        )
+        handler = DockerPushResponseHandler(repository=repository, tag=tag)
+        handler.handleResponse(response=response)
+        for error in handler.errors:
+            self.log.error(
+                "Error processing response while pushing to "
+                "{imageName}: {error}",
+                imageName=ecrName, error=error,
+            )
         self.log.info(
             "Pushed image {image.short_id} ({localName}) "
             "to ECR with name {ecrName}.",
             image=image, localName=localName, ecrName=ecrName,
         )
+
+
+
+class ImagePushState(IntEnum):
+    start     = 1
+    preparing = 2
+    waiting   = 3
+    pushing   = 4
+    pushed    = 5
+
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ImagePushStatus(object):
+    state: ImagePushState = ImagePushState.start
+
+    currentProgress: int = 0
+    totalProgress: int   = -1
+
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ImagePushResult(object):
+    tag: str
+    digest: str
+    size: int
+
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class DockerPushResponseHandler(object):
+    log = Logger()
+
+    _repoStatusPrefix = "The push refers to repository ["
+    _repoStatusSuffix = "]"
+
+
+    repository: str
+    tag: str
+
+    status: Dict[str, ImagePushStatus] = Factory(dict)
+    errors: List[str] = Factory(list)
+    result: List[ImagePushResult] = Factory(list)
+
+
+    def _statusForImage(self, imageID: str) -> ImagePushStatus:
+        return self.status.setdefault(imageID, ImagePushStatus())
+
+
+    def _error(self, message: str) -> None:
+        self.log.error("Docker push error: {error}", error=message)
+        self.errors.append(message)
+
+
+    def _handleGeneralStatusUpdate(self, json: Dict[str, Any]) -> None:
+        message = json["status"]
+
+        if message.startswith(self._repoStatusPrefix):
+            assert message.endswith(self._repoStatusSuffix)
+
+            repository = message[
+                len(self._repoStatusPrefix):
+                -len(self._repoStatusSuffix)
+            ]
+            assert repository == self.repository, (
+                f"{repository} != {self.repository}"
+            )
+
+        elif (
+            message.startswith(f"{self.tag}: digest: ") and
+            "size: " in message
+        ):
+            pass
+
+        else:
+            self._error(f"Unknown push status message: {message!r}")
+
+
+    def _handleImageStatusUpdate(self, json: Dict[str, Any]) -> None:
+        assert not self.result
+
+        imageID = json["id"]
+        priorStatus = self._statusForImage(imageID)
+
+        jsonStatus = json["status"]
+        try:
+            state = ImagePushState[jsonStatus.lower()]
+        except KeyError:
+            if jsonStatus == "Layer already exists":
+                state = ImagePushState.pushed
+                currentProgress = totalProgress = 0
+            else:
+                raise DockerServiceError(f"Unknown status: {jsonStatus}")
+        else:
+            assert state != ImagePushState.start
+            assert priorStatus.state <= state
+
+            if (
+                state is ImagePushState.preparing or
+                state is ImagePushState.waiting
+            ):
+                assert (
+                    priorStatus.currentProgress == 0 and
+                    priorStatus.totalProgress == -1
+                ), priorStatus
+
+                currentProgress = priorStatus.currentProgress
+                totalProgress   = priorStatus.totalProgress
+
+            elif state is ImagePushState.pushing:
+                currentProgress = json["progressDetail"]["current"]
+                totalProgress   = json["progressDetail"]["total"]
+
+                assert currentProgress >= priorStatus.currentProgress
+                assert (
+                    totalProgress == priorStatus.totalProgress or
+                    priorStatus.totalProgress == -1
+                )
+
+            elif state is ImagePushState.pushed:
+                assert priorStatus.state < state
+
+                totalProgress = priorStatus.totalProgress
+
+                if totalProgress == -1:
+                    totalProgress = 0
+
+                currentProgress = totalProgress
+
+        self.status[imageID] = ImagePushStatus(
+            state=state,
+            currentProgress=currentProgress,
+            totalProgress=totalProgress,
+        )
+
+
+    def _handleAux(self, json: Dict[str, Any]) -> None:
+        assert not self.result
+
+        aux = json["aux"]
+
+        self.result.append(ImagePushResult(
+            tag=aux["Tag"], digest=aux["Digest"], size=aux["Size"]
+        ))
+
+
+    def _handleLine(self, line: str) -> None:
+        line = line.strip()
+        if not line:
+            return
+
+        self.log.debug("Docker push response line: {line}", line=line)
+
+        json = objectFromJSONText(line)
+
+        if isinstance(json, dict):
+            if "errorDetail" in json:
+                raise DockerServiceError(json["errorDetail"])
+
+            if "status" in json:
+                if "id" in json:
+                    self._handleImageStatusUpdate(json)
+                else:
+                    self._handleGeneralStatusUpdate(json)
+                return
+
+            elif "aux" in json:
+                self._handleAux(json)
+                return
+
+        raise DockerServiceError(
+            f"Unrecognized push response JSON: {json}"
+        )
+
+
+    def _handlePayload(self, payload: str) -> None:
+        for line in payload.split("\n"):
+            try:
+                self._handleLine(line)
+            except Exception:
+                from twisted.python.failure import Failure
+                self.log.critical(
+                    "While handling push response line: {line}",
+                    line=line, failure=Failure()
+                )
+
+
+    def handleResponse(self, response: Union[str, Iterable[str]]) -> None:
+        if isinstance(response, str):
+            self._handlePayload(response)
+            return
+
+        for payload in response:
+            self._handlePayload(payload)
 
 
 

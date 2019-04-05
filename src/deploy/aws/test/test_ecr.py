@@ -22,6 +22,7 @@ from base64 import b64encode
 from contextlib import contextmanager
 from datetime import timedelta as TimeDelta
 from hashlib import sha256
+from json import JSONDecodeError
 from ssl import Options as SSLOptions
 from typing import (
     Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Tuple, Type, cast
@@ -31,13 +32,20 @@ from attr import Attribute, Factory, attrib, attrs
 
 from docker.errors import ImageNotFound
 
+from hypothesis import assume, given
+from hypothesis.strategies import integers, lists, text
+
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from deploy.ext.click import ClickTestResult, clickTestRun
+from deploy.ext.json import jsonTextFromObject
+from deploy.ext.logger import logCapture
 
 from .. import ecr
 from ..ecr import (
-    ECRAuthorizationToken, ECRServiceClient, InvalidImageNameError, utcNow
+    DockerPushResponseHandler, DockerServiceError, ECRAuthorizationToken,
+    ECRServiceClient, ImagePushResult, ImagePushState, ImagePushStatus,
+    InvalidImageNameError, utcNow,
 )
 
 
@@ -124,6 +132,7 @@ class MockImagesAPI(object):
 
 
     def get(self, name: str) -> MockImage:
+        assert ":" in name
         for image in self.list():
             if name in image.tags:
                 return image
@@ -142,13 +151,17 @@ class MockImagesAPI(object):
         assert not stream, "streaming not implemented"
         assert not decode, "decode not implemented"
 
-        raise NotImplementedError()
+        name = f"{repository}:{tag}"
+
+        image = self.get(name)
+
+        raise NotImplementedError(image)
 
         return ""
 
 
 
-def hash(text: str) -> str:
+def sha256Hash(text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -159,19 +172,28 @@ class MockDockerClient(object):
     Mock Docker client.
     """
 
-    @staticmethod
-    def _defaultLocalImages() -> List[MockImage]:
-        return [
-            MockImage(id=hash("1"), tags=["image:1"]),
-            MockImage(id=hash("2"), tags=["image:2"]),
-            MockImage(id=hash("3"), tags=["image:3"]),
-        ]
-
     #
     # Class attributes
     #
 
     _localImages: ClassVar[List[MockImage]] = []
+    _cloudImages: ClassVar[List[MockImage]] = []
+
+
+    @classmethod
+    def _defaultLocalImages(cls) -> List[MockImage]:
+        return [
+            MockImage(id=sha256Hash(name), tags=[name])
+            for name in ("image:1", "image:2", "image:3")
+        ]
+
+
+    @classmethod
+    def _defaultCloudImages(cls) -> List[MockImage]:
+        return [
+            MockImage(id=sha256Hash(name), tags=[name])
+            for name in ("cloud:1", "cloud:2")
+        ]
 
 
     @classmethod
@@ -185,11 +207,13 @@ class MockDockerClient(object):
     def _setUp(cls) -> None:
         # Copy images so that we aren't sharing mutable tags
         cls._localImages.extend(cls._defaultLocalImages())
+        cls._cloudImages.extend(cls._defaultCloudImages())
 
 
     @classmethod
     def _tearDown(cls) -> None:
         cls._localImages.clear()
+        cls._cloudImages.clear()
 
 
     #
@@ -443,6 +467,454 @@ class ECRServiceClientTests(TestCase):
             self.assertRaises(
                 ImageNotFound, client.push, "xyzzy:fnord", "test:latest"
             )
+
+
+
+class DockerPushResponseHandlerTests(TestCase):
+    """
+    Tests for :class:`DockerPushResponseHandler`.
+    """
+
+    def test_statusForImage(self) -> None:
+        handler = DockerPushResponseHandler(repository="repo", tag="tag")
+        imageID = "1"
+        self.assertEqual(handler._statusForImage(imageID), ImagePushStatus())
+
+
+    @given(lists(text()))
+    def test_error(self, messages: List[str]) -> None:
+        handler = DockerPushResponseHandler(repository="repo", tag="tag")
+        for message in messages:
+            handler._error(message)
+        self.assertEqual(handler.errors, messages)
+
+
+    @given(text())
+    def test_handleGeneralStatusUpdate_init(self, repository: str) -> None:
+        handler = DockerPushResponseHandler(repository=repository, tag="tag")
+        handler._handleGeneralStatusUpdate(
+            json={"status": f"The push refers to repository [{repository}]"}
+        )
+        self.assertEqual(handler.errors, [])
+
+
+    @given(text(), text())
+    def test_handleGeneralStatusUpdate_digest(
+        self, tag: str, blob: str
+    ) -> None:
+        digest = sha256Hash(blob)
+        size = len(blob)
+
+        handler = DockerPushResponseHandler(repository="repo", tag=tag)
+        handler._handleGeneralStatusUpdate(
+            json={"status": f"{tag}: digest: sha256:{digest} size: {size}"}
+        )
+        self.assertEqual(handler.errors, [])
+
+
+    @given(text(), text())
+    def test_handleGeneralStatusUpdate_rando(
+        self, status: str, tag: str
+    ) -> None:
+        assume(
+            not status.startswith(
+                DockerPushResponseHandler._repoStatusPrefix
+            ) or
+            not status.endswith("]")
+        )
+        assume(not status.startswith(f"{tag}: "))
+
+        handler = DockerPushResponseHandler(repository="repo", tag=tag)
+        handler._handleGeneralStatusUpdate(json={"status": status})
+        self.assertEqual(
+            handler.errors, [f"Unknown push status message: {status!r}"]
+        )
+
+
+    @given(text())
+    def test_handleImageStatusUpdate_exists(self, imageID: str) -> None:
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+        handler._handleImageStatusUpdate(
+            json={"status": "Layer already exists", "id": imageID}
+        )
+        self.assertEqual(
+            handler._statusForImage(imageID),
+            ImagePushStatus(
+                state=ImagePushState.pushed, currentProgress=0, totalProgress=0
+            )
+        )
+
+
+    @given(text(min_size=1))
+    def test_handleImageStatusUpdate_rando(self, status: str) -> None:
+        assume(status != "Layer already exists")
+        assume(status not in ImagePushState.__members__)
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+        self.assertRaises(
+            DockerServiceError,
+            handler._handleImageStatusUpdate,
+            json={"status": status, "id": "1", "progressDetail": {}},
+        )
+
+
+    def test_handleImageStatusUpdate_preparing(self) -> None:
+        imageID = "1"
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        for state in (ImagePushState.start, ImagePushState.preparing):
+            # Set prior status
+            handler.status[imageID] = ImagePushStatus(
+                state=state, currentProgress=0, totalProgress=-1
+            )
+
+            handler._handleImageStatusUpdate(
+                json={
+                    "status": "Preparing", "id": imageID, "progressDetail": {}
+                }
+            )
+
+            self.assertEqual(
+                handler._statusForImage(imageID),
+                ImagePushStatus(
+                    state=ImagePushState.preparing,
+                    currentProgress=0, totalProgress=-1,
+                )
+            )
+
+
+    def test_handleImageStatusUpdate_waiting(self) -> None:
+        imageID = "1"
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        for state in (
+            ImagePushState.start,
+            ImagePushState.preparing,
+            ImagePushState.waiting,
+        ):
+            # Set prior status
+            handler.status[imageID] = ImagePushStatus(
+                state=state, currentProgress=0, totalProgress=-1
+            )
+
+            handler._handleImageStatusUpdate(
+                json={"status": "Waiting", "id": imageID, "progressDetail": {}}
+            )
+
+            self.assertEqual(
+                handler._statusForImage(imageID),
+                ImagePushStatus(
+                    state=ImagePushState.waiting,
+                    currentProgress=0, totalProgress=-1,
+                )
+            )
+
+
+    @given(integers(min_value=0), integers(min_value=0))
+    def test_handleImageStatusUpdate_pushing(
+        self, currentProgress: int, totalProgress: int
+    ) -> None:
+        # Ensure totalProgress >= currentProgress
+        totalProgress += currentProgress
+
+        imageID = "1"
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        for state in (
+            ImagePushState.start,
+            ImagePushState.preparing,
+            ImagePushState.waiting,
+            ImagePushState.pushing,
+        ):
+            if state <= ImagePushState.waiting:
+                priorTotalProgress = -1
+            else:
+                priorTotalProgress = totalProgress
+
+            # Set prior status
+            handler.status[imageID] = ImagePushStatus(
+                state=state,
+                currentProgress=0,
+                totalProgress=priorTotalProgress,
+            )
+
+            handler._handleImageStatusUpdate(
+                json={
+                    "id": imageID,
+                    "status": "Pushing",
+                    "progressDetail": {
+                        "current": currentProgress,
+                        "total": totalProgress,
+                    },
+                },
+            )
+
+            self.assertEqual(
+                handler._statusForImage(imageID),
+                ImagePushStatus(
+                    state=ImagePushState.pushing,
+                    currentProgress=currentProgress,
+                    totalProgress=totalProgress,
+                )
+            )
+
+
+    @given(integers(min_value=0), integers(min_value=0))
+    def test_handleImageStatusUpdate_pushed(
+        self, priorCurrentProgress: int, priorTotalProgress: int
+    ) -> None:
+        # Ensure totalProgress >= currentProgress
+        priorTotalProgress += priorCurrentProgress
+
+        imageID = "1"
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        for state in (
+            ImagePushState.start,
+            ImagePushState.preparing,
+            ImagePushState.waiting,
+            ImagePushState.pushing,
+        ):
+            if state <= ImagePushState.waiting:
+                _priorCurrentProgress = 0
+                _priorTotalProgress   = -1
+            else:
+                _priorCurrentProgress = priorCurrentProgress
+                _priorTotalProgress   = priorTotalProgress
+
+            # Set prior status
+            handler.status[imageID] = ImagePushStatus(
+                state=state,
+                currentProgress=_priorCurrentProgress,
+                totalProgress=_priorTotalProgress,
+            )
+
+            handler._handleImageStatusUpdate(
+                json={
+                    "id": imageID, "status": "Pushed", "progressDetail": {}
+                },
+            )
+
+            if state <= ImagePushState.waiting:
+                priorTotalProgress = 0
+
+            self.assertEqual(
+                handler._statusForImage(imageID),
+                ImagePushStatus(
+                    state=ImagePushState.pushed,
+                    currentProgress=priorTotalProgress,
+                    totalProgress=priorTotalProgress,
+                )
+            )
+
+
+    @given(text(), text())
+    def test_handleAux(self, tag: str, blob: str) -> None:
+        digest = f"sha256:{sha256Hash(blob)}"
+        size = len(blob)
+
+        handler = DockerPushResponseHandler(repository="repo", tag=tag)
+
+        handler._handleAux(
+            json={
+                "progressDetail": {},
+                "aux": {
+                    "Tag": tag, "Digest": digest, "Size": size
+                },
+            },
+        )
+
+        self.assertEqual(len(handler.result), 1)
+        self.assertEqual(
+            handler.result[0],
+            ImagePushResult(tag=tag, digest=digest, size=size),
+        )
+
+
+    def test_handleLine_empty(self) -> None:
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        handler._handleLine("   ")
+
+        self.assertEqual(handler.status, {})
+        self.assertEqual(handler.errors, [])
+        self.assertEqual(handler.result, [])
+
+
+    def test_handleLine_notJSON(self) -> None:
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        self.assertRaises(JSONDecodeError, handler._handleLine, "#")
+
+
+    @given(text(min_size=1))
+    def test_handleLine_errorDetail(self, text: str) -> None:
+        json = {"errorDetail": text}
+        jsonText = jsonTextFromObject(json)
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        e = self.assertRaises(
+            DockerServiceError, handler._handleLine, jsonText
+        )
+        self.assertEqual(str(e), text)
+
+
+    @given(text())
+    def test_handleLine_status_image(self, imageID: str) -> None:
+        json = {"status": "Preparing", "id": imageID, "progressDetail": {}}
+        jsonText = jsonTextFromObject(json)
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        handler._handleLine(jsonText)
+
+        self.assertEqual(
+            handler._statusForImage(imageID).state, ImagePushState.preparing
+        )
+
+
+    @given(text())
+    def test_handleLine_status_general(self, status: str) -> None:
+        tag = "latest"
+
+        # Exclude non-error cases so that we get an error, which has a visible
+        # result we can test for.
+        assume(
+            not status.startswith(DockerPushResponseHandler._repoStatusPrefix)
+        )
+        assume(not status.startswith(f"{tag}: digest: "))
+
+        json = {"status": status}
+        jsonText = jsonTextFromObject(json)
+
+        handler = DockerPushResponseHandler(repository="repo", tag=tag)
+
+        handler._handleLine(jsonText)
+
+        self.assertEqual(
+            handler.errors, [f"Unknown push status message: {status!r}"]
+        )
+
+
+    @given(text(), text())
+    def test_handleLine_aux(self, tag: str, blob: str) -> None:
+        digest = f"sha256:{sha256Hash(blob)}"
+        size = len(blob)
+
+        json = {
+            "aux": {"Tag": tag, "Digest": digest, "Size": size},
+            "progressDetail": {},
+        }
+        jsonText = jsonTextFromObject(json)
+
+        handler = DockerPushResponseHandler(repository="repo", tag=tag)
+
+        handler._handleLine(jsonText)
+
+        self.assertEqual(
+            handler.result,
+            [ImagePushResult(tag=tag, digest=digest, size=size)],
+        )
+
+
+    def test_handleLine_unknown(self) -> None:
+        jsonText = "{}"
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        e = self.assertRaises(
+            DockerServiceError, handler._handleLine, jsonText
+        )
+        self.assertEqual(
+            str(e), f"Unrecognized push response JSON: {jsonText}"
+        )
+
+
+    def test_handlePayload(self) -> None:
+        jsonText = (
+            """
+            {"status": "hello"}
+            {"status": "goodbye"}
+            """
+        )
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        handler._handlePayload(jsonText)
+
+        self.assertEqual(
+            handler.errors,
+            [
+                "Unknown push status message: 'hello'",
+                "Unknown push status message: 'goodbye'",
+            ],
+        )
+
+
+    def test_handlePayload_error(self) -> None:
+        jsonText = "#\n"
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        with logCapture() as events:
+            handler._handlePayload(jsonText)
+
+            failureEvents = [
+                event for event in events
+                if event["log_source"] is handler and "failure" in event
+            ]
+
+            self.assertEqual(len(failureEvents), 1)
+
+            failureEvent = failureEvents[0]
+
+            self.assertEqual(
+                failureEvent["log_format"],
+                "While handling push response line: {line}",
+            )
+            self.assertEqual(failureEvent["line"], "#")
+
+            self.flushLoggedErrors()
+
+
+    def test_handleResponse_text(self) -> None:
+        jsonText = (
+            """
+            {"status": "hello"}
+            {"status": "goodbye"}
+            """
+        )
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        handler.handleResponse(jsonText)
+
+        self.assertEqual(
+            handler.errors,
+            [
+                "Unknown push status message: 'hello'",
+                "Unknown push status message: 'goodbye'",
+            ],
+        )
+
+
+    def test_handleResponse_generator(self) -> None:
+        def jsonText() -> Iterator[str]:
+            yield '{"status": "hello"}\n'
+            yield '{"status": "goodbye"}\n'
+
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        handler.handleResponse(jsonText())
+
+        self.assertEqual(
+            handler.errors,
+            [
+                "Unknown push status message: 'hello'",
+                "Unknown push status message: 'goodbye'",
+            ],
+        )
 
 
 
