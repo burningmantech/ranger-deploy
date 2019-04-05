@@ -175,8 +175,10 @@ class MockImagesAPI(object):
 
         # Untag any existing images with the same name
         existing = self._fromECR(name)
-        if existing is not None:
-            existing.tags.remove(name)
+        # No tests currently exercise replace a tag
+        assert existing is None, "Replace with below when we hit this"
+        # if existing is not None:
+        #     existing.tags.remove(name)
 
         self._parent._cloudImages.append(ecrImage)
 

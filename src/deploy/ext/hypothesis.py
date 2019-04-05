@@ -28,7 +28,7 @@ settings.register_profile(
 )
 
 if environ.get("CI", "False").lower() in ("true", "yes", "1"):
-    settings.load_profile("CI")
+    settings.load_profile("CI")  # pragma: no cover
 
 
 def ascii_text(
