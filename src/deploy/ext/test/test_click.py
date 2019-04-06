@@ -21,7 +21,7 @@ Tests for :mod:`deploy.ext.click`
 from pathlib import Path
 from typing import Dict
 
-from hypothesis import assume, given, note
+from hypothesis import given, note
 from hypothesis.strategies import characters, dictionaries, text
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
