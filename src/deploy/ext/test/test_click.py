@@ -55,6 +55,7 @@ class ReadConfigTests(TestCase):
                 blacklist_categories=configBlacklistCategories + (
                     "Zs",  # Spaces
                 ),
+                blacklist_characters="]",
             ),
         ),
         dictionaries(  # config keys
@@ -75,8 +76,6 @@ class ReadConfigTests(TestCase):
     def test_readConfig(
         self, profile: str, configDict: Dict[str, str]
     ) -> None:
-        assume("]" not in profile)  # No "]" in profile
-
         # Normalize the config dict so that we ensure keys and valid and that
         # we can can compare this dict with the result:
         #  * Keys and values are stripped of leading and trailing whitespace.
