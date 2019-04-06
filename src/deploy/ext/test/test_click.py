@@ -76,12 +76,22 @@ class ReadConfigTests(TestCase):
     ) -> None:
         assume("]" not in profile)  # No "]" in profile
 
+        # Normalize the config dict so that we ensure keys and valid and that
+        # we can can compare this dict with the result:
+        #  * Keys and values are stripped of leading and trailing whitespace.
+        #  * Keys are lowercased.
+        #  * Keys are prefixed with "x" to ensure that they are not empty and
+        #    don't start with a comment character.
+        #  * "$" is removed from values so that we don't trigger interpolation.
+        configDict = {
+            f"x{k.lower().strip()}": v.replace("$", "").strip()
+            for k, v in configDict.items()
+        }
+
         configLines = [f"[{profile}]\n"]
         for key, value in configDict.items():
-            assume("=" not in key)       # No "=" in key
-            assume(key[0] not in "# ")   # No leading space or comment
-            assume("$" not in value)     # Don't trigger interpolation
-
+            assume(not key.endswith("="))
+            assume(not value.startswith("="))
             configLines.append(f"{key} = {value}\n")
 
         configText = "\n".join(configLines) + "\n"
@@ -94,12 +104,7 @@ class ReadConfigTests(TestCase):
 
         resultConfig = readConfig(profile=profile, path=configFilePath)
 
-        self.assertEqual(
-            resultConfig,
-            {
-                k.lower().strip(): v.strip() for k, v in configDict.items()
-            },
-        )
+        self.assertEqual(resultConfig, configDict)
 
 
     def test_readConfig_noProfile(self) -> None:

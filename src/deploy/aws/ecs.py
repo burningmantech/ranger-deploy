@@ -21,11 +21,11 @@ AWS Elastic Container Service support.
 from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import (Any, Callable, Dict, List, Mapping, Optional, Sequence)
 
 from attr import Factory, attrs
 
-from boto3 import client as Boto3Client
+from boto3 import client as boto3Client
 
 import click
 from click import (
@@ -48,6 +48,7 @@ __all__ = (
     "ECSServiceClient",
 )
 
+Boto3ECSClient = Any
 
 TaskDefinition = Mapping[str, Any]
 TaskEnvironment = Mapping[str, str]
@@ -65,7 +66,7 @@ class NoChangesError(Exception):
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class ECSServiceClient(object):
     """
-    ECS Service Client
+    Elastic Container Service Client
     """
 
     #
@@ -121,14 +122,14 @@ class ECSServiceClient(object):
     cluster: str
     service: str
 
-    _botoClient: List[Any] = Factory(list)
+    _botoClient: List[Boto3ECSClient] = Factory(list)
     _currentTask: Dict[str, Any] = Factory(dict)
 
 
     @property
-    def _client(self) -> Boto3Client:
+    def _aws(self) -> Boto3ECSClient:
         if not self._botoClient:
-            self._botoClient.append(Boto3Client("ecs"))
+            self._botoClient.append(boto3Client("ecs"))
         return self._botoClient[0]
 
 
@@ -141,7 +142,7 @@ class ECSServiceClient(object):
                 "Looking up current task ARN for {cluster}:{service}...",
                 cluster=self.cluster, service=self.service,
             )
-            serviceDescription = self._client.describe_services(
+            serviceDescription = self._aws.describe_services(
                 cluster=self.cluster, services=[self.service]
             )
             self._currentTask["arn"] = (
@@ -160,7 +161,7 @@ class ECSServiceClient(object):
             self.log.debug(
                 "Looking up task definition for {arn}...", arn=currentTaskARN
             )
-            currentTaskDescription = self._client.describe_task_definition(
+            currentTaskDescription = self._aws.describe_task_definition(
                 taskDefinition=currentTaskARN
             )
             self._currentTask["definition"] = (
@@ -250,7 +251,7 @@ class ECSServiceClient(object):
         Register a new task definition for the service.
         """
         self.log.debug("Registering new task definition...")
-        response = self._client.register_task_definition(**taskDefinition)
+        response = self._aws.register_task_definition(**taskDefinition)
         newTaskARN = response["taskDefinition"]["taskDefinitionArn"]
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
@@ -299,7 +300,7 @@ class ECSServiceClient(object):
             cluster=self.cluster, service=self.service, arn=arn
         )
         self._currentTask.clear()
-        self._client.update_service(
+        self._aws.update_service(
             cluster=self.cluster, service=self.service, taskDefinition=arn
         )
         self.log.info(
@@ -379,7 +380,7 @@ class ECSServiceClient(object):
         currentTaskDefinition = self.currentTaskDefinition()
 
         family = currentTaskDefinition["family"]
-        response = self._client.list_task_definitions(familyPrefix=family)
+        response = self._aws.list_task_definitions(familyPrefix=family)
 
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]

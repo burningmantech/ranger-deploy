@@ -8,7 +8,8 @@ from enum import Enum, auto
 from io import StringIO
 from pathlib import Path
 from typing import (
-    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
+    Any, Callable, ClassVar, Dict, List, Mapping,
+    Optional, Sequence, Tuple, Union, cast,
 )
 from unittest.mock import patch
 
@@ -39,9 +40,11 @@ class ClickTestResult(object):
     Captured results after testing a click command.
     """
 
+    echoOutputType: ClassVar = List[Tuple[str, Mapping[str, Any]]]
+
     exitCode: Union[int, None, Internal] = Internal.UNSET
 
-    echoOutput: List[Tuple[str, Mapping]] = Factory(list)
+    echoOutput: echoOutputType = Factory(list)
 
     stdin:  StringIO = Factory(StringIO)
     stdout: StringIO = Factory(StringIO)

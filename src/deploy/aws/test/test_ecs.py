@@ -29,7 +29,7 @@ from attr import Attribute, attrib, attrs
 
 from hypothesis import assume, given
 from hypothesis.strategies import (
-    composite, dictionaries, integers, just,
+    characters, composite, dictionaries, integers, just,
     lists, sampled_from, sets, text, tuples,
 )
 
@@ -65,7 +65,7 @@ def set_unset_envs(draw: Callable) -> Tuple[Dict[str, str], Set[str]]:
 
 
 @attrs(auto_attribs=True)
-class MockBoto3Client(object):
+class MockBoto3ECSClient(object):
     """
     Mock Boto3 client.
     """
@@ -237,13 +237,13 @@ class MockBoto3Client(object):
 
 
     @classmethod
-    def _addDefaultData(cls) -> None:
+    def _setUp(cls) -> None:
         cls._addDefaultTaskDefinitions()
         cls._addDefaultServices()
 
 
     @classmethod
-    def _clearData(cls) -> None:
+    def _tearDown(cls) -> None:
         cls._clearServices()
         cls._clearTaskDefinitions()
 
@@ -372,17 +372,17 @@ class MockBoto3Client(object):
 
 
 @contextmanager
-def testingBoto3() -> Iterator[None]:
-    MockBoto3Client._addDefaultData()
+def testingBoto3ECS() -> Iterator[None]:
+    MockBoto3ECSClient._setUp()
 
-    Boto3Client = ecs.Boto3Client
-    ecs.Boto3Client = MockBoto3Client
+    boto3Client = ecs.boto3Client
+    ecs.boto3Client = MockBoto3ECSClient
 
     yield
 
-    ecs.Boto3Client = Boto3Client
+    ecs.boto3Client = boto3Client
 
-    MockBoto3Client._clearData()
+    MockBoto3ECSClient._tearDown()
 
 
 
@@ -392,7 +392,7 @@ class ECSServiceClientTests(TestCase):
     """
 
     def test_environmentAsJSON(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             self.assertEqual(
                 ECSServiceClient._environmentAsJSON(
                     {"foo": "bar", "x": "1"}
@@ -402,7 +402,7 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_environmentFromJSON(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             self.assertEqual(
                 ECSServiceClient._environmentFromJSON(
                     [
@@ -414,16 +414,16 @@ class ECSServiceClientTests(TestCase):
             )
 
 
-    def test_client(self) -> None:
+    def test_aws(self) -> None:
         """
-        :meth:`ECSServiceClient._client` property returns a client.
+        :meth:`ECSServiceClient._aws` property returns an AWS client.
         """
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
-            self.assertIsInstance(client._client, MockBoto3Client)
+            self.assertIsInstance(client._aws, MockBoto3ECSClient)
 
 
     def test_currentTaskARN(self) -> None:
@@ -431,24 +431,23 @@ class ECSServiceClientTests(TestCase):
         :meth:`ECSServiceClient.currentTaskARN` returns the ARN of the current
         task.
         """
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
             arn = client.currentTaskARN()
             self.assertEqual(
-                arn, client._client._currentTaskARN(
-                    client.cluster, client.service
-                )
+                arn,
+                client._aws._currentTaskARN(client.cluster, client.service),
             )
 
 
     def test_currentTaskDefinition(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
             taskDefinition = client.currentTaskDefinition()
             self.assertIsInstance(taskDefinition, dict)
@@ -459,26 +458,24 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_currentImageName(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
             imageName = client.currentImageName()
             self.assertEqual(
                 imageName,
-                client._client._currentImageName(
-                    client.cluster, client.service
-                ),
+                client._aws._currentImageName(client.cluster, client.service),
             )
 
 
     @given(integers(min_value=2))
     def test_updateTaskDefinition_updated(self, tag: int) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             repo, oldTag = client.currentImageName().split(":")
@@ -495,20 +492,20 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_updateTaskDefinition_none(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             self.assertRaises(NoChangesError, client.updateTaskDefinition)
 
 
     def test_updateTaskDefinition_same(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             self.assertRaises(
@@ -522,10 +519,10 @@ class ECSServiceClientTests(TestCase):
     def test_updateTaskDefinition_updateEnvironment(
         self, newEnvironment: TaskEnvironment
     ) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             # TRAVIS environment variable makes Travis-CI things happen which
@@ -550,10 +547,10 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_updateTaskDefinition_travis(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             # Patch the (local) system environment to emulate Travis CI
@@ -575,9 +572,7 @@ class ECSServiceClientTests(TestCase):
                 newTaskDefinition["containerDefinitions"][0]["environment"]
             ))
             expectedEnvironment = dict(
-                client._client._currentEnvironment(
-                    client.cluster, client.service
-                )
+                client._aws._currentEnvironment(client.cluster, client.service)
             )
             expectedEnvironment.update(travisEnvironment)
             del expectedEnvironment["TRAVIS"]
@@ -592,10 +587,10 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_registerTaskDefinition(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             repo, tag = client.currentImageName().split(":")
@@ -607,7 +602,7 @@ class ECSServiceClientTests(TestCase):
 
             arn = client.registerTaskDefinition(newTaskDefinition)
             registeredTaskDefinition = (
-                client._client.describe_task_definition(arn)["taskDefinition"]
+                client._aws.describe_task_definition(arn)["taskDefinition"]
             )
 
             expectedTaskDefinition = dict(newTaskDefinition)
@@ -615,27 +610,25 @@ class ECSServiceClientTests(TestCase):
             expectedTaskDefinition["revision"] = int(arn.split(":")[-1])
             expectedTaskDefinition["status"] = "ACTIVE"
             expectedTaskDefinition["compatibilities"] = (
-                client._client._defaultCompatibilities
+                client._aws._defaultCompatibilities
             )
             expectedTaskDefinition["requiresAttributes"] = (
-                client._client._defaultRequiresAttributes
+                client._aws._defaultRequiresAttributes
             )
 
             self.assertEqual(registeredTaskDefinition, expectedTaskDefinition)
 
 
     def test_currentTaskEnvironment(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             self.assertEqual(
                 client.currentTaskEnvironment(),
-                client._client._currentEnvironment(
-                    client.cluster, client.service
-                ),
+                client._aws._currentEnvironment(client.cluster, client.service)
             )
 
 
@@ -643,17 +636,15 @@ class ECSServiceClientTests(TestCase):
     def test_updateTaskEnvironment_set(
         self, updates: TaskEnvironmentUpdates
     ) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             newEnvironment = client.updateTaskEnvironment(updates)
             expectedEnvironment = dict(
-                client._client._currentEnvironment(
-                    client.cluster, client.service
-                )
+                client._aws._currentEnvironment(client.cluster, client.service)
             )
             expectedEnvironment.update(updates)
 
@@ -664,12 +655,12 @@ class ECSServiceClientTests(TestCase):
     def test_updateTaskEnvironment_unset(
         self, instructions: Tuple[TaskEnvironmentUpdates, Set[str]]
     ) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             updates, removes = instructions
 
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             expectedEnvironment = dict(client.currentTaskEnvironment())
@@ -695,10 +686,10 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTask(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             newImageName = f"{client.currentImageName()}1934"
@@ -710,16 +701,16 @@ class ECSServiceClientTests(TestCase):
             client.deployTask(arn)
 
             self.assertEqual(
-                client._client._currentTaskARN(client.cluster, client.service),
+                client._aws._currentTaskARN(client.cluster, client.service),
                 arn,
             )
 
 
     def test_deployTaskDefinition(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             newImageName = f"{client.currentImageName()}9347"
@@ -738,10 +729,10 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployImage_new(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             newImageName = f"{client.currentImageName()}1046"
@@ -757,10 +748,10 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployImage_same(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             expectedImageName = client.currentImageName()
@@ -772,21 +763,19 @@ class ECSServiceClientTests(TestCase):
     def test_deployTaskEnvironment_updates(
         self, updates: TaskEnvironmentUpdates
     ) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             expectedEnvironment = dict(
-                client._client._currentEnvironment(
-                    client.cluster, client.service
-                )
+                client._aws._currentEnvironment(client.cluster, client.service)
             )
             expectedEnvironment.update(updates)
 
             client.deployTaskEnvironment(updates)
-            newEnvironment = client._client._currentEnvironment(
+            newEnvironment = client._aws._currentEnvironment(
                 client.cluster, client.service
             )
 
@@ -798,20 +787,18 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTaskEnvironment_none(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             expectedEnvironment = dict(
-                client._client._currentEnvironment(
-                    client.cluster, client.service
-                )
+                client._aws._currentEnvironment(client.cluster, client.service)
             )
 
             client.deployTaskEnvironment({})
-            newEnvironment = client._client._currentEnvironment(
+            newEnvironment = client._aws._currentEnvironment(
                 client.cluster, client.service
             )
 
@@ -819,20 +806,18 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_deployTaskEnvironment_same(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             expectedEnvironment = dict(
-                client._client._currentEnvironment(
-                    client.cluster, client.service
-                )
+                client._aws._currentEnvironment(client.cluster, client.service)
             )
 
             client.deployTaskEnvironment(expectedEnvironment)
-            newEnvironment = client._client._currentEnvironment(
+            newEnvironment = client._aws._currentEnvironment(
                 client.cluster, client.service
             )
 
@@ -840,10 +825,10 @@ class ECSServiceClientTests(TestCase):
 
 
     def test_rollback(self) -> None:
-        with testingBoto3():
+        with testingBoto3ECS():
             client = ECSServiceClient(
-                cluster=MockBoto3Client._sampleClusterStaging,
-                service=MockBoto3Client._sampleServiceStaging,
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
             expectedImageName = client.currentImageName()
@@ -861,14 +846,15 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
     clients: List[ECSServiceClient] = []
 
     class RememberMeECSServiceClient(ECSServiceClient):
-        def __init__(self, cluster: str, service: str) -> None:
-            super().__init__(cluster=cluster, service=service)
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
             clients.append(self)
 
     Client = ecs.ECSServiceClient
     ecs.ECSServiceClient = cast(Type, RememberMeECSServiceClient)
 
-    yield clients
+    with testingBoto3ECS():
+        yield clients
 
     ecs.ECSServiceClient = Client
 
@@ -885,18 +871,18 @@ class CommandLineTests(TestCase):
         self, cluster: str, service: str, taskARN: str = ""
     ) -> None:
         if not taskARN:
-            taskARN = MockBoto3Client._defaultTaskARNs()[1]
-        MockBoto3Client._addDefaultTaskDefinitions()
-        if cluster not in MockBoto3Client._services:
-            MockBoto3Client._addCluster(cluster)
-        MockBoto3Client._addService(cluster, service, taskARN)
+            taskARN = MockBoto3ECSClient._defaultTaskARNs()[1]
+        MockBoto3ECSClient._addDefaultTaskDefinitions()
+        if cluster not in MockBoto3ECSClient._services:
+            MockBoto3ECSClient._addCluster(cluster)
+        MockBoto3ECSClient._addService(cluster, service, taskARN)
 
 
     @given(text(min_size=1), text(min_size=1), text(min_size=1))
     def test_staging(
         self, stagingCluster: str, stagingService: str, imageName: str,
     ) -> None:
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
@@ -904,7 +890,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "staging",
+                    "deploy_aws_ecs", "staging",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--image", imageName,
@@ -928,11 +914,11 @@ class CommandLineTests(TestCase):
     def test_staging_trial(
         self, stagingCluster: str, stagingService: str, imageName: str,
     ) -> None:
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
-            startingImageName = MockBoto3Client._currentImageName(
+            startingImageName = MockBoto3ECSClient._currentImageName(
                 cluster=stagingCluster, service=stagingService
             )
 
@@ -940,7 +926,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "staging",
+                    "deploy_aws_ecs", "staging",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--image", imageName,
@@ -965,7 +951,7 @@ class CommandLineTests(TestCase):
     def test_rollback(
         self, stagingCluster: str, stagingService: str
     ) -> None:
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
@@ -973,7 +959,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "rollback",
+                    "deploy_aws_ecs", "rollback",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                 ]
@@ -987,7 +973,7 @@ class CommandLineTests(TestCase):
             self.assertEqual(
                 client.currentImageName(),
                 (
-                    client._client._defaultTaskDefinitions[-2]
+                    client._aws._defaultTaskDefinitions[-2]
                     ["containerDefinitions"][0]
                     ["image"]
                 )
@@ -1012,19 +998,19 @@ class CommandLineTests(TestCase):
             (productionCluster, productionService)
         )
 
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
             self.initClusterAndService(
                 productionCluster, productionService,
-                MockBoto3Client._defaultTaskARNs()[0],
+                MockBoto3ECSClient._defaultTaskARNs()[0],
             )
 
             # Run "production" subcommand
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "production",
+                    "deploy_aws_ecs", "production",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--production-cluster", productionCluster,
@@ -1063,19 +1049,19 @@ class CommandLineTests(TestCase):
             (productionCluster, productionService)
         )
 
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
             self.initClusterAndService(
                 productionCluster, productionService,
-                MockBoto3Client._defaultTaskARNs()[0],
+                MockBoto3ECSClient._defaultTaskARNs()[0],
             )
 
             # Run "compare" subcommand
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "compare",
+                    "deploy_aws_ecs", "compare",
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--production-cluster", productionCluster,
@@ -1110,7 +1096,7 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1))
     def test_environment_get(self, cluster: str, service: str) -> None:
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(cluster, service)
 
@@ -1118,7 +1104,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "environment",
+                    "deploy_aws_ecs", "environment",
                     "--cluster", cluster,
                     "--service", service,
                 ]
@@ -1144,12 +1130,23 @@ class CommandLineTests(TestCase):
 
     @given(
         text(min_size=1), text(min_size=1),
-        lists(tuples(text(), text()), min_size=1),
+        lists(  # updates
+            tuples(
+                text(  # updates/keys
+                    alphabet=characters(
+                        blacklist_categories=("Cs",),
+                        blacklist_characters="=",
+                    ),
+                ),
+                text(),  # updates/values
+            ),
+            min_size=1
+        ),
     )
     def test_environment_set(
         self, cluster: str, service: str, updates: List[Tuple[str, str]]
     ) -> None:
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(cluster, service)
 
@@ -1159,7 +1156,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "environment",
+                    "deploy_aws_ecs", "environment",
                     "--cluster", cluster,
                     "--service", service,
                     # a letter
@@ -1196,7 +1193,7 @@ class CommandLineTests(TestCase):
             sampled_from(
                 sorted(
                     ECSServiceClient._environmentFromJSON(
-                        MockBoto3Client._defaultTaskDefinitions[0]
+                        MockBoto3ECSClient._defaultTaskDefinitions[0]
                         ["containerDefinitions"][0]
                         ["environment"]
                     )
@@ -1207,7 +1204,7 @@ class CommandLineTests(TestCase):
     def test_environment_unset(
         self, cluster: str, service: str, removes: List[str]
     ) -> None:
-        with testingBoto3(), testingECSServiceClient() as clients:
+        with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(cluster, service)
 
@@ -1217,7 +1214,7 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 ECSServiceClient.main,
                 [
-                    "deploy_aws", "environment",
+                    "deploy_aws_ecs", "environment",
                     "--cluster", cluster,
                     "--service", service,
                     *[f"x{k}" for k in removes]
