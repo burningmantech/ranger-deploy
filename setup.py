@@ -106,14 +106,28 @@ setup_requirements = []
 
 install_requirements = [
     # Direct dependencies
-    "attrs==19.1.0",
     "arrow==0.13.1",
-    "boto3==1.9.124",
+    "attrs==19.1.0",
+    "boto3==1.9.130",
     "click==7.0",
     "docker==3.7.2",  # [tls]
-    "twisted==18.9.0",
+    "Twisted==18.9.0",
 
     # Indirect dependencies
+    "Automat==0.7.0",
+    "botocore==1.12.130",
+    "constantly==15.1.0",
+    "docutils==0.14",
+    "hyperlink==18.0.0",
+    "idna==2.8",
+    "incremental==17.5.0",
+    "jmespath==0.9.4",
+    "PyHamcrest==1.9.0",
+    "python-dateutil==2.8.0",
+    "s3transfer==0.2.0",
+    "six==1.12.0",
+    "urllib3==1.24.1",
+    "zope.interface==4.6.0",
 ]
 
 extras_requirements = {}
