@@ -21,7 +21,7 @@ Tests for :mod:`deploy.ext.click`
 from pathlib import Path
 from typing import Dict
 
-from hypothesis import assume, given, note
+from hypothesis import given, note
 from hypothesis.strategies import characters, dictionaries, text
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
@@ -55,13 +55,15 @@ class ReadConfigTests(TestCase):
                 blacklist_categories=configBlacklistCategories + (
                     "Zs",  # Spaces
                 ),
+                blacklist_characters="]",
             ),
         ),
         dictionaries(  # config keys
             text(
                 min_size=1,
                 alphabet=characters(
-                    blacklist_categories=configBlacklistCategories
+                    blacklist_categories=configBlacklistCategories,
+                    blacklist_characters="=",
                 ),
             ),
             text(  # config values
@@ -74,24 +76,21 @@ class ReadConfigTests(TestCase):
     def test_readConfig(
         self, profile: str, configDict: Dict[str, str]
     ) -> None:
-        assume("]" not in profile)  # No "]" in profile
-
         # Normalize the config dict so that we ensure keys and valid and that
         # we can can compare this dict with the result:
         #  * Keys and values are stripped of leading and trailing whitespace.
         #  * Keys are lowercased.
         #  * Keys are prefixed with "x" to ensure that they are not empty and
         #    don't start with a comment character.
+        #  * Leading "="s are removed from values.
         #  * "$" is removed from values so that we don't trigger interpolation.
         configDict = {
-            f"x{k.lower().strip()}": v.replace("$", "").strip()
+            f"x{k.lower().strip()}": v.replace("$", "").strip().lstrip("=")
             for k, v in configDict.items()
         }
 
         configLines = [f"[{profile}]\n"]
         for key, value in configDict.items():
-            assume(not key.endswith("="))
-            assume(not value.startswith("="))
             configLines.append(f"{key} = {value}\n")
 
         configText = "\n".join(configLines) + "\n"
