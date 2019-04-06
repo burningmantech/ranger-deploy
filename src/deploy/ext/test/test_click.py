@@ -61,7 +61,8 @@ class ReadConfigTests(TestCase):
             text(
                 min_size=1,
                 alphabet=characters(
-                    blacklist_categories=configBlacklistCategories
+                    blacklist_categories=configBlacklistCategories,
+                    blacklist_characters="=",
                 ),
             ),
             text(  # config values
@@ -82,16 +83,15 @@ class ReadConfigTests(TestCase):
         #  * Keys are lowercased.
         #  * Keys are prefixed with "x" to ensure that they are not empty and
         #    don't start with a comment character.
+        #  * Leading "="s are removed from values.
         #  * "$" is removed from values so that we don't trigger interpolation.
         configDict = {
-            f"x{k.lower().strip()}": v.replace("$", "").strip()
+            f"x{k.lower().strip()}": v.replace("$", "").strip().lstrip("=")
             for k, v in configDict.items()
         }
 
         configLines = [f"[{profile}]\n"]
         for key, value in configDict.items():
-            assume(not key.endswith("="))
-            assume(not value.startswith("="))
             configLines.append(f"{key} = {value}\n")
 
         configText = "\n".join(configLines) + "\n"
