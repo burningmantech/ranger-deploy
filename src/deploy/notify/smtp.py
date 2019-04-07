@@ -109,6 +109,7 @@ class SMTPNotifier(object):
                 buildNumber=buildNumber,
                 buildURL=buildURL,
                 commitID=commitID,
+                commitIDShort=commitID[:7],
                 commitMessage=commitMessage,
                 commitURL=f"https://github.com/{repository}/commit/{commitID}",
                 project=project,
