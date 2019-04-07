@@ -245,22 +245,18 @@ class ECRServiceClient(object):
         Tag a local image named localName with ecrName and push the image to
         ECR with the new tag.
         """
-        self.validateImageName(localName)
-
         try:
             repository, tag = ecrName.split(":")
         except ValueError:
             raise InvalidImageNameError(ecrName)
 
-        image = self._docker.images.get(localName)
-        image.tag(repository, tag)
+        self.tag(localName, ecrName)
 
         credentials = self.authorizationToken().credentials()
 
         self.log.debug(
-            "Pushing image {image.short_id} ({localName}) "
-            "to ECR with name {ecrName}...",
-            image=image, localName=localName, ecrName=ecrName,
+            "Pushing image {localName} to ECR with name {ecrName}...",
+            localName=localName, ecrName=ecrName,
         )
         response = self._docker.images.push(
             repository, tag, auth_config=credentials, stream=True
@@ -274,9 +270,8 @@ class ECRServiceClient(object):
                 imageName=ecrName, error=error,
             )
         self.log.info(
-            "Pushed image {image.short_id} ({localName}) "
-            "to ECR with name {ecrName}.",
-            image=image, localName=localName, ecrName=ecrName,
+            "Pushed image {localName} to ECR with name {ecrName}.",
+            localName=localName, ecrName=ecrName,
         )
 
 
