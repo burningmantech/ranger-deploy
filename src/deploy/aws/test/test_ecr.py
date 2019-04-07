@@ -996,7 +996,7 @@ class DockerPushResponseHandlerTests(TestCase):
 
 
     def test_handleResponse_generator(self) -> None:
-        def jsonText() -> Iterator[str]:
+        def jsonText() -> Iterator[bytes]:
             yield b'{"status": "hello"}\n'
             yield b'{"status": "goodbye"}\n'
 
