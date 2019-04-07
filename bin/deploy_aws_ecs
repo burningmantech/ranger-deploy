@@ -21,6 +21,10 @@
 # * NOTIFY_SMTP_USER
 # * PROJECT_NAME (optional)
 
+if [ "${DEPLOY_DEBUG:=false}" = "true" ]; then
+    set -x;
+fi;
+
 if [ $# -gt 0 ]; then
     DEPLOY_TARGET="${1}"; shift;
 fi;
