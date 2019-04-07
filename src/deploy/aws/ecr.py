@@ -542,3 +542,8 @@ def tag(existing_name: str, new_name: str) -> None:
 def push(local_name: str, ecr_name: str) -> None:
     client = ECRServiceClient()
     client.push(local_name, ecr_name)
+
+
+
+if __name__ == "__main__":  # pragma: no cover
+    ECRServiceClient.main()
