@@ -47,8 +47,7 @@ def user_names() -> SearchStrategy:
     A strategy which generates user names.
     """
     return text(
-        min_size=1, max_size=256,
-        alphabet=ascii_letters + digits + "_-",
+        min_size=1, max_size=256, alphabet=ascii_letters + digits + "_-"
     )
 
 
@@ -56,10 +55,7 @@ def host_names() -> SearchStrategy:
     """
     A strategy which generates host names.
     """
-    return text(
-        min_size=1, max_size=256,
-        alphabet=ascii_letters + digits + "._-",
-    )
+    return text(min_size=1, max_size=256, alphabet="0123456789abcdef")
 
 
 def port_numbers() -> SearchStrategy:
@@ -67,6 +63,16 @@ def port_numbers() -> SearchStrategy:
     A strategy which generates port numbers.
     """
     return integers(min_value=1, max_value=65535)
+
+
+def commitIDs() -> SearchStrategy:
+    """
+    A strategy which generates Git commit IDs.
+    """
+    return text(
+        min_size=40, max_size=40,
+        alphabet=ascii_letters + digits,
+    )
 
 
 @composite
