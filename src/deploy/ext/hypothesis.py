@@ -55,7 +55,9 @@ def host_names() -> SearchStrategy:
     """
     A strategy which generates host names.
     """
-    return text(min_size=1, max_size=256, alphabet="0123456789abcdef")
+    return text(
+        min_size=1, max_size=256, alphabet=ascii_letters + digits + "._-",
+    )
 
 
 def port_numbers() -> SearchStrategy:
@@ -69,10 +71,7 @@ def commitIDs() -> SearchStrategy:
     """
     A strategy which generates Git commit IDs.
     """
-    return text(
-        min_size=40, max_size=40,
-        alphabet=ascii_letters + digits,
-    )
+    return text(min_size=40, max_size=40, alphabet="0123456789abcdef")
 
 
 @composite
