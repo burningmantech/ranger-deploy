@@ -1,0 +1,95 @@
+#!/bin/sh
+#
+# Deploy Docker image.
+#
+
+# These variables must be provided by the CI environment:
+# * AWS_ACCESS_KEY_ID
+# * AWS_DEFAULT_REGION
+# * AWS_ECR_IMAGE_REPOSITORY
+# * AWS_ECS_CLUSTER_PRODUCTION
+# * AWS_ECS_CLUSTER_STAGING
+# * AWS_ECS_SERVICE_PRODUCTION
+# * AWS_ECS_SERVICE_STAGING
+# * AWS_SECRET_ACCESS_KEY
+# * LOCAL_IMAGE_NAME
+# * NOTIFY_EMAIL_RECIPIENT
+# * NOTIFY_EMAIL_SENDER
+# * NOTIFY_SMTP_HOST
+# * NOTIFY_SMTP_PASSWORD
+# * NOTIFY_SMTP_PORT
+# * NOTIFY_SMTP_USER
+# * PROJECT_NAME (optional)
+
+if [ $# -gt 0 ]; then
+    DEPLOY_TARGET="${1}"; shift;
+fi;
+
+if ! type python3 > /dev/null 2>&1; then
+    echo "Python 3 is required.";
+    exit 72;  # EX_OSFILE
+fi;
+if [ -n "${VIRTUAL_ENV:-}" ]; then
+    # Already in a virtual environment
+    python="python3";
+else
+    # Make a virtual environment
+    virtualenv="$(mktemp -d)";
+    python3 -m venv "${virtualenv}";
+    python="${virtualenv}/bin/python";
+
+    cleanup() { rm -rf "${virtualenv}"; }
+    trap cleanup EXIT;
+fi;
+
+echo "Installing dependencies...";
+"${python}" -m pip install --disable-pip-version-check --quiet awscli;
+
+deploy_url=git+https://github.com/burningmantech/ranger-deploy;
+"${python}" -m pip install --disable-pip-version-check --quiet \
+    "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
+
+case "${DEPLOY_TARGET}" in
+
+    "staging")
+
+        # Safety checks, since we don't want to allow deployments to staging
+        # outside of CI, and only from master branch builds.
+        if [ "${TRAVIS:-}" != "true" ]; then
+            echo "No deployments to staging outside of Travis CI.";
+            exit 78;  # EX_CONFIG
+        fi;
+        if [ "${TRAVIS_PULL_REQUEST:-}" != "false" ]; then
+            echo "No deployments allowed from a pull request.";
+            exit 78;  # EX_CONFIG
+        fi;
+        if [ "${TRAVIS_BRANCH:-}" != "master" ]; then
+            echo "No deployments allowed from non-master branches.";
+            exit 78;  # EX_CONFIG
+        fi;
+
+        commit_id="$(git rev-parse --short "${TRAVIS_COMMIT}")";
+        export AWS_ECR_IMAGE_NAME="${AWS_ECR_IMAGE_REPOSITORY}:${commit_id}";
+
+        # Push the built image to ECR
+        "${python}" -m deploy.aws.ecr push \
+            "${LOCAL_IMAGE_NAME}" "${AWS_ECR_IMAGE_NAME}";
+
+        # Deploy the new image to ECS
+        "${python}" -m deploy.aws.ecs staging;
+
+        "${python}" -m deploy.notify.smtp staging        \
+            --repository-id="${TRAVIS_REPO_SLUG}"        \
+            --build-number="${TRAVIS_BUILD_NUMBER}"      \
+            --build-url="${TRAVIS_BUILD_WEB_URL}"        \
+            --commit-id="${TRAVIS_COMMIT}"               \
+            --commit-message="${TRAVIS_COMMIT_MESSAGE}"  \
+            ;
+
+        ;;
+
+    *)
+        "${python}" -m deploy.aws.ecs "${DEPLOY_TARGET}" "${@}";
+        ;;
+
+esac;
