@@ -72,12 +72,16 @@ case "${DEPLOY_TARGET}" in
         export AWS_ECR_IMAGE_NAME="${AWS_ECR_IMAGE_REPOSITORY}:${commit_id}";
 
         # Push the built image to ECR
+        echo "Pushing image to ECR...";
         "${python}" -m deploy.aws.ecr push \
             "${LOCAL_IMAGE_NAME}" "${AWS_ECR_IMAGE_NAME}";
 
         # Deploy the new image to ECS
+        echo "Deploying updated task to ECS...";
         "${python}" -m deploy.aws.ecs staging;
 
+        # Tell the world
+        echo "Sending notification...";
         "${python}" -m deploy.notify.smtp staging        \
             --repository-id="${TRAVIS_REPO_SLUG}"        \
             --build-number="${TRAVIS_BUILD_NUMBER}"      \
