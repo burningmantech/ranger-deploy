@@ -77,7 +77,6 @@ entry_points = {
 }
 
 script_entry_points = {
-    "aws":         ("deploy.aws.ecr",     "ECRServiceClient.main"),
     "aws_ecr":     ("deploy.aws.ecr",     "ECRServiceClient.main"),
     "aws_ecs":     ("deploy.aws.ecs",     "ECSServiceClient.main"),
     "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"    ),

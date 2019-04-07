@@ -325,7 +325,7 @@ class ECSServiceClient(object):
             newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
         except NoChangesError:
             self.log.info(
-                "Image is the unchanged. Nothing to deploy."
+                "Image name is unchanged. Nothing to deploy."
             )
             return
 
