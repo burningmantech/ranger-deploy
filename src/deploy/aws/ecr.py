@@ -448,7 +448,10 @@ class DockerPushResponseHandler(object):
         )
 
 
-    def _handlePayload(self, payload: str) -> None:
+    def _handlePayload(self, payload: Union[bytes, str]) -> None:
+        if isinstance(payload, bytes):
+            payload = payload.decode("utf-8")
+
         for line in payload.split("\n"):
             try:
                 self._handleLine(line)
@@ -461,8 +464,10 @@ class DockerPushResponseHandler(object):
                 self._error(str(e))
 
 
-    def handleResponse(self, response: Union[str, Iterable[str]]) -> None:
-        if isinstance(response, str):
+    def handleResponse(
+        self, response: Union[bytes, Iterable[bytes], str, Iterable[str]],
+    ) -> None:
+        if isinstance(response, (bytes, str)):
             self._handlePayload(response)
             return
 
