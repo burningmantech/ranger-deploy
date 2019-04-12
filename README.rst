@@ -187,6 +187,7 @@ For example::
   sender        = ${rangers:sender}
   recipient     = ${rangers:recipient}
 
+
   [clubhouse-classic]
 
   repository_id = ${rangers:github_org}/ranger-secret-clubhouse

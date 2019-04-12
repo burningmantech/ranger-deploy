@@ -64,16 +64,23 @@ def utcNow() -> DateTime:
 
 
 
+@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
 class DockerServiceError(Exception):
     """
     Error from Docker service.
     """
 
+    message: str
 
+
+
+@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
 class InvalidImageNameError(Exception):
     """
     Invalid Docker image name.
     """
+
+    name: str
 
 
 
@@ -245,22 +252,18 @@ class ECRServiceClient(object):
         Tag a local image named localName with ecrName and push the image to
         ECR with the new tag.
         """
-        self.validateImageName(localName)
-
         try:
             repository, tag = ecrName.split(":")
         except ValueError:
             raise InvalidImageNameError(ecrName)
 
-        image = self._docker.images.get(localName)
-        image.tag(repository, tag)
+        self.tag(localName, ecrName)
 
         credentials = self.authorizationToken().credentials()
 
         self.log.debug(
-            "Pushing image {image.short_id} ({localName}) "
-            "to ECR with name {ecrName}...",
-            image=image, localName=localName, ecrName=ecrName,
+            "Pushing image {localName} to ECR with name {ecrName}...",
+            localName=localName, ecrName=ecrName,
         )
         response = self._docker.images.push(
             repository, tag, auth_config=credentials, stream=True
@@ -274,9 +277,8 @@ class ECRServiceClient(object):
                 imageName=ecrName, error=error,
             )
         self.log.info(
-            "Pushed image {image.short_id} ({localName}) "
-            "to ECR with name {ecrName}.",
-            image=image, localName=localName, ecrName=ecrName,
+            "Pushed image {localName} to ECR with name {ecrName}.",
+            localName=localName, ecrName=ecrName,
         )
 
 
@@ -453,8 +455,10 @@ class DockerPushResponseHandler(object):
         )
 
 
-    def _handlePayload(self, payload: str) -> None:
-        for line in payload.split("\n"):
+    def _handlePayload(self, payload: bytes) -> None:
+        assert isinstance(payload, bytes)
+
+        for line in payload.decode("utf-8").split("\n"):
             try:
                 self._handleLine(line)
             except Exception as e:
@@ -466,8 +470,10 @@ class DockerPushResponseHandler(object):
                 self._error(str(e))
 
 
-    def handleResponse(self, response: Union[str, Iterable[str]]) -> None:
-        if isinstance(response, str):
+    def handleResponse(
+        self, response: Union[bytes, Iterable[bytes]],
+    ) -> None:
+        if isinstance(response, bytes):
             self._handlePayload(response)
             return
 
@@ -542,3 +548,8 @@ def tag(existing_name: str, new_name: str) -> None:
 def push(local_name: str, ecr_name: str) -> None:
     client = ECRServiceClient()
     client.push(local_name, ecr_name)
+
+
+
+if __name__ == "__main__":  # pragma: no cover
+    ECRServiceClient.main()
