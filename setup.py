@@ -110,14 +110,14 @@ install_requirements = [
     "boto3==1.9.130",
     "click==7.0",
     "docker==3.7.2",  # [tls]
-    "Twisted==18.9.0",
+    "Twisted==19.2.0",
 
     # Indirect dependencies
     "Automat==0.7.0",
     "botocore==1.12.130",
     "constantly==15.1.0",
     "docutils==0.14",
-    "hyperlink==18.0.0",
+    "hyperlink==19.0.0",
     "idna==2.8",
     "incremental==17.5.0",
     "jmespath==0.9.4",
