@@ -32,7 +32,7 @@ from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from deploy.ext.click import clickTestRun
 from deploy.ext.hypothesis import (
-    ascii_text, email_addresses,
+    ascii_text, commitIDs, email_addresses,
     port_numbers, repository_ids, user_names,
 )
 
@@ -116,7 +116,7 @@ class SMTPNotifierTests(TestCase):
         repository_ids(),        # repositoryOrganization
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
-        ascii_text(min_size=1),  # commitID
+        commitIDs(),             # commitID
         ascii_text(min_size=1),  # commitMessage  FIXME: use text()
     )
     def test_notifyStaging(
@@ -128,7 +128,6 @@ class SMTPNotifierTests(TestCase):
         buildNumber: str, buildURL: str,
         commitID: str, commitMessage: str,
     ) -> None:
-        # Because hypothesis and multiple runs
         with testingSMTP():
             notifier = SMTPNotifier(
                 smtpHost=smtpHost, smtpPort=smtpPort,
@@ -166,10 +165,12 @@ class SMTPNotifierTests(TestCase):
             title = f"{project} Deployed to Staging"
             commitURL = f"https://github.com/{repository}/commit/{commitID}"
 
+            commitIDShort = commitID[:7]
+
             expectedText = (
                 f"{title}\n"
                 f"\n"
-                f"Travis build #{buildNumber} for commit {commitID} has "
+                f"Travis build #{buildNumber} for commit {commitIDShort} has "
                 f"completed successfully and the resulting image has been "
                 f"deployed to the staging environment.\n"
                 f"\n"
@@ -188,7 +189,7 @@ class SMTPNotifierTests(TestCase):
                 f"\n"
                 f"  <p>\n"
                 f"    <a href=\"{buildURL}\">Travis build #{buildNumber}</a>\n"
-                f"    for <a href=\"{commitURL}\">commit {commitID}</a>\n"
+                f"    for <a href=\"{commitURL}\">commit {commitIDShort}</a>\n"
                 f"    has completed successfully and the resulting image has\n"
                 f"    been deployed to the staging environment.\n"
                 f"  </p>\n"
@@ -228,7 +229,7 @@ class CommandLineTests(TestCase):
         repository_ids(),        # repositoryOrganization
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
-        ascii_text(min_size=1),  # commitID
+        commitIDs(),             # commitID
         ascii_text(min_size=1),  # commitMessage  FIXME: use text()
     )
     def test_staging(
