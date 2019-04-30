@@ -195,7 +195,7 @@ class MockBoto3ECSClient(object):
 
     @classmethod
     def _clearTaskDefinitions(cls) -> None:
-        cls._taskDefinitions = {}
+        cls._taskDefinitions.clear()
 
 
     @classmethod
@@ -233,19 +233,7 @@ class MockBoto3ECSClient(object):
 
     @classmethod
     def _clearServices(cls) -> None:
-        cls._services = {}
-
-
-    @classmethod
-    def _setUp(cls) -> None:
-        cls._addDefaultTaskDefinitions()
-        cls._addDefaultServices()
-
-
-    @classmethod
-    def _tearDown(cls) -> None:
-        cls._clearServices()
-        cls._clearTaskDefinitions()
+        cls._services.clear()
 
 
     @classmethod
@@ -373,16 +361,23 @@ class MockBoto3ECSClient(object):
 
 @contextmanager
 def testingBoto3ECS() -> Iterator[None]:
-    MockBoto3ECSClient._setUp()
+    #MockBoto3ECSClient._clearServices()
+    #MockBoto3ECSClient._clearTaskDefinitions()
+
+    MockBoto3ECSClient._addDefaultTaskDefinitions()
+    MockBoto3ECSClient._addDefaultServices()
 
     boto3Client = ecs.boto3Client
     ecs.boto3Client = MockBoto3ECSClient
 
-    yield
+    try:
+        yield
 
-    ecs.boto3Client = boto3Client
+    finally:
+        ecs.boto3Client = boto3Client
 
-    MockBoto3ECSClient._tearDown()
+        MockBoto3ECSClient._clearServices()
+        MockBoto3ECSClient._clearTaskDefinitions()
 
 
 
@@ -853,12 +848,14 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
     Client = ecs.ECSServiceClient
     ecs.ECSServiceClient = cast(Type, RememberMeECSServiceClient)
 
-    with testingBoto3ECS():
-        yield clients
+    try:
+        with testingBoto3ECS():
+            yield clients
 
-    ecs.ECSServiceClient = Client
+    finally:
+        ecs.ECSServiceClient = Client
 
-    clients.clear()
+        clients.clear()
 
 
 

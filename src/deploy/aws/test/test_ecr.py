@@ -290,11 +290,13 @@ def testingBoto3ECR() -> Iterator[None]:
     boto3Client = ecr.boto3Client
     ecr.boto3Client = MockBoto3ECRClient
 
-    yield
+    try:
+        yield
 
-    ecr.boto3Client = boto3Client
+    finally:
+        ecr.boto3Client = boto3Client
 
-    MockBoto3ECRClient._tearDown()
+        MockBoto3ECRClient._tearDown()
 
 
 @contextmanager
@@ -304,11 +306,13 @@ def testingDocker() -> Iterator[None]:
     dockerClientFromEnvironment = ecr.dockerClientFromEnvironment
     ecr.dockerClientFromEnvironment = MockDockerClient._fromEnvironment
 
-    yield
+    try:
+        yield
 
-    ecr.dockerClientFromEnvironment = dockerClientFromEnvironment
+    finally:
+        ecr.dockerClientFromEnvironment = dockerClientFromEnvironment
 
-    MockDockerClient._tearDown()
+        MockDockerClient._tearDown()
 
 
 
@@ -1026,12 +1030,14 @@ def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
     Client = ecr.ECRServiceClient
     ecr.ECRServiceClient = cast(Type, RememberMeECRServiceClient)
 
-    with testingBoto3ECR(), testingDocker():
-        yield clients
+    try:
+        with testingBoto3ECR(), testingDocker():
+            yield clients
 
-    ecr.ECRServiceClient = Client
+    finally:
+        ecr.ECRServiceClient = Client
 
-    clients.clear()
+        clients.clear()
 
 
 
