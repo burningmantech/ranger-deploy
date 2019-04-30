@@ -56,6 +56,7 @@ TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
 
+@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
 class NoChangesError(Exception):
     """
     Changes requested without any updates.

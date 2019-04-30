@@ -161,7 +161,7 @@ class MockImagesAPI(object):
         self, repository: str, tag: Optional[str] = None,
         stream: bool = False, decode: bool = False,
         auth_config: Optional[Dict[str, str]] = None,
-    ) -> Union[str, Iterator[str]]:
+    ) -> Union[bytes, Iterator[bytes]]:
         assert ":" not in repository
         assert tag is not None
         assert stream is True
@@ -213,7 +213,7 @@ class MockImagesAPI(object):
         if self._parent._generateErrors:
             json += [{"errorDetail": self._fakeNewsError}]
 
-        return (jsonTextFromObject(j) for j in json)
+        return (jsonTextFromObject(j).encode("utf-8") for j in json)
 
 
 
@@ -929,7 +929,7 @@ class DockerPushResponseHandlerTests(TestCase):
 
     def test_handlePayload(self) -> None:
         jsonText = (
-            """
+            b"""
             {"status": "hello"}
             {"status": "goodbye"}
             """
@@ -949,7 +949,7 @@ class DockerPushResponseHandlerTests(TestCase):
 
 
     def test_handlePayload_error(self) -> None:
-        jsonText = "#\n"
+        jsonText = b"#\n"
 
         handler = DockerPushResponseHandler(repository="repo", tag="latest")
 
@@ -976,7 +976,7 @@ class DockerPushResponseHandlerTests(TestCase):
 
     def test_handleResponse_text(self) -> None:
         jsonText = (
-            """
+            b"""
             {"status": "hello"}
             {"status": "goodbye"}
             """
@@ -996,9 +996,9 @@ class DockerPushResponseHandlerTests(TestCase):
 
 
     def test_handleResponse_generator(self) -> None:
-        def jsonText() -> Iterator[str]:
-            yield '{"status": "hello"}\n'
-            yield '{"status": "goodbye"}\n'
+        def jsonText() -> Iterator[bytes]:
+            yield b'{"status": "hello"}\n'
+            yield b'{"status": "goodbye"}\n'
 
         handler = DockerPushResponseHandler(repository="repo", tag="latest")
 

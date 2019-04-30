@@ -134,7 +134,7 @@ The following environment variables are used if the corresponding command line o
 Configuration
 -------------
 
-A configuration file ``~/ranger-deploy.ini`` may be used to specify defaults for any of the above arguments.
+A configuration file ``~/.ranger-deploy.ini`` may be used to specify defaults for any of the above arguments.
 This file uses a simple INI format in which configuration keys correspond to command line options, with each sections named after a configuration profile.
 For configuration keys, remove leading hyphens and replace hyphens with underbars.
 For example::
@@ -186,6 +186,7 @@ For example::
   smtp_password = ${rangers:smtp_password}
   sender        = ${rangers:sender}
   recipient     = ${rangers:recipient}
+
 
   [clubhouse-classic]
 

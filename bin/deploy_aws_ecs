@@ -25,10 +25,6 @@ if [ "${DEPLOY_DEBUG:=false}" = "true" ]; then
     set -x;
 fi;
 
-if [ $# -gt 0 ]; then
-    DEPLOY_TARGET="${1}"; shift;
-fi;
-
 if ! type python3 > /dev/null 2>&1; then
     echo "Python 3 is required.";
     exit 72;  # EX_OSFILE
@@ -53,7 +49,7 @@ deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 "${python}" -m pip install --disable-pip-version-check --quiet \
     "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
 
-case "${DEPLOY_TARGET}" in
+case "${DEPLOY_TARGET:-}" in
 
     "staging")
 

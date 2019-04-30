@@ -64,16 +64,23 @@ def utcNow() -> DateTime:
 
 
 
+@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
 class DockerServiceError(Exception):
     """
     Error from Docker service.
     """
 
+    message: str
 
+
+
+@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
 class InvalidImageNameError(Exception):
     """
     Invalid Docker image name.
     """
+
+    name: str
 
 
 
@@ -448,8 +455,10 @@ class DockerPushResponseHandler(object):
         )
 
 
-    def _handlePayload(self, payload: str) -> None:
-        for line in payload.split("\n"):
+    def _handlePayload(self, payload: bytes) -> None:
+        assert isinstance(payload, bytes)
+
+        for line in payload.decode("utf-8").split("\n"):
             try:
                 self._handleLine(line)
             except Exception as e:
@@ -461,8 +470,10 @@ class DockerPushResponseHandler(object):
                 self._error(str(e))
 
 
-    def handleResponse(self, response: Union[str, Iterable[str]]) -> None:
-        if isinstance(response, str):
+    def handleResponse(
+        self, response: Union[bytes, Iterable[bytes]],
+    ) -> None:
+        if isinstance(response, bytes):
             self._handlePayload(response)
             return
 
