@@ -107,14 +107,14 @@ install_requirements = [
     # Direct dependencies
     "arrow==0.13.1",
     "attrs==19.1.0",
-    "boto3==1.9.130",
+    "boto3==1.9.138",
     "click==7.0",
     "docker==3.7.2",  # [tls]
     "Twisted==19.2.0",
 
     # Indirect dependencies
     "Automat==0.7.0",
-    "botocore==1.12.130",
+    "botocore==1.12.138",
     "constantly==15.1.0",
     "docutils==0.14",
     "hyperlink==19.0.0",
@@ -125,7 +125,7 @@ install_requirements = [
     "python-dateutil==2.8.0",
     "s3transfer==0.2.0",
     "six==1.12.0",
-    "urllib3==1.24.1",
+    "urllib3==1.25.2",
     "zope.interface==4.6.0",
 ]
 
