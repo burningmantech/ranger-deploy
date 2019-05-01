@@ -29,15 +29,19 @@ from boto3 import client as boto3Client
 
 import click
 from click import (
-    Context as ClickContext, argument as commandArgument,
+    Context as ClickContext, UsageError, argument as commandArgument,
     group as commandGroup, option as commandOption,
     pass_context as passContext, version_option as versionOption,
 )
+
+from git import Repo
 
 from twisted.logger import Logger
 
 from deploy.ext.click import readConfig
 from deploy.ext.logger import startLogging
+
+from .ecr import ECRServiceClient
 
 
 __all__ = (
@@ -48,11 +52,24 @@ __all__ = (
     "ECSServiceClient",
 )
 
+
+log = Logger()
+
 Boto3ECSClient = Any
 
 TaskDefinition = Mapping[str, Any]
 TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
+
+
+
+@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+class NoSuchServiceError(Exception):
+    """
+    Service does not exist in the specified cluster.
+    """
+
+    service: str
 
 
 
@@ -146,9 +163,10 @@ class ECSServiceClient(object):
             serviceDescription = self._aws.describe_services(
                 cluster=self.cluster, services=[self.service]
             )
-            self._currentTask["arn"] = (
-                serviceDescription["services"][0]["taskDefinition"]
-            )
+            services = serviceDescription["services"]
+            if not services:
+                raise NoSuchServiceError(self.service)
+            self._currentTask["arn"] = services[0]["taskDefinition"]
 
         return self._currentTask["arn"]
 
@@ -394,6 +412,35 @@ class ECSServiceClient(object):
 # Command line
 #
 
+def ensureCI() -> None:
+    """
+    Make sure we are in a CI environment.
+    """
+    deploymentBranch = environ.get("DEPLOY_FROM_CI_BRANCH", "master")
+
+    if environ.get("TRAVIS") == "true":
+        if environ.get("TRAVIS_PULL_REQUEST") != "false":
+            log.critical("Attempted deployment from pull request")
+            raise UsageError("Deployment not allowed from pull request")
+
+        travisBranch = environ.get("TRAVIS_BRANCH")
+
+        if travisBranch != deploymentBranch:
+            log.critical(
+                "Attempted deployment from non-{deploymentBranch} "
+                "branch {travisBranch}",
+                deploymentBranch=deploymentBranch, travisBranch=travisBranch
+            )
+            raise UsageError(
+                f"Deployment not allowed from branch {travisBranch!r} "
+                f"(must be {deploymentBranch!r})"
+            )
+
+    else:
+        log.critical("Attempted deployment outside of CI")
+        raise UsageError("Operation not allowed outside of CI environment")
+
+
 def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
     if environment is None:
         flag = f"--{optionName}"
@@ -455,24 +502,46 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 @stagingClusterOption
 @stagingServiceOption
 @commandOption(
-    "--image",
+    "--image-local",
+    envvar="LOCAL_IMAGE_NAME",
+    help="Local Docker image to push to ECR",
+    type=str, metavar="<name>", prompt=False, required=False,
+)
+@commandOption(
+    "--image-ecr",
     envvar="AWS_ECR_IMAGE_NAME",
-    help="Docker image to use",
-    type=str, metavar="<name>", prompt=True, required=True,
+    help="ECR Docker image to push into (if no tag included, use commit ID)",
+    type=str, metavar="<name>", prompt=True, required=False,
 )
 @commandOption(
     "--trial-run", is_flag=True, help="Trial run only (do not deploy)"
 )
 def staging(
-    staging_cluster: str, staging_service: str, image: str, trial_run: bool,
+    staging_cluster: str, staging_service: str,
+    image_local: str, image_ecr: str,
+    trial_run: bool,
 ) -> None:
     """
     Deploy a new image to the staging environment.
     """
+    ensureCI()
+
+    if ":" not in image_ecr:
+        repo = Repo()
+        commitID = repo.head.object.hexsha
+        image_ecr = f"{image_ecr}:{commitID}"
+
+    if image_local:
+        ecrClient = ECRServiceClient()
+        ecrClient.push(image_local, image_ecr, trialRun=trial_run)
+
     stagingClient = ECSServiceClient(
         cluster=staging_cluster, service=staging_service
     )
-    stagingClient.deployImage(image, trialRun=trial_run)
+    try:
+        stagingClient.deployImage(image_ecr, trialRun=trial_run)
+    except NoSuchServiceError as e:
+        raise UsageError(f"Unknown service: {e.service}")
 
 
 @main.command()

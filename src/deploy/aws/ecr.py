@@ -247,7 +247,9 @@ class ECRServiceClient(object):
         )
 
 
-    def push(self, localName: str, ecrName: str) -> None:
+    def push(
+        self, localName: str, ecrName: str, trialRun: bool = False
+    ) -> None:
         """
         Tag a local image named localName with ecrName and push the image to
         ECR with the new tag.
@@ -265,17 +267,18 @@ class ECRServiceClient(object):
             "Pushing image {localName} to ECR with name {ecrName}...",
             localName=localName, ecrName=ecrName,
         )
-        response = self._docker.images.push(
-            repository, tag, auth_config=credentials, stream=True
-        )
-        handler = DockerPushResponseHandler(repository=repository, tag=tag)
-        handler.handleResponse(response=response)
-        for error in handler.errors:
-            self.log.error(
-                "Error processing response while pushing to "
-                "{imageName}: {error}",
-                imageName=ecrName, error=error,
+        if not trialRun:
+            response = self._docker.images.push(
+                repository, tag, auth_config=credentials, stream=True
             )
+            handler = DockerPushResponseHandler(repository=repository, tag=tag)
+            handler.handleResponse(response=response)
+            for error in handler.errors:
+                self.log.error(
+                    "Error processing response while pushing to "
+                    "{imageName}: {error}",
+                    imageName=ecrName, error=error,
+                )
         self.log.info(
             "Pushed image {localName} to ECR with name {ecrName}.",
             localName=localName, ecrName=ecrName,

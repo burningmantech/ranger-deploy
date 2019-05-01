@@ -20,6 +20,8 @@ Tests for :mod:`deploy.aws.ecs`
 
 from contextlib import contextmanager
 from copy import deepcopy
+from os import chdir, environ, getcwd
+from os.path import dirname
 from typing import (
     Any, Callable, ClassVar, Dict, Iterator, List,
     Mapping, Optional, Sequence, Set, Tuple, Type, cast,
@@ -36,6 +38,7 @@ from hypothesis.strategies import (
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from deploy.ext.click import clickTestRun
+from deploy.ext.hypothesis import image_names, image_repository_names
 
 from .. import ecs
 from ..ecs import (
@@ -361,9 +364,6 @@ class MockBoto3ECSClient(object):
 
 @contextmanager
 def testingBoto3ECS() -> Iterator[None]:
-    #MockBoto3ECSClient._clearServices()
-    #MockBoto3ECSClient._clearTaskDefinitions()
-
     MockBoto3ECSClient._addDefaultTaskDefinitions()
     MockBoto3ECSClient._addDefaultServices()
 
@@ -858,6 +858,29 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
         clients.clear()
 
 
+@contextmanager
+def travisEnvironment() -> Iterator[None]:
+    env = environ.copy()
+
+    environ["TRAVIS"] = "true"
+    environ["TRAVIS_PULL_REQUEST"] = "false"
+    environ["TRAVIS_BRANCH"] = "master"
+
+    wd = getcwd()
+    if "TOX_WORK_DIR" in env:
+        chdir(dirname(env["TOX_WORK_DIR"]))
+    else:
+        chdir(dirname(dirname(dirname(dirname(dirname(__file__))))))
+
+    try:
+        yield
+
+    finally:
+        environ.clear()
+        environ.update(env)
+        chdir(wd)
+
+
 
 class CommandLineTests(TestCase):
     """
@@ -875,31 +898,37 @@ class CommandLineTests(TestCase):
         MockBoto3ECSClient._addService(cluster, service, taskARN)
 
 
-    @given(text(min_size=1), text(min_size=1), text(min_size=1))
-    def test_staging(
-        self, stagingCluster: str, stagingService: str, imageName: str,
+    def _test_staging(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            result = clickTestRun(
-                ECSServiceClient.main,
-                [
-                    "deploy_aws_ecs", "staging",
-                    "--staging-cluster", stagingCluster,
-                    "--staging-service", stagingService,
-                    "--image", imageName,
-                ]
-            )
+            with travisEnvironment():
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", stagingService,
+                        "--image-ecr", ecrImageName,
+                    ]
+                )
 
             self.assertEqual(len(clients), 1)
             client = clients[0]
 
             self.assertEqual(client.cluster, stagingCluster)
             self.assertEqual(client.service, stagingService)
-            self.assertEqual(client.currentImageName(), imageName)
+
+            if ":" in ecrImageName:
+                self.assertEqual(client.currentImageName(), ecrImageName)
+            else:
+                self.assertTrue(
+                    client.currentImageName().startswith(ecrImageName)
+                )
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -907,9 +936,23 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
 
-    @given(text(min_size=1), text(min_size=1), text(min_size=1))
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        self._test_staging(stagingCluster, stagingService, ecrImageName)
+
+
+    @given(text(min_size=1), text(min_size=1), image_repository_names())
+    def test_staging_noECRImageTag(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        self._test_staging(stagingCluster, stagingService, ecrImageName)
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_trial(
-        self, stagingCluster: str, stagingService: str, imageName: str,
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -920,16 +963,17 @@ class CommandLineTests(TestCase):
             )
 
             # Run "staging" subcommand
-            result = clickTestRun(
-                ECSServiceClient.main,
-                [
-                    "deploy_aws_ecs", "staging",
-                    "--staging-cluster", stagingCluster,
-                    "--staging-service", stagingService,
-                    "--image", imageName,
-                    "--trial-run",
-                ]
-            )
+            with travisEnvironment():
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", stagingService,
+                        "--image-ecr", ecrImageName,
+                        "--trial-run",
+                    ]
+                )
 
             self.assertEqual(len(clients), 1)
             client = clients[0]

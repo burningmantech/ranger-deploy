@@ -49,38 +49,10 @@ deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 "${python}" -m pip install --disable-pip-version-check --quiet \
     "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
 
-case "${DEPLOY_TARGET:-}" in
+"${python}" -m deploy.aws.ecs "${@}";
 
-    "staging")
-
-        # Safety checks, since we don't want to allow deployments to staging
-        # outside of CI, and only from master branch builds.
-        if [ "${TRAVIS:-}" != "true" ]; then
-            echo "No deployments to staging outside of Travis CI.";
-            exit 78;  # EX_CONFIG
-        fi;
-        if [ "${TRAVIS_PULL_REQUEST:-}" != "false" ]; then
-            echo "No deployments allowed from a pull request.";
-            exit 78;  # EX_CONFIG
-        fi;
-        if [ "${TRAVIS_BRANCH:-}" != "master" ]; then
-            echo "No deployments allowed from non-master branches.";
-            exit 78;  # EX_CONFIG
-        fi;
-
-        commit_id="$(git rev-parse --short "${TRAVIS_COMMIT}")";
-        export AWS_ECR_IMAGE_NAME="${AWS_ECR_IMAGE_REPOSITORY}:${commit_id}";
-
-        # Push the built image to ECR
-        echo "Pushing image to ECR...";
-        "${python}" -m deploy.aws.ecr push \
-            "${LOCAL_IMAGE_NAME}" "${AWS_ECR_IMAGE_NAME}";
-
-        # Deploy the new image to ECS
-        echo "Deploying updated task to ECS...";
-        "${python}" -m deploy.aws.ecs staging;
-
-        # Tell the world
+if [ ${#} -gt 0 ]; then
+    if [ "${1}" = "staging" ]; then
         echo "Sending notification...";
         "${python}" -m deploy.notify.smtp staging        \
             --repository-id="${TRAVIS_REPO_SLUG}"        \
@@ -89,11 +61,5 @@ case "${DEPLOY_TARGET:-}" in
             --commit-id="${TRAVIS_COMMIT}"               \
             --commit-message="${TRAVIS_COMMIT_MESSAGE}"  \
             ;
-
-        ;;
-
-    *)
-        "${python}" -m deploy.aws.ecs "${DEPLOY_TARGET}" "${@}";
-        ;;
-
-esac;
+    fi;
+fi;
