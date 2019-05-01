@@ -859,17 +859,19 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
 
 
 @contextmanager
-def travisEnvironment() -> Iterator[None]:
+def travisEnvironment(omit: str = "") -> Iterator[None]:
     env = environ.copy()
 
     environ["TRAVIS"] = "true"
-    environ["TRAVIS_PULL_REQUEST"] = "false"
-    environ["TRAVIS_BRANCH"] = "master"
+    if omit != "pr":
+        environ["TRAVIS_PULL_REQUEST"] = "false"
+    if omit != "branch":
+        environ["TRAVIS_BRANCH"] = "master"
 
     wd = getcwd()
-    if "TOX_WORK_DIR" in env:
+    if "TOX_WORK_DIR" in env:  # pragma: no cover
         chdir(dirname(env["TOX_WORK_DIR"]))
-    else:
+    else:  # pragma: no cover
         chdir(dirname(dirname(dirname(dirname(dirname(__file__))))))
 
     try:
@@ -986,6 +988,106 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.echoOutput, [])
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging_notCI(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        with testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+
+            # Run "staging" subcommand
+            result = clickTestRun(
+                ECSServiceClient.main,
+                [
+                    "deploy_aws_ecs", "staging",
+                    "--staging-cluster", stagingCluster,
+                    "--staging-service", stagingService,
+                    "--image-ecr", ecrImageName,
+                    "--trial-run",
+                ]
+            )
+
+            self.assertEqual(len(clients), 0)
+
+        self.assertEqual(result.exitCode, 2)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertTrue(
+            result.stderr.getvalue().endswith(
+                "\n\nError: Deployment not allowed outside of CI environment\n"
+            )
+        )
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging_notPR(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        with testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+
+            # Run "staging" subcommand
+            with travisEnvironment(omit="pr"):
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", stagingService,
+                        "--image-ecr", ecrImageName,
+                        "--trial-run",
+                    ]
+                )
+
+            self.assertEqual(len(clients), 0)
+
+        self.assertEqual(result.exitCode, 2)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertTrue(
+            result.stderr.getvalue().endswith(
+                "\n\nError: Deployment not allowed from pull request\n"
+            )
+        )
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging_notBranch(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        with testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+
+            # Run "staging" subcommand
+            with travisEnvironment(omit="branch"):
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", stagingService,
+                        "--image-ecr", ecrImageName,
+                        "--trial-run",
+                    ]
+                )
+
+            self.assertEqual(len(clients), 0)
+
+        self.assertEqual(result.exitCode, 2)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertTrue(
+            result.stderr.getvalue().endswith(
+                "\n\n"
+                "Error: Deployment not allowed from branch None "
+                "(must be 'master')\n"
+            )
+        )
 
 
     @given(text(min_size=1), text(min_size=1))

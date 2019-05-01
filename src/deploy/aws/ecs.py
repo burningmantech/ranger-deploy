@@ -438,7 +438,7 @@ def ensureCI() -> None:
 
     else:
         log.critical("Attempted deployment outside of CI")
-        raise UsageError("Operation not allowed outside of CI environment")
+        raise UsageError("Deployment not allowed outside of CI environment")
 
 
 def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
