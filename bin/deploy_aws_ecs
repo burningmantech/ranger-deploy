@@ -51,8 +51,12 @@ deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 
 "${python}" -m deploy.aws.ecs "${@}";
 
-if [ ${#} -gt 0 ]; then
-    if [ "${1}" = "staging" ]; then
+for arg in "${@}"; do
+    # Skip past main options
+    if [ $"{arg##--}" = "${arg}" ]; then continue; fi;
+
+    # If subcommand is staging, send notification
+    if [ "${arg}" = "staging" ]; then
         echo "Sending notification...";
         "${python}" -m deploy.notify.smtp staging        \
             --repository-id="${TRAVIS_REPO_SLUG}"        \
@@ -62,4 +66,6 @@ if [ ${#} -gt 0 ]; then
             --commit-message="${TRAVIS_COMMIT_MESSAGE}"  \
             ;
     fi;
-fi;
+
+    break;
+done;
