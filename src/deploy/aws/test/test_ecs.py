@@ -42,7 +42,7 @@ from deploy.ext.hypothesis import image_names, image_repository_names
 
 from .. import ecs
 from ..ecs import (
-    ECSServiceClient, NoChangesError,
+    ECSServiceClient, NoChangesError, NoSuchServiceError,
     TaskDefinition, TaskEnvironment, TaskEnvironmentUpdates,
 )
 
@@ -350,6 +350,7 @@ class MockBoto3ECSClient(object):
             "services": [
                 {"taskDefinition": self._currentTaskARN(cluster, service)}
                 for service in services
+                if service in self._services[cluster]
             ],
         }
 
@@ -436,6 +437,22 @@ class ECSServiceClientTests(TestCase):
                 arn,
                 client._aws._currentTaskARN(client.cluster, client.service),
             )
+
+
+    def test_currentTaskARN_noSuchService(self) -> None:
+        """
+        :meth:`ECSServiceClient.currentTaskARN` raises
+        :exc:`NoSuchServiceError` when the service doesn't exist.
+        task.
+        """
+        with testingBoto3ECS():
+            doesntExistService = "xyzzy"
+            client = ECSServiceClient(
+                cluster=MockBoto3ECSClient._sampleClusterStaging,
+                service=doesntExistService,
+            )
+            e = self.assertRaises(NoSuchServiceError, client.currentTaskARN)
+            self.assertEqual(e.service, doesntExistService)
 
 
     def test_currentTaskDefinition(self) -> None:
