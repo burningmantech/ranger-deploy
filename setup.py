@@ -107,7 +107,7 @@ install_requirements = [
     # Direct dependencies
     "arrow==0.13.1",
     "attrs==19.1.0",
-    "boto3==1.9.138",
+    "boto3==1.9.140",
     "Click==7.0",
     "docker==3.7.2",  # [tls]
     "GitPython==2.1.11",
