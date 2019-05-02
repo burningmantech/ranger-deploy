@@ -40,6 +40,7 @@ from twisted.trial.unittest import SynchronousTestCase as TestCase
 from deploy.ext.click import clickTestRun
 from deploy.ext.hypothesis import image_names, image_repository_names
 
+from .test_ecr import ECRServiceClient, testingECRServiceClient
 from .. import ecs
 from ..ecs import (
     ECSServiceClient, NoChangesError, NoSuchServiceError,
@@ -858,8 +859,8 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
     clients: List[ECSServiceClient] = []
 
     class RememberMeECSServiceClient(ECSServiceClient):
-        def __init__(self, **kwargs: Any) -> None:
-            super().__init__(**kwargs)
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
             clients.append(self)
 
     Client = ecs.ECSServiceClient
@@ -967,6 +968,54 @@ class CommandLineTests(TestCase):
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         self._test_staging(stagingCluster, stagingService, ecrImageName)
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging_push(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str
+    ) -> None:
+        with testingECRServiceClient():
+            with testingECSServiceClient() as clients:
+                # Add starting data set
+                self.initClusterAndService(stagingCluster, stagingService)
+
+                # Run "staging" subcommand
+                with travisEnvironment():
+                    result = clickTestRun(
+                        ECSServiceClient.main,
+                        [
+                            "deploy_aws_ecs", "staging",
+                            "--staging-cluster", stagingCluster,
+                            "--staging-service", stagingService,
+                            "--image-ecr", ecrImageName,
+                            "--image-local", "image:1",  # FIXME: static
+                        ]
+                    )
+
+                self.assertEqual(len(clients), 1)
+                ecsClient = clients[0]
+
+                self.assertEqual(ecsClient.cluster, stagingCluster)
+                self.assertEqual(ecsClient.service, stagingService)
+
+                if ":" in ecrImageName:
+                    self.assertEqual(ecsClient.currentImageName(), ecrImageName)
+                else:
+                    self.assertTrue(
+                        ecsClient.currentImageName().startswith(ecrImageName)
+                    )
+
+                # ECR tag should exist both locally and in ECR
+                ecrClient = ECRServiceClient()
+                self.assertIsNotNone(ecrClient.imageWithName(ecrImageName))
+                self.assertIsNotNone(
+                    ecrClient._docker.images._fromECR(ecrImageName)
+                )
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
 
 
     @given(text(min_size=1), text(min_size=1), image_names())

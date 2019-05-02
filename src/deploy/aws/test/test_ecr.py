@@ -1135,13 +1135,9 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
 
-            # Tag should exist locally
-            image = client.imageWithName(ecrName)
-            self.assertIsNotNone(image)
-
-            # And it should exist in ECR
-            image = client._docker.images._fromECR(ecrName)
-            self.assertIsNotNone(image)
+            # ECR tag should exist both locally and in ECR
+            self.assertIsNotNone(client.imageWithName(ecrName))
+            self.assertIsNotNone(client._docker.images._fromECR(ecrName))
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
