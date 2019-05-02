@@ -88,3 +88,27 @@ def repository_ids(draw: Callable) -> str:
     A strategy which generates GitHub repository IDs.
     """
     return f"{draw(user_names())}/{draw(user_names())}"
+
+
+def image_repository_names() -> SearchStrategy:
+    """
+    A strategy which generates Docker image repository names.
+    """
+    return text(min_size=1, alphabet=ascii_letters + digits + "._-/")
+
+
+def image_tag_names() -> SearchStrategy:
+    """
+    A strategy which generates Docker image tag names.
+    """
+    return text(
+        min_size=1, max_size=128, alphabet=ascii_letters + digits + "._-"
+    ).filter(lambda t: t[0] not in ".-")
+
+
+@composite
+def image_names(draw: Callable) -> str:
+    """
+    A strategy which generates Docker image names.
+    """
+    return f"{draw(image_repository_names())}:{draw(image_tag_names())}"

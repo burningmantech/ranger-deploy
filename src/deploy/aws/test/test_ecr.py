@@ -290,11 +290,13 @@ def testingBoto3ECR() -> Iterator[None]:
     boto3Client = ecr.boto3Client
     ecr.boto3Client = MockBoto3ECRClient
 
-    yield
+    try:
+        yield
 
-    ecr.boto3Client = boto3Client
+    finally:
+        ecr.boto3Client = boto3Client
 
-    MockBoto3ECRClient._tearDown()
+        MockBoto3ECRClient._tearDown()
 
 
 @contextmanager
@@ -304,11 +306,13 @@ def testingDocker() -> Iterator[None]:
     dockerClientFromEnvironment = ecr.dockerClientFromEnvironment
     ecr.dockerClientFromEnvironment = MockDockerClient._fromEnvironment
 
-    yield
+    try:
+        yield
 
-    ecr.dockerClientFromEnvironment = dockerClientFromEnvironment
+    finally:
+        ecr.dockerClientFromEnvironment = dockerClientFromEnvironment
 
-    MockDockerClient._tearDown()
+        MockDockerClient._tearDown()
 
 
 
@@ -1026,12 +1030,14 @@ def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
     Client = ecr.ECRServiceClient
     ecr.ECRServiceClient = cast(Type, RememberMeECRServiceClient)
 
-    with testingBoto3ECR(), testingDocker():
-        yield clients
+    try:
+        with testingBoto3ECR(), testingDocker():
+            yield clients
 
-    ecr.ECRServiceClient = Client
+    finally:
+        ecr.ECRServiceClient = Client
 
-    clients.clear()
+        clients.clear()
 
 
 
@@ -1129,13 +1135,9 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
 
-            # Tag should exist locally
-            image = client.imageWithName(ecrName)
-            self.assertIsNotNone(image)
-
-            # And it should exist in ECR
-            image = client._docker.images._fromECR(ecrName)
-            self.assertIsNotNone(image)
+            # ECR tag should exist both locally and in ECR
+            self.assertIsNotNone(client.imageWithName(ecrName))
+            self.assertIsNotNone(client._docker.images._fromECR(ecrName))
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
