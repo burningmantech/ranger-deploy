@@ -859,8 +859,8 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
     clients: List[ECSServiceClient] = []
 
     class RememberMeECSServiceClient(ECSServiceClient):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
             clients.append(self)
 
     Client = ecs.ECSServiceClient
@@ -970,7 +970,10 @@ class CommandLineTests(TestCase):
         self._test_staging(stagingCluster, stagingService, ecrImageName)
 
 
-    @given(text(min_size=1), text(min_size=1), one_of(image_names(), image_repository_names()))
+    @given(
+        text(min_size=1), text(min_size=1),
+        one_of(image_names(), image_repository_names()),
+    )
     def test_staging_push(
         self, stagingCluster: str, stagingService: str, ecrImageName: str
     ) -> None:
