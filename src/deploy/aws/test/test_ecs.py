@@ -32,7 +32,7 @@ from attr import Attribute, attrib, attrs
 from hypothesis import assume, given
 from hypothesis.strategies import (
     characters, composite, dictionaries, integers, just,
-    lists, sampled_from, sets, text, tuples,
+    lists, one_of, sampled_from, sets, text, tuples,
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
@@ -970,7 +970,7 @@ class CommandLineTests(TestCase):
         self._test_staging(stagingCluster, stagingService, ecrImageName)
 
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(text(min_size=1), text(min_size=1), one_of(image_names(), image_repository_names()))
     def test_staging_push(
         self, stagingCluster: str, stagingService: str, ecrImageName: str
     ) -> None:
@@ -998,18 +998,20 @@ class CommandLineTests(TestCase):
                 self.assertEqual(ecsClient.cluster, stagingCluster)
                 self.assertEqual(ecsClient.service, stagingService)
 
+                currentImageName = ecsClient.currentImageName()
                 if ":" in ecrImageName:
-                    self.assertEqual(ecsClient.currentImageName(), ecrImageName)
+                    self.assertEqual(currentImageName, ecrImageName)
                 else:
                     self.assertTrue(
-                        ecsClient.currentImageName().startswith(ecrImageName)
+                        currentImageName.startswith(f"{ecrImageName}:")
                     )
+                    ecrImageName = currentImageName
 
                 # ECR tag should exist both locally and in ECR
                 ecrClient = ECRServiceClient()
-                self.assertIsNotNone(ecrClient.imageWithName(ecrImageName))
+                self.assertIsNotNone(ecrClient.imageWithName(currentImageName))
                 self.assertIsNotNone(
-                    ecrClient._docker.images._fromECR(ecrImageName)
+                    ecrClient._docker.images._fromECR(currentImageName)
                 )
 
         self.assertEqual(result.exitCode, 0)
@@ -1054,6 +1056,40 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.echoOutput, [])
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
+
+
+    @given(text(min_size=1), image_names())
+    def test_staging_noSuchService(
+        self, stagingCluster: str, ecrImageName: str
+    ) -> None:
+        with testingECSServiceClient() as clients:
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, "service")
+
+            doesntExistService = "xyzzy"
+
+            # Run "staging" subcommand
+            with travisEnvironment():
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", doesntExistService,
+                        "--image-ecr", ecrImageName,
+                    ]
+                )
+
+            self.assertEqual(len(clients), 1)
+
+        self.assertEqual(result.exitCode, 2)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertTrue(
+            result.stderr.getvalue().endswith(
+                f"\n\nError: Unknown service: {doesntExistService}\n"
+            )
+        )
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
