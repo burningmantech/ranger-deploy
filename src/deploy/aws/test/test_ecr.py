@@ -187,7 +187,7 @@ class MockImagesAPI(object):
 
         # Fake some activity
         json = [
-            {"status": f"The push refers to repository [{repository}]"},
+            {"status": f"The push refers to a repository [{repository}]"},
             {"status": "Preparing", "id": image.id, "progressDetail": {}},
             {"status": "Waiting", "id": image.id, "progressDetail": {}},
             {
@@ -592,7 +592,7 @@ class DockerPushResponseHandlerTests(TestCase):
     def test_handleGeneralStatusUpdate_init(self, repository: str) -> None:
         handler = DockerPushResponseHandler(repository=repository, tag="tag")
         handler._handleGeneralStatusUpdate(
-            json={"status": f"The push refers to repository [{repository}]"}
+            json={"status": f"The push refers to a repository [{repository}]"}
         )
         self.assertEqual(handler.errors, [])
 
@@ -639,7 +639,8 @@ class DockerPushResponseHandlerTests(TestCase):
         self.assertEqual(
             handler._statusForImage(imageID),
             ImagePushStatus(
-                state=ImagePushState.pushed, currentProgress=0, totalProgress=0
+                state=ImagePushState.pushed,
+                currentProgress=0, totalProgress=-1,
             )
         )
 
@@ -760,6 +761,51 @@ class DockerPushResponseHandlerTests(TestCase):
 
 
     @given(integers(min_value=0), integers(min_value=0))
+    def test_handleImageStatusUpdate_pushing_noTotal(
+        self, currentProgress: int, totalProgress: int
+    ) -> None:
+        # Ensure totalProgress >= currentProgress
+        totalProgress += currentProgress
+
+        imageID = "1"
+        handler = DockerPushResponseHandler(repository="repo", tag="latest")
+
+        for state in (
+            ImagePushState.start,
+            ImagePushState.preparing,
+            ImagePushState.waiting,
+            ImagePushState.pushing,
+        ):
+            priorTotalProgress = -1
+
+            # Set prior status
+            handler.status[imageID] = ImagePushStatus(
+                state=state,
+                currentProgress=0,
+                totalProgress=priorTotalProgress,
+            )
+
+            handler._handleImageStatusUpdate(
+                json={
+                    "id": imageID,
+                    "status": "Pushing",
+                    "progressDetail": {
+                        "current": currentProgress,
+                    },
+                },
+            )
+
+            self.assertEqual(
+                handler._statusForImage(imageID),
+                ImagePushStatus(
+                    state=ImagePushState.pushing,
+                    currentProgress=currentProgress,
+                    totalProgress=priorTotalProgress,
+                )
+            )
+
+
+    @given(integers(min_value=0), integers(min_value=0))
     def test_handleImageStatusUpdate_pushed(
         self, priorCurrentProgress: int, priorTotalProgress: int
     ) -> None:
@@ -796,7 +842,7 @@ class DockerPushResponseHandlerTests(TestCase):
             )
 
             if state <= ImagePushState.waiting:
-                priorTotalProgress = 0
+                priorTotalProgress = -1
 
             self.assertEqual(
                 handler._statusForImage(imageID),
