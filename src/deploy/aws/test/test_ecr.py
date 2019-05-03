@@ -776,10 +776,7 @@ class DockerPushResponseHandlerTests(TestCase):
             ImagePushState.waiting,
             ImagePushState.pushing,
         ):
-            if state <= ImagePushState.pushing:
-                priorTotalProgress = -1
-            else:
-                priorTotalProgress = totalProgress
+            priorTotalProgress = -1
 
             # Set prior status
             handler.status[imageID] = ImagePushStatus(
@@ -803,7 +800,7 @@ class DockerPushResponseHandlerTests(TestCase):
                 ImagePushStatus(
                     state=ImagePushState.pushing,
                     currentProgress=currentProgress,
-                    totalProgress=-1,
+                    totalProgress=priorTotalProgress,
                 )
             )
 
