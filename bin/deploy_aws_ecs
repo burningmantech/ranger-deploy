@@ -53,7 +53,7 @@ deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 
 for arg in "${@}"; do
     # Skip past main options
-    if [ $"{arg##--}" = "${arg}" ]; then continue; fi;
+    if [ "${arg##--}" != "${arg}" ]; then continue; fi;
 
     # If subcommand is staging, send notification
     if [ "${arg}" = "staging" ]; then
