@@ -38,7 +38,7 @@ from git import Repo
 
 from twisted.logger import Logger
 
-from deploy.ext.click import readConfig
+from deploy.ext.click import composedOptions, profileOption, readConfig
 from deploy.ext.logger import startLogging
 
 from .ecr import ECRServiceClient
@@ -455,21 +455,21 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         help=help, type=str, metavar="<name>", prompt=True, required=True,
     )
 
-clusterOption           = ecsOption("cluster")
-serviceOption           = ecsOption("service")
-stagingClusterOption    = ecsOption("cluster", "staging")
-stagingServiceOption    = ecsOption("service", "staging")
-productionClusterOption = ecsOption("cluster", "production")
-productionServiceOption = ecsOption("service", "production")
+
+environmentOptions = composedOptions(
+    ecsOption("cluster"), ecsOption("service")
+)
+stagingEnvironmentOptions = composedOptions(
+    ecsOption("cluster", "staging"), ecsOption("service", "staging")
+)
+productionEnvironmentOptions = composedOptions(
+    ecsOption("cluster", "production"), ecsOption("service", "production")
+)
 
 
 @commandGroup()
 @versionOption()
-@commandOption(
-    "--profile",
-    help="Profile to load from configuration file",
-    type=str, metavar="<name>", prompt=False, required=False,
-)
+@profileOption
 @passContext
 def main(ctx: ClickContext, profile: Optional[str]) -> None:
     """
@@ -499,8 +499,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
+@stagingEnvironmentOptions
 @commandOption(
     "--image-local",
     envvar="LOCAL_IMAGE_NAME",
@@ -545,8 +544,7 @@ def staging(
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
+@stagingEnvironmentOptions
 def rollback(
     staging_cluster: str, staging_service: str,
 ) -> None:
@@ -560,10 +558,8 @@ def rollback(
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
-@productionClusterOption
-@productionServiceOption
+@stagingEnvironmentOptions
+@productionEnvironmentOptions
 def production(
     staging_cluster: str, staging_service: str,
     production_cluster: str, production_service: str,
@@ -582,10 +578,8 @@ def production(
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
-@productionClusterOption
-@productionServiceOption
+@stagingEnvironmentOptions
+@productionEnvironmentOptions
 def compare(
     staging_cluster: str, staging_service: str,
     production_cluster: str, production_service: str,
@@ -642,8 +636,7 @@ def compare(
 
 
 @main.command()
-@clusterOption
-@serviceOption
+@environmentOptions
 @commandArgument("arguments", nargs=-1, metavar="[name[=value]]")
 def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     """

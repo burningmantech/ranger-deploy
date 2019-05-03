@@ -16,6 +16,7 @@ from unittest.mock import patch
 from attr import Factory, attrs
 
 import click
+from click import option
 
 
 __all__ = (
@@ -26,6 +27,23 @@ __all__ = (
 
 
 defaultConfigPath = Path("~/.ranger-deploy.ini")
+
+
+def composedOptions(
+    *options: Callable[..., Callable]
+) -> Callable[..., Callable]:
+    def wrapper(f: Callable) -> Callable:
+        for o in reversed(options):
+            f = o(f)
+        return f
+    return wrapper
+
+
+profileOption = option(
+    "--profile",
+    help="Profile to load from configuration file",
+    type=str, metavar="<name>", prompt=False, required=False,
+)
 
 
 
