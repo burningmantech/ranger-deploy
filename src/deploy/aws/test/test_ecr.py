@@ -187,7 +187,7 @@ class MockImagesAPI(object):
 
         # Fake some activity
         json = [
-            {"status": f"The push refers to repository [{repository}]"},
+            {"status": f"The push refers to a repository [{repository}]"},
             {"status": "Preparing", "id": image.id, "progressDetail": {}},
             {"status": "Waiting", "id": image.id, "progressDetail": {}},
             {
@@ -592,7 +592,7 @@ class DockerPushResponseHandlerTests(TestCase):
     def test_handleGeneralStatusUpdate_init(self, repository: str) -> None:
         handler = DockerPushResponseHandler(repository=repository, tag="tag")
         handler._handleGeneralStatusUpdate(
-            json={"status": f"The push refers to repository [{repository}]"}
+            json={"status": f"The push refers to a repository [{repository}]"}
         )
         self.assertEqual(handler.errors, [])
 
