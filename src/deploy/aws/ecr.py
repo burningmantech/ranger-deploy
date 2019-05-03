@@ -373,7 +373,8 @@ class DockerPushResponseHandler(object):
         except KeyError:
             if jsonStatus == "Layer already exists":
                 state = ImagePushState.pushed
-                currentProgress = totalProgress = 0
+                currentProgress = 0
+                totalProgress = -1
             else:
                 raise DockerServiceError(f"Unknown status: {jsonStatus}")
         else:
@@ -393,22 +394,25 @@ class DockerPushResponseHandler(object):
                 totalProgress   = priorStatus.totalProgress
 
             elif state is ImagePushState.pushing:
-                currentProgress = json["progressDetail"]["current"]
-                totalProgress   = json["progressDetail"]["total"]
+                progressDetail = json["progressDetail"]
+
+                currentProgress = progressDetail["current"]
+                totalProgress   = progressDetail.get("total")
 
                 assert currentProgress >= priorStatus.currentProgress
-                assert (
-                    totalProgress == priorStatus.totalProgress or
-                    priorStatus.totalProgress == -1
-                )
+                if totalProgress is None:
+                    assert priorStatus.totalProgress == -1, priorStatus.totalProgress
+                    totalProgress = -1
+                else:
+                    assert (
+                        totalProgress == priorStatus.totalProgress or
+                        priorStatus.totalProgress == -1
+                    )
 
             elif state is ImagePushState.pushed:
                 assert priorStatus.state < state
 
                 totalProgress = priorStatus.totalProgress
-
-                if totalProgress == -1:
-                    totalProgress = 0
 
                 currentProgress = totalProgress
 
