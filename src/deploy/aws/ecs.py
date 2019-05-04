@@ -21,7 +21,9 @@ AWS Elastic Container Service support.
 from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
-from typing import (Any, Callable, Dict, List, Mapping, Optional, Sequence)
+from typing import (
+    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+)
 
 from attr import Factory, attrs
 
@@ -38,8 +40,13 @@ from git import Repo
 
 from twisted.logger import Logger
 
-from deploy.ext.click import composedOptions, profileOption, readConfig
+from deploy.ext.click import (
+    composedOptions, profileOption, readConfig, trialRunOption
+)
 from deploy.ext.logger import startLogging
+from deploy.notify.smtp import (
+    _staging as notifyStaging, buildOptions, smtpOptions
+)
 
 from .ecr import ECRServiceClient
 
@@ -500,6 +507,8 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 
 @main.command()
 @stagingEnvironmentOptions
+@buildOptions(required=False)
+@smtpOptions(required=False)
 @commandOption(
     "--image-local",
     envvar="LOCAL_IMAGE_NAME",
@@ -512,11 +521,13 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     help="ECR Docker image to push into (if no tag included, use commit ID)",
     type=str, metavar="<name>", prompt=True, required=False,
 )
-@commandOption(
-    "--trial-run", is_flag=True, help="Trial run only (do not deploy)"
-)
+@trialRunOption
 def staging(
     staging_cluster: str, staging_service: str,
+    project_name: Optional[str], repository_id: Optional[Tuple[str, str, str]],
+    build_number: str, build_url: str, commit_id: str, commit_message: str,
+    smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
+    email_sender: str, email_recipient: str,
     image_local: str, image_ecr: str,
     trial_run: bool,
 ) -> None:
@@ -541,6 +552,25 @@ def staging(
         stagingClient.deployImage(image_ecr, trialRun=trial_run)
     except NoSuchServiceError as e:
         raise UsageError(f"Unknown service: {e.service}")
+
+    if (
+        repository_id and
+        build_number and build_url and commit_id and
+        commit_message is not None and
+        smtp_host and smtp_port and smtp_user and smtp_password and
+        email_sender and email_recipient
+    ):
+        notifyStaging(
+            project_name=project_name, repository_id=repository_id,
+            build_number=build_number, build_url=build_url,
+            commit_id=commit_id, commit_message=commit_message,
+            smtp_host=smtp_host, smtp_port=smtp_port,
+            smtp_user=smtp_user, smtp_password=smtp_password,
+            email_sender=email_sender, email_recipient=email_recipient,
+            trial_run=trial_run,
+        )
+    else:
+        log.info("SMTP notification not configured")
 
 
 @main.command()

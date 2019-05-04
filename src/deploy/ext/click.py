@@ -45,6 +45,10 @@ profileOption = option(
     type=str, metavar="<name>", prompt=False, required=False,
 )
 
+trialRunOption = option(
+    "--trial-run", help="Trial run only (do not deploy)", is_flag=True
+)
+
 
 
 class Internal(Enum):
