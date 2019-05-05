@@ -538,7 +538,8 @@ def staging(
     """
     Deploy a new image to the staging environment.
     """
-    ensureCI()
+    if not trial_run:
+        ensureCI()
 
     if ":" not in image_ecr:
         repo = Repo()

@@ -1236,7 +1236,6 @@ class CommandLineTests(TestCase):
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--image-ecr", ecrImageName,
-                    "--trial-run",
                 ]
             )
 
@@ -1269,7 +1268,6 @@ class CommandLineTests(TestCase):
                         "--staging-cluster", stagingCluster,
                         "--staging-service", stagingService,
                         "--image-ecr", ecrImageName,
-                        "--trial-run",
                     ]
                 )
 
@@ -1302,7 +1300,6 @@ class CommandLineTests(TestCase):
                         "--staging-cluster", stagingCluster,
                         "--staging-service", stagingService,
                         "--image-ecr", ecrImageName,
-                        "--trial-run",
                     ]
                 )
 
