@@ -564,23 +564,36 @@ class ECSServiceClientTests(TestCase):
             self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
-    def test_updateTaskDefinition_travis(self) -> None:
+    @given(
+        ascii_text(min_size=1),  # project
+        repository_ids(),        # repository
+        integers(),              # buildNumber
+        ascii_text(min_size=1),  # buildURL
+        commitIDs(),             # commitID
+        ascii_text(min_size=1),  # commitMessage
+    )
+    def test_updateTaskDefinition_ci(
+        self,
+        project: str, repository: str,
+        buildNumber: int, buildURL: str,
+        commitID: str, commitMessage: str,
+    ) -> None:
         with testingBoto3ECS():
             client = ECSServiceClient(
                 cluster=MockBoto3ECSClient._sampleClusterStaging,
                 service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
-            # Patch the (local) system environment to emulate Travis CI
-            travisEnvironment = {
-                "TRAVIS": "true",
-                "TRAVIS_COMMIT": "0" * 40,
-                "TRAVIS_COMMIT_MESSAGE": "Fixed some stuff",
-                "TRAVIS_JOB_WEB_URL": "https://travis-ci.com/o/r/builds/0",
-                "TRAVIS_PULL_REQUEST_BRANCH": "1",
-                "TRAVIS_TAG": "v0.0.0",
+            # Patch the (local) system environment to emulate CI
+            ciEnvironment = {
+                "BUILD_NUMBER": str(buildNumber),
+                "BUILD_URL": buildURL,
+                "COMMIT_ID": "0" * 40,
+                "COMMIT_MESSAGE": commitMessage,
+                "PROJECT_NAME": project,
+                "REPOSITORY_ID": repository,
             }
-            self.patch(ecs, "environ", travisEnvironment)
+            self.patch(ecs, "environ", ciEnvironment)
 
             # Make an unrelated change to avoid NoChangesError
             newTaskDefinition = client.updateTaskDefinition(
@@ -592,8 +605,9 @@ class ECSServiceClientTests(TestCase):
             expectedEnvironment = dict(
                 client._aws._currentEnvironment(client.cluster, client.service)
             )
-            expectedEnvironment.update(travisEnvironment)
-            del expectedEnvironment["TRAVIS"]
+            expectedEnvironment.update(
+                {(f"CI_{k}", v) for (k, v) in ciEnvironment.items()}
+            )
 
             # TASK_UPDATED is inserted during updates.
             self.assertIn("TASK_UPDATED", updatedEnvironment)
