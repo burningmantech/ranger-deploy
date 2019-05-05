@@ -251,18 +251,19 @@ class ECSServiceClient(object):
         # Record the current time
         environment["TASK_UPDATED"] = str(DateTime.utcnow())
 
-        # If we're in Travis CI, record some information about the build.
-        if environ.get("TRAVIS", "false") == "true":
-            for key in (
-                "TRAVIS_COMMIT",
-                "TRAVIS_COMMIT_MESSAGE",
-                "TRAVIS_JOB_WEB_URL",
-                "TRAVIS_PULL_REQUEST_BRANCH",
-                "TRAVIS_TAG",
-            ):
-                value = environ.get(key, None)
-                if value is not None:
-                    environment[key] = value
+        # Record some information about the CI build.
+        # FIXME: Get these values from parsed CLI, not environment.
+        for key in (
+            "BUILD_NUMBER",
+            "BUILD_URL",
+            "COMMIT_ID",
+            "COMMIT_MESSAGE",
+            "PROJECT_NAME",
+            "REPOSITORY_ID",
+        ):
+            value = environ.get(key, None)
+            if value is not None:
+                environment[f"CI_{key}"] = value
 
         # Edit the container environment to the new one.
         newTaskDefinition["containerDefinitions"][0]["environment"] = (
@@ -518,7 +519,10 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 @commandOption(
     "--image-ecr",
     envvar="AWS_ECR_IMAGE_NAME",
-    help="ECR Docker image to push into (if no tag included, use commit ID)",
+    help=(
+        "ECR Docker image to push into"
+        " (if no tag included, use shortened commit ID as tag)"
+    ),
     type=str, metavar="<name>", prompt=True, required=False,
 )
 @trialRunOption

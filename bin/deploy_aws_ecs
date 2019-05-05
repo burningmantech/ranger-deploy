@@ -6,7 +6,7 @@
 # These variables must be provided by the CI environment:
 # * AWS_ACCESS_KEY_ID
 # * AWS_DEFAULT_REGION
-# * AWS_ECR_IMAGE_REPOSITORY
+# * AWS_ECR_IMAGE_NAME
 # * AWS_ECS_CLUSTER_PRODUCTION
 # * AWS_ECS_CLUSTER_STAGING
 # * AWS_ECS_SERVICE_PRODUCTION
@@ -51,21 +51,10 @@ deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 
 "${python}" -m deploy.aws.ecs "${@}";
 
-for arg in "${@}"; do
-    # Skip past main options
-    if [ "${arg##--}" != "${arg}" ]; then continue; fi;
-
-    # If subcommand is staging, send notification
-    if [ "${arg}" = "staging" ]; then
-        echo "Sending notification...";
-        "${python}" -m deploy.notify.smtp staging        \
-            --repository-id="${TRAVIS_REPO_SLUG}"        \
-            --build-number="${TRAVIS_BUILD_NUMBER}"      \
-            --build-url="${TRAVIS_BUILD_WEB_URL}"        \
-            --commit-id="${TRAVIS_COMMIT}"               \
-            --commit-message="${TRAVIS_COMMIT_MESSAGE}"  \
-            ;
-    fi;
-
-    break;
-done;
+if [ "${TRAVIS:-false}" = "true" ]; then
+    export  REPOSITORY_ID="{TRAVIS_REPO_SLUG}";
+    export   BUILD_NUMBER="{TRAVIS_BUILD_NUMBER}";
+    export      BUILD_URL="{TRAVIS_BUILD_WEB_URL}";
+    export      COMMIT_ID="{TRAVIS_COMMIT}";
+    export COMMIT_MESSAGE="{TRAVIS_COMMIT_MESSAGE}";
+fi;
