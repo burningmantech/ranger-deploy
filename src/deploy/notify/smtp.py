@@ -84,7 +84,7 @@ class SMTPNotifier(object):
     def notifyStaging(
         self,
         project: str, repository: str, buildNumber: str, buildURL: str,
-        commitID: str, commitMessage: str, trial_run: bool,
+        commitID: str, commitMessage: str, trialRun: bool,
     ) -> None:
         """
         Send notification of a deployment to staging.
@@ -130,7 +130,7 @@ class SMTPNotifier(object):
         message.attach(MIMEText(text, "plain"))
         message.attach(MIMEText(html, "html"))
 
-        if not trial_run:
+        if not trialRun:
             context = create_default_context(purpose=Purpose.CLIENT_AUTH)
             with SMTP_SSL(
                 self.smtpHost, self.smtpPort, context=context
@@ -338,7 +338,7 @@ def _staging(
         project=project_name, repository=repository,
         buildNumber=build_number, buildURL=build_url,
         commitID=commit_id, commitMessage=commit_message,
-        trial_run=trial_run,
+        trialRun=trial_run,
     )
 
 

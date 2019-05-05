@@ -94,10 +94,12 @@ def testingSMTP() -> Iterator[None]:
     SMTP_SSL = smtp.SMTP_SSL
     smtp.SMTP_SSL = cast(Type, MockSMTPSSL)
 
-    yield None
+    try:
+        yield None
 
-    smtp.SMTP_SSL = SMTP_SSL
-    MockSMTPSSL._instances.clear()
+    finally:
+        smtp.SMTP_SSL = SMTP_SSL
+        MockSMTPSSL._instances.clear()
 
 
 
@@ -114,7 +116,7 @@ class SMTPNotifierTests(TestCase):
         email_addresses(),       # senderAddress
         email_addresses(),       # recipientAddress
         ascii_text(min_size=1),  # project
-        repository_ids(),        # repositoryOrganization
+        repository_ids(),        # repository
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
         commitIDs(),             # commitID
@@ -139,7 +141,7 @@ class SMTPNotifierTests(TestCase):
                 project=project, repository=repository,
                 buildNumber=buildNumber, buildURL=buildURL,
                 commitID=commitID, commitMessage=commitMessage,
-                trial_run=False,
+                trialRun=False,
             )
 
             self.assertEqual(len(MockSMTPSSL._instances), 1)
@@ -228,7 +230,7 @@ class CommandLineTests(TestCase):
         email_addresses(),       # senderAddress
         email_addresses(),       # recipientAddress
         ascii_text(min_size=1),  # project
-        repository_ids(),        # repositoryOrganization
+        repository_ids(),        # repository
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
         commitIDs(),             # commitID
@@ -286,7 +288,7 @@ class CommandLineTests(TestCase):
                 buildURL=buildURL,
                 commitID=commitID,
                 commitMessage=commitMessage,
-                trial_run=trialRun,
+                trialRun=trialRun,
             )
         )
 
