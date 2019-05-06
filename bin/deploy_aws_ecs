@@ -49,8 +49,6 @@ deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 "${python}" -m pip install --disable-pip-version-check --quiet \
     "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
 
-"${python}" -m deploy.aws.ecs "${@}";
-
 if [ "${TRAVIS:-false}" = "true" ]; then
     export  REPOSITORY_ID="{TRAVIS_REPO_SLUG}";
     export   BUILD_NUMBER="{TRAVIS_BUILD_NUMBER}";
@@ -58,3 +56,5 @@ if [ "${TRAVIS:-false}" = "true" ]; then
     export      COMMIT_ID="{TRAVIS_COMMIT}";
     export COMMIT_MESSAGE="{TRAVIS_COMMIT_MESSAGE}";
 fi;
+
+"${python}" -m deploy.aws.ecs "${@}";
