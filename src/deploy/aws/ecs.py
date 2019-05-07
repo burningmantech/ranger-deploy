@@ -544,7 +544,7 @@ def staging(
     if ":" not in image_ecr:
         repo = Repo()
         commitID = repo.head.object.hexsha
-        image_ecr = f"{image_ecr}:{commitID}"
+        image_ecr = f"{image_ecr}:{commitID[:7]}"
 
     if image_local:
         ecrClient = ECRServiceClient()
