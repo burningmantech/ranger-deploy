@@ -31,14 +31,19 @@ from attr import Attribute, attrib, attrs
 
 from hypothesis import assume, given
 from hypothesis.strategies import (
-    characters, composite, dictionaries, integers, just,
+    booleans, characters, composite, dictionaries, integers, just,
     lists, one_of, sampled_from, sets, text, tuples,
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
+import deploy.notify.smtp
 from deploy.ext.click import clickTestRun
-from deploy.ext.hypothesis import image_names, image_repository_names
+from deploy.ext.hypothesis import (
+    ascii_text, commitIDs, email_addresses, image_names,
+    image_repository_names, port_numbers, repository_ids, user_names,
+)
+from deploy.notify.smtp import SMTPNotifier
 
 from .test_ecr import ECRServiceClient, testingECRServiceClient
 from .. import ecs
@@ -559,23 +564,36 @@ class ECSServiceClientTests(TestCase):
             self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
-    def test_updateTaskDefinition_travis(self) -> None:
+    @given(
+        ascii_text(min_size=1),  # project
+        repository_ids(),        # repository
+        integers(),              # buildNumber
+        ascii_text(min_size=1),  # buildURL
+        commitIDs(),             # commitID
+        ascii_text(min_size=1),  # commitMessage
+    )
+    def test_updateTaskDefinition_ci(
+        self,
+        project: str, repository: str,
+        buildNumber: int, buildURL: str,
+        commitID: str, commitMessage: str,
+    ) -> None:
         with testingBoto3ECS():
             client = ECSServiceClient(
                 cluster=MockBoto3ECSClient._sampleClusterStaging,
                 service=MockBoto3ECSClient._sampleServiceStaging,
             )
 
-            # Patch the (local) system environment to emulate Travis CI
-            travisEnvironment = {
-                "TRAVIS": "true",
-                "TRAVIS_COMMIT": "0" * 40,
-                "TRAVIS_COMMIT_MESSAGE": "Fixed some stuff",
-                "TRAVIS_JOB_WEB_URL": "https://travis-ci.com/o/r/builds/0",
-                "TRAVIS_PULL_REQUEST_BRANCH": "1",
-                "TRAVIS_TAG": "v0.0.0",
+            # Patch the (local) system environment to emulate CI
+            ciEnvironment = {
+                "BUILD_NUMBER": str(buildNumber),
+                "BUILD_URL": buildURL,
+                "COMMIT_ID": "0" * 40,
+                "COMMIT_MESSAGE": commitMessage,
+                "PROJECT_NAME": project,
+                "REPOSITORY_ID": repository,
             }
-            self.patch(ecs, "environ", travisEnvironment)
+            self.patch(ecs, "environ", ciEnvironment)
 
             # Make an unrelated change to avoid NoChangesError
             newTaskDefinition = client.updateTaskDefinition(
@@ -587,8 +605,9 @@ class ECSServiceClientTests(TestCase):
             expectedEnvironment = dict(
                 client._aws._currentEnvironment(client.cluster, client.service)
             )
-            expectedEnvironment.update(travisEnvironment)
-            del expectedEnvironment["TRAVIS"]
+            expectedEnvironment.update(
+                {(f"CI_{k}", v) for (k, v) in ciEnvironment.items()}
+            )
 
             # TASK_UPDATED is inserted during updates.
             self.assertIn("TASK_UPDATED", updatedEnvironment)
@@ -902,6 +921,39 @@ def travisEnvironment(omit: str = "") -> Iterator[None]:
 
 
 
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class MockSMTPNotifier(SMTPNotifier):
+    _notifyStagingCalls: ClassVar[List[Mapping[str, Any]]] = []
+
+
+    def notifyStaging(
+        self,
+        project: str, repository: str, buildNumber: str, buildURL: str,
+        commitID: str, commitMessage: str, trialRun: bool,
+    ) -> None:
+        self._notifyStagingCalls.append(dict(
+            project=project, repository=repository,
+            buildNumber=buildNumber, buildURL=buildURL,
+            commitID=commitID, commitMessage=commitMessage,
+            trialRun=trialRun,
+        ))
+
+
+
+@contextmanager
+def testingSMTPNotifier() -> Iterator[None]:
+    SMTPNotifier = deploy.notify.smtp.SMTPNotifier
+    deploy.notify.smtp.SMTPNotifier = MockSMTPNotifier
+
+    try:
+        yield None
+
+    finally:
+        deploy.notify.smtp.SMTPNotifier = SMTPNotifier
+        MockSMTPNotifier._notifyStagingCalls.clear()
+
+
+
 class CommandLineTests(TestCase):
     """
     Tests for the :class:`ECSServiceClient` command line.
@@ -1023,6 +1075,79 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
 
+    @given(
+        text(min_size=1), text(min_size=1),
+        one_of(image_names(), image_repository_names()),
+        ascii_text(min_size=1),  # smtpHost
+        port_numbers(),          # smtpPort
+        user_names(),            # smtpUser
+        ascii_text(min_size=1),  # smtpPassword
+        email_addresses(),       # senderAddress
+        email_addresses(),       # recipientAddress
+        ascii_text(min_size=1),  # project
+        repository_ids(),        # repository
+        ascii_text(min_size=1),  # buildNumber
+        ascii_text(min_size=1),  # buildURL
+        commitIDs(),             # commitID
+        ascii_text(min_size=1),  # commitMessage  FIXME: use text()
+        booleans(),              # trialRun
+    )
+    def test_staging_notify(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        smtpHost: str, smtpPort: int,
+        smtpUser: str, smtpPassword: str,
+        senderAddress: str, recipientAddress: str,
+        project: str, repository: str,
+        buildNumber: str, buildURL: str,
+        commitID: str, commitMessage: str,
+        trialRun: bool,
+    ) -> None:
+        args = [
+            "deploy_aws_ecs", "staging",
+            "--staging-cluster", stagingCluster,
+            "--staging-service", stagingService,
+            "--image-ecr", ecrImageName,
+            "--project-name", project,
+            "--repository-id", repository,
+            "--build-number", buildNumber,
+            "--build-url", buildURL,
+            "--commit-id", commitID,
+            "--commit-message", commitMessage,
+            "--smtp-host", smtpHost,
+            "--smtp-port", str(smtpPort),
+            "--smtp-user", smtpUser,
+            "--smtp-password", smtpPassword,
+            "--email-sender", senderAddress,
+            "--email-recipient", recipientAddress,
+        ]
+
+        if trialRun:
+            args.append("--trial-run")
+
+        with testingECSServiceClient():
+            # Add starting data set
+            self.initClusterAndService(stagingCluster, stagingService)
+
+            # Run "staging" subcommand
+            with travisEnvironment(), testingSMTPNotifier():
+                result = clickTestRun(ECSServiceClient.main, args)
+
+                self.assertEqual(
+                    MockSMTPNotifier._notifyStagingCalls,
+                    [dict(
+                        project=project, repository=repository,
+                        buildNumber=buildNumber, buildURL=buildURL,
+                        commitID=commitID, commitMessage=commitMessage,
+                        trialRun=trialRun,
+                    )]
+                )
+
+        self.assertEqual(result.exitCode, 0)
+        self.assertEqual(result.echoOutput, [])
+        self.assertEqual(result.stdout.getvalue(), "")
+        self.assertEqual(result.stderr.getvalue(), "")
+
+
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_trial(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
@@ -1111,7 +1236,6 @@ class CommandLineTests(TestCase):
                     "--staging-cluster", stagingCluster,
                     "--staging-service", stagingService,
                     "--image-ecr", ecrImageName,
-                    "--trial-run",
                 ]
             )
 
@@ -1144,7 +1268,6 @@ class CommandLineTests(TestCase):
                         "--staging-cluster", stagingCluster,
                         "--staging-service", stagingService,
                         "--image-ecr", ecrImageName,
-                        "--trial-run",
                     ]
                 )
 
@@ -1177,7 +1300,6 @@ class CommandLineTests(TestCase):
                         "--staging-cluster", stagingCluster,
                         "--staging-service", stagingService,
                         "--image-ecr", ecrImageName,
-                        "--trial-run",
                     ]
                 )
 

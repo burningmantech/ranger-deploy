@@ -27,6 +27,7 @@ from unittest.mock import patch
 from attr import Factory, attrs
 
 from hypothesis import given
+from hypothesis.strategies import booleans
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
@@ -93,10 +94,12 @@ def testingSMTP() -> Iterator[None]:
     SMTP_SSL = smtp.SMTP_SSL
     smtp.SMTP_SSL = cast(Type, MockSMTPSSL)
 
-    yield None
+    try:
+        yield None
 
-    smtp.SMTP_SSL = SMTP_SSL
-    MockSMTPSSL._instances.clear()
+    finally:
+        smtp.SMTP_SSL = SMTP_SSL
+        MockSMTPSSL._instances.clear()
 
 
 
@@ -113,7 +116,7 @@ class SMTPNotifierTests(TestCase):
         email_addresses(),       # senderAddress
         email_addresses(),       # recipientAddress
         ascii_text(min_size=1),  # project
-        repository_ids(),        # repositoryOrganization
+        repository_ids(),        # repository
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
         commitIDs(),             # commitID
@@ -138,6 +141,7 @@ class SMTPNotifierTests(TestCase):
                 project=project, repository=repository,
                 buildNumber=buildNumber, buildURL=buildURL,
                 commitID=commitID, commitMessage=commitMessage,
+                trialRun=False,
             )
 
             self.assertEqual(len(MockSMTPSSL._instances), 1)
@@ -226,11 +230,12 @@ class CommandLineTests(TestCase):
         email_addresses(),       # senderAddress
         email_addresses(),       # recipientAddress
         ascii_text(min_size=1),  # project
-        repository_ids(),        # repositoryOrganization
+        repository_ids(),        # repository
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
         commitIDs(),             # commitID
         ascii_text(min_size=1),  # commitMessage  FIXME: use text()
+        booleans(),              # trialRun
     )
     def test_staging(
         self,
@@ -240,28 +245,31 @@ class CommandLineTests(TestCase):
         project: str, repository: str,
         buildNumber: str, buildURL: str,
         commitID: str, commitMessage: str,
+        trialRun: bool,
     ) -> None:
+        args = [
+            "notify_smtp", "staging",
+            "--project-name", project,
+            "--repository-id", repository,
+            "--build-number", buildNumber,
+            "--build-url", buildURL,
+            "--commit-id", commitID,
+            "--commit-message", commitMessage,
+            "--smtp-host", smtpHost,
+            "--smtp-port", str(smtpPort),
+            "--smtp-user", smtpUser,
+            "--smtp-password", smtpPassword,
+            "--email-sender", senderAddress,
+            "--email-recipient", recipientAddress,
+        ]
+
+        if trialRun:
+            args.append("--trial-run")
+
         with patch(
             "deploy.notify.smtp.SMTPNotifier.notifyStaging"
         ) as notifyStaging:
-            result = clickTestRun(
-                SMTPNotifier.main,
-                [
-                    "notify_smtp", "staging",
-                    "--project-name", project,
-                    "--repository-id", repository,
-                    "--build-number", buildNumber,
-                    "--build-url", buildURL,
-                    "--commit-id", commitID,
-                    "--commit-message", commitMessage,
-                    "--smtp-host", smtpHost,
-                    "--smtp-port", str(smtpPort),
-                    "--smtp-user", smtpUser,
-                    "--smtp-password", smtpPassword,
-                    "--sender", senderAddress,
-                    "--recipient", recipientAddress,
-                ],
-            )
+            result = clickTestRun(SMTPNotifier.main, args)
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -280,6 +288,7 @@ class CommandLineTests(TestCase):
                 buildURL=buildURL,
                 commitID=commitID,
                 commitMessage=commitMessage,
+                trialRun=trialRun,
             )
         )
 
@@ -304,8 +313,8 @@ class CommandLineTests(TestCase):
                     "--smtp-host", "mail.example.com",
                     "--smtp-user", "user",
                     "--smtp-password", "password",
-                    "--sender", "sender@example.com",
-                    "--recipient", "recipient@example.com",
+                    "--email-sender", "sender@example.com",
+                    "--email-recipient", "recipient@example.com",
                 ],
             )
 
@@ -334,8 +343,8 @@ class CommandLineTests(TestCase):
                     "--smtp-host", "mail.example.com",
                     "--smtp-user", "user",
                     "--smtp-password", "password",
-                    "--sender", "sender@example.com",
-                    "--recipient", "recipient@example.com",
+                    "--email-sender", "sender@example.com",
+                    "--email-recipient", "recipient@example.com",
                 ],
             )
 

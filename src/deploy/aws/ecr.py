@@ -34,7 +34,7 @@ from boto3 import client as boto3Client
 
 import click
 from click import (
-    Context as ClickContext, group as commandGroup, option as commandOption,
+    Context as ClickContext, group as commandGroup,
     pass_context as passContext, version_option as versionOption,
 )
 
@@ -45,7 +45,7 @@ from docker.models.images import Image
 
 from twisted.logger import Logger
 
-from deploy.ext.click import readConfig
+from deploy.ext.click import profileOption, readConfig
 from deploy.ext.json import objectFromJSONText
 from deploy.ext.logger import startLogging
 
@@ -495,11 +495,7 @@ class DockerPushResponseHandler(object):
 
 @commandGroup()
 @versionOption()
-@commandOption(
-    "--profile",
-    help="Profile to load from configuration file",
-    type=str, metavar="<name>", prompt=False, required=False,
-)
+@profileOption
 @passContext
 def main(ctx: ClickContext, profile: Optional[str]) -> None:
     """

@@ -21,7 +21,9 @@ AWS Elastic Container Service support.
 from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
-from typing import (Any, Callable, Dict, List, Mapping, Optional, Sequence)
+from typing import (
+    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+)
 
 from attr import Factory, attrs
 
@@ -38,8 +40,13 @@ from git import Repo
 
 from twisted.logger import Logger
 
-from deploy.ext.click import readConfig
+from deploy.ext.click import (
+    composedOptions, profileOption, readConfig, trialRunOption
+)
 from deploy.ext.logger import startLogging
+from deploy.notify.smtp import (
+    _staging as notifyStaging, buildOptions, smtpOptions
+)
 
 from .ecr import ECRServiceClient
 
@@ -244,18 +251,19 @@ class ECSServiceClient(object):
         # Record the current time
         environment["TASK_UPDATED"] = str(DateTime.utcnow())
 
-        # If we're in Travis CI, record some information about the build.
-        if environ.get("TRAVIS", "false") == "true":
-            for key in (
-                "TRAVIS_COMMIT",
-                "TRAVIS_COMMIT_MESSAGE",
-                "TRAVIS_JOB_WEB_URL",
-                "TRAVIS_PULL_REQUEST_BRANCH",
-                "TRAVIS_TAG",
-            ):
-                value = environ.get(key, None)
-                if value is not None:
-                    environment[key] = value
+        # Record some information about the CI build.
+        # FIXME: Get these values from parsed CLI, not environment.
+        for key in (
+            "BUILD_NUMBER",
+            "BUILD_URL",
+            "COMMIT_ID",
+            "COMMIT_MESSAGE",
+            "PROJECT_NAME",
+            "REPOSITORY_ID",
+        ):
+            value = environ.get(key, None)
+            if value is not None:
+                environment[f"CI_{key}"] = value
 
         # Edit the container environment to the new one.
         newTaskDefinition["containerDefinitions"][0]["environment"] = (
@@ -455,21 +463,21 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         help=help, type=str, metavar="<name>", prompt=True, required=True,
     )
 
-clusterOption           = ecsOption("cluster")
-serviceOption           = ecsOption("service")
-stagingClusterOption    = ecsOption("cluster", "staging")
-stagingServiceOption    = ecsOption("service", "staging")
-productionClusterOption = ecsOption("cluster", "production")
-productionServiceOption = ecsOption("service", "production")
+
+environmentOptions = composedOptions(
+    ecsOption("cluster"), ecsOption("service")
+)
+stagingEnvironmentOptions = composedOptions(
+    ecsOption("cluster", "staging"), ecsOption("service", "staging")
+)
+productionEnvironmentOptions = composedOptions(
+    ecsOption("cluster", "production"), ecsOption("service", "production")
+)
 
 
 @commandGroup()
 @versionOption()
-@commandOption(
-    "--profile",
-    help="Profile to load from configuration file",
-    type=str, metavar="<name>", prompt=False, required=False,
-)
+@profileOption
 @passContext
 def main(ctx: ClickContext, profile: Optional[str]) -> None:
     """
@@ -499,8 +507,9 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
+@stagingEnvironmentOptions
+@buildOptions(required=False)
+@smtpOptions(required=False)
 @commandOption(
     "--image-local",
     envvar="LOCAL_IMAGE_NAME",
@@ -510,26 +519,32 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 @commandOption(
     "--image-ecr",
     envvar="AWS_ECR_IMAGE_NAME",
-    help="ECR Docker image to push into (if no tag included, use commit ID)",
+    help=(
+        "ECR Docker image to push into"
+        " (if no tag included, use shortened commit ID as tag)"
+    ),
     type=str, metavar="<name>", prompt=True, required=False,
 )
-@commandOption(
-    "--trial-run", is_flag=True, help="Trial run only (do not deploy)"
-)
+@trialRunOption
 def staging(
     staging_cluster: str, staging_service: str,
+    project_name: Optional[str], repository_id: Optional[Tuple[str, str, str]],
+    build_number: str, build_url: str, commit_id: str, commit_message: str,
+    smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
+    email_sender: str, email_recipient: str,
     image_local: str, image_ecr: str,
     trial_run: bool,
 ) -> None:
     """
     Deploy a new image to the staging environment.
     """
-    ensureCI()
+    if not trial_run:
+        ensureCI()
 
     if ":" not in image_ecr:
         repo = Repo()
         commitID = repo.head.object.hexsha
-        image_ecr = f"{image_ecr}:{commitID}"
+        image_ecr = f"{image_ecr}:{commitID[:7]}"
 
     if image_local:
         ecrClient = ECRServiceClient()
@@ -543,10 +558,28 @@ def staging(
     except NoSuchServiceError as e:
         raise UsageError(f"Unknown service: {e.service}")
 
+    if (
+        repository_id and
+        build_number and build_url and commit_id and
+        commit_message is not None and
+        smtp_host and smtp_port and smtp_user and smtp_password and
+        email_sender and email_recipient
+    ):
+        notifyStaging(
+            project_name=project_name, repository_id=repository_id,
+            build_number=build_number, build_url=build_url,
+            commit_id=commit_id, commit_message=commit_message,
+            smtp_host=smtp_host, smtp_port=smtp_port,
+            smtp_user=smtp_user, smtp_password=smtp_password,
+            email_sender=email_sender, email_recipient=email_recipient,
+            trial_run=trial_run,
+        )
+    else:
+        log.info("SMTP notification not configured")
+
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
+@stagingEnvironmentOptions
 def rollback(
     staging_cluster: str, staging_service: str,
 ) -> None:
@@ -560,10 +593,8 @@ def rollback(
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
-@productionClusterOption
-@productionServiceOption
+@stagingEnvironmentOptions
+@productionEnvironmentOptions
 def production(
     staging_cluster: str, staging_service: str,
     production_cluster: str, production_service: str,
@@ -582,10 +613,8 @@ def production(
 
 
 @main.command()
-@stagingClusterOption
-@stagingServiceOption
-@productionClusterOption
-@productionServiceOption
+@stagingEnvironmentOptions
+@productionEnvironmentOptions
 def compare(
     staging_cluster: str, staging_service: str,
     production_cluster: str, production_service: str,
@@ -642,8 +671,7 @@ def compare(
 
 
 @main.command()
-@clusterOption
-@serviceOption
+@environmentOptions
 @commandArgument("arguments", nargs=-1, metavar="[name[=value]]")
 def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     """

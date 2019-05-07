@@ -36,7 +36,9 @@ from click import (
 
 from twisted.logger import Logger
 
-from deploy.ext.click import readConfig
+from deploy.ext.click import (
+    composedOptions, profileOption, readConfig, trialRunOption
+)
 from deploy.ext.logger import startLogging
 
 
@@ -82,12 +84,12 @@ class SMTPNotifier(object):
     def notifyStaging(
         self,
         project: str, repository: str, buildNumber: str, buildURL: str,
-        commitID: str, commitMessage: str,
+        commitID: str, commitMessage: str, trialRun: bool,
     ) -> None:
         """
         Send notification of a deployment to staging.
         """
-        self.log.info(
+        self.log.debug(
             "Sending email notification for project {project} ({repository}) "
             "build {buildNumber} of commit {commitID}...",
             project=project, repository=repository,
@@ -128,12 +130,23 @@ class SMTPNotifier(object):
         message.attach(MIMEText(text, "plain"))
         message.attach(MIMEText(html, "html"))
 
-        context = create_default_context(purpose=Purpose.CLIENT_AUTH)
-        with SMTP_SSL(self.smtpHost, self.smtpPort, context=context) as relay:
-            relay.login(self.smtpUser, self.smtpPassword)
-            relay.send_message(
-                message, self.senderAddress, self.recipientAddress
-            )
+        if not trialRun:
+            context = create_default_context(purpose=Purpose.CLIENT_AUTH)
+            with SMTP_SSL(
+                self.smtpHost, self.smtpPort, context=context
+            ) as relay:
+                relay.login(self.smtpUser, self.smtpPassword)
+                relay.send_message(
+                    message, self.senderAddress, self.recipientAddress
+                )
+
+        self.log.info(
+            "Sent email notification for project {project} ({repository}) "
+            "build {buildNumber} of commit {commitID}...",
+            project=project, repository=repository,
+            buildNumber=buildNumber, buildURL=buildURL,
+            commitID=commitID, commitMessage=commitMessage,
+        )
 
 
 
@@ -142,8 +155,11 @@ class SMTPNotifier(object):
 #
 
 def validateRepositoryID(
-    ctx: ClickContext, param: Union[Option, Parameter], value: str
-) -> Tuple[str, str, str]:
+    ctx: ClickContext, param: Union[Option, Parameter], value: Optional[str]
+) -> Optional[Tuple[str, str, str]]:
+    if value is None:
+        return None
+
     try:
         organization, project = value.split("/")
     except ValueError:
@@ -152,13 +168,104 @@ def validateRepositoryID(
     return (value, organization, project)
 
 
+def buildOptions(required: bool = True) -> Callable[..., Callable]:
+    return composedOptions(
+        commandOption(
+            "--project-name",
+            envvar="PROJECT_NAME",
+            help="project name",
+            type=str, metavar="<name>",
+            prompt=False, required=False,
+        ),
+        commandOption(
+            "--repository-id",
+            envvar="REPOSITORY_ID",
+            help="repository",
+            type=str, metavar="<organization>/<project>",
+            prompt=required, required=required,
+            callback=validateRepositoryID,
+        ),
+        commandOption(
+            "--build-number",
+            envvar="BUILD_NUMBER",
+            help="build number",
+            type=str, metavar="<number>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--build-url",
+            envvar="BUILD_URL",
+            help="build URL",
+            type=str, metavar="<url>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--commit-id",
+            envvar="COMMIT_ID",
+            help="commit ID",
+            type=str, metavar="<id>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--commit-message",
+            envvar="COMMIT_MESSAGE",
+            help="commit message",
+            type=str, metavar="<message>",
+            prompt=required, required=required,
+        ),
+    )
+
+
+def smtpOptions(required: bool = True) -> Callable[..., Callable]:
+    return composedOptions(
+        commandOption(
+            "--smtp-host",
+            envvar="NOTIFY_SMTP_HOST",
+            help="SMTP server host name",
+            type=str, metavar="<host>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--smtp-port",
+            envvar="NOTIFY_SMTP_PORT",
+            help="SMTP server port",
+            type=int, metavar="<port>",
+            prompt=False, required=False, default=465,
+        ),
+        commandOption(
+            "--smtp-user",
+            envvar="NOTIFY_SMTP_USER",
+            help="SMTP user name",
+            type=str, metavar="<user>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--smtp-password",
+            envvar="NOTIFY_SMTP_PASSWORD",
+            help="SMTP user password",
+            type=str, metavar="<password>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--email-sender",
+            envvar="NOTIFY_EMAIL_SENDER",
+            help="email sender address",
+            type=str, metavar="<address>",
+            prompt=required, required=required,
+        ),
+        commandOption(
+            "--email-recipient",
+            envvar="NOTIFY_EMAIL_RECIPIENT",
+            help="email recipient address",
+            type=str, metavar="<address>",
+            prompt=required, required=required,
+        ),
+    )
+
+
 @commandGroup()
 @versionOption()
-@commandOption(
-    "--profile",
-    help="Profile to load from configuration file",
-    type=str, metavar="<name>", prompt=False, required=False,
-)
+@profileOption
 @passContext
 def main(ctx: ClickContext, profile: Optional[str]) -> None:
     """
@@ -177,96 +284,38 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 
 
 @main.command()
-@commandOption(
-    "--project-name",
-    envvar="PROJECT_NAME",
-    help="project name",
-    type=str, metavar="<name>",
-    prompt=False, required=False,
-)
-@commandOption(
-    "--repository-id",
-    envvar="REPOSITORY_ID",
-    help="repository",
-    type=str, metavar="<organization>/<project>",
-    prompt=True, required=True,
-    callback=validateRepositoryID,
-)
-@commandOption(
-    "--build-number",
-    envvar="BUILD_NUMBER",
-    help="build number",
-    type=str, metavar="<number>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--build-url",
-    envvar="BUILD_URL",
-    help="build URL",
-    type=str, metavar="<url>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--commit-id",
-    envvar="COMMIT_ID",
-    help="commit ID",
-    type=str, metavar="<id>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--commit-message",
-    envvar="COMMIT_MESSAGE",
-    help="commit message",
-    type=str, metavar="<message>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--smtp-host",
-    envvar="NOTIFY_SMTP_HOST",
-    help="SMTP server host name",
-    type=str, metavar="<host>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--smtp-port",
-    envvar="NOTIFY_SMTP_PORT",
-    help="SMTP server port",
-    type=int, metavar="<port>",
-    prompt=False, required=False, default=465,
-)
-@commandOption(
-    "--smtp-user",
-    envvar="NOTIFY_SMTP_USER",
-    help="SMTP user name",
-    type=str, metavar="<user>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--smtp-password",
-    envvar="NOTIFY_SMTP_PASSWORD",
-    help="SMTP user password",
-    type=str, metavar="<password>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--sender",
-    envvar="NOTIFY_EMAIL_SENDER",
-    help="email sender address",
-    type=str, metavar="<address>",
-    prompt=True, required=True,
-)
-@commandOption(
-    "--recipient",
-    envvar="NOTIFY_EMAIL_RECIPIENT",
-    help="email recipient address",
-    type=str, metavar="<address>",
-    prompt=True, required=True,
-)
+@buildOptions()
+@smtpOptions()
+@trialRunOption
 def staging(
+    project_name: Optional[str], repository_id: Optional[Tuple[str, str, str]],
+    build_number: str, build_url: str, commit_id: str, commit_message: str,
+    smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
+    email_sender: str, email_recipient: str,
+    trial_run: bool,
+) -> None:
+    """
+    Send an email notification of a deployment to staging.
+    """
+    assert repository_id is not None
+
+    _staging(
+        project_name=project_name, repository_id=repository_id,
+        build_number=build_number, build_url=build_url,
+        commit_id=commit_id, commit_message=commit_message,
+        smtp_host=smtp_host, smtp_port=smtp_port,
+        smtp_user=smtp_user, smtp_password=smtp_password,
+        email_sender=email_sender, email_recipient=email_recipient,
+        trial_run=trial_run,
+    )
+
+
+def _staging(
     project_name: Optional[str], repository_id: Tuple[str, str, str],
     build_number: str, build_url: str, commit_id: str, commit_message: str,
     smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
-    sender: str, recipient: str,
+    email_sender: str, email_recipient: str,
+    trial_run: bool,
 ) -> None:
     """
     Send an email notification of a deployment to staging.
@@ -281,14 +330,15 @@ def staging(
         smtpPort=smtp_port,
         smtpUser=smtp_user,
         smtpPassword=smtp_password,
-        senderAddress=sender,
-        recipientAddress=recipient,
+        senderAddress=email_sender,
+        recipientAddress=email_recipient,
     )
 
     notifier.notifyStaging(
         project=project_name, repository=repository,
         buildNumber=build_number, buildURL=build_url,
         commitID=commit_id, commitMessage=commit_message,
+        trialRun=trial_run,
     )
 
 
