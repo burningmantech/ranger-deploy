@@ -43,8 +43,6 @@ else
 fi;
 
 echo "Installing dependencies...";
-"${python}" -m pip install --disable-pip-version-check --quiet awscli;
-
 deploy_url=git+https://github.com/burningmantech/ranger-deploy;
 "${python}" -m pip install --disable-pip-version-check --quiet \
     "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
