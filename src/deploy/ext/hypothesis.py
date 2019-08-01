@@ -2,7 +2,6 @@
 Extensions to :mod:`hypothesis`
 """
 
-from os import environ
 from string import ascii_letters, digits, printable
 from typing import Callable, Optional
 
@@ -26,9 +25,7 @@ settings.register_profile(
     max_examples=settings().max_examples * 10,
     suppress_health_check=(HealthCheck.too_slow,),
 )
-
-if environ.get("CI", "False").lower() in ("true", "yes", "1"):
-    settings.load_profile("CI")  # pragma: no cover
+settings.load_profile("CI")  # pragma: no cover
 
 
 def ascii_text(
