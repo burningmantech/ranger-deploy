@@ -895,6 +895,47 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
         clients.clear()
 
 
+def ciWorkingDirectory(env: Mapping[str, str]) -> str:
+    if "TOX_WORK_DIR" in env:  # pragma: no cover
+        return dirname(env["TOX_WORK_DIR"])
+    else:  # pragma: no cover
+        return dirname(dirname(dirname(dirname(dirname(__file__)))))
+
+
+@contextmanager
+def notCIEnvironment() -> Iterator[None]:
+    env = environ.copy()
+    environ.clear()
+
+    wd = getcwd()
+    chdir(ciWorkingDirectory(env))
+
+    try:
+        yield
+
+    finally:
+        environ.clear()
+        environ.update(env)
+        chdir(wd)
+
+
+@contextmanager
+def ciEnvironment() -> Iterator[None]:
+    env = environ.copy()
+    environ["CI"] = "true"
+
+    wd = getcwd()
+    chdir(ciWorkingDirectory(env))
+
+    try:
+        yield
+
+    finally:
+        environ.clear()
+        environ.update(env)
+        chdir(wd)
+
+
 @contextmanager
 def travisEnvironment(omit: str = "") -> Iterator[None]:
     env = environ.copy()
@@ -906,10 +947,7 @@ def travisEnvironment(omit: str = "") -> Iterator[None]:
         environ["TRAVIS_BRANCH"] = "master"
 
     wd = getcwd()
-    if "TOX_WORK_DIR" in env:  # pragma: no cover
-        chdir(dirname(env["TOX_WORK_DIR"]))
-    else:  # pragma: no cover
-        chdir(dirname(dirname(dirname(dirname(dirname(__file__))))))
+    chdir(ciWorkingDirectory(env))
 
     try:
         yield
@@ -1229,15 +1267,16 @@ class CommandLineTests(TestCase):
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            result = clickTestRun(
-                ECSServiceClient.main,
-                [
-                    "deploy_aws_ecs", "staging",
-                    "--staging-cluster", stagingCluster,
-                    "--staging-service", stagingService,
-                    "--image-ecr", ecrImageName,
-                ]
-            )
+            with notCIEnvironment():
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", stagingService,
+                        "--image-ecr", ecrImageName,
+                    ]
+                )
 
             self.assertEqual(len(clients), 0)
 
@@ -1252,7 +1291,7 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_notPR(
+    def test_staging_travis_notPR(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
@@ -1284,7 +1323,7 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_notBranch(
+    def test_staging_travis_notBranch(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
