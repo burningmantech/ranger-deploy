@@ -905,7 +905,9 @@ def ciWorkingDirectory(env: Mapping[str, str]) -> str:
 @contextmanager
 def notCIEnvironment() -> Iterator[None]:
     env = environ.copy()
-    environ.clear()
+
+    for key in ("CI", "TRAVIS"):
+        environ.pop(key, None)
 
     wd = getcwd()
     chdir(ciWorkingDirectory(env))
@@ -1010,13 +1012,14 @@ class CommandLineTests(TestCase):
 
     def _test_staging(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        environment=ciEnvironment,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            with travisEnvironment():
+            with environment():
                 result = clickTestRun(
                     ECSServiceClient.main,
                     [
@@ -1047,10 +1050,23 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging(
+    def test_staging_ci(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
-        self._test_staging(stagingCluster, stagingService, ecrImageName)
+        self._test_staging(
+            stagingCluster, stagingService, ecrImageName,
+            environment=ciEnvironment,
+        )
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging_travis(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        self._test_staging(
+            stagingCluster, stagingService, ecrImageName,
+            environment=travisEnvironment,
+        )
 
 
     @given(text(min_size=1), text(min_size=1), image_repository_names())
