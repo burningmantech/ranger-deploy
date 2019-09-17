@@ -105,21 +105,21 @@ setup_requirements = []
 
 install_requirements = [
     # Direct dependencies
-    "arrow==0.14.4",
+    "arrow==0.15.2",
     "attrs==19.1.0",
-    "boto3==1.9.199",
+    "boto3==1.9.230",
     "Click==7.0",
     "docker==4.0.2",  # [tls]
-    "GitPython==2.1.13",
-    "Twisted==19.2.1",
+    "GitPython==3.0.2",
+    "Twisted==19.7.0",
 
     # Indirect dependencies
     "Automat==0.7.0",
-    "botocore==1.12.199",
-    "certifi==2019.6.16",
+    "botocore==1.12.230",
+    "certifi==2019.9.11",
     "chardet==3.0.4",
     "constantly==15.1.0",
-    "docutils==0.14",
+    "docutils==0.15.2",
     "gitdb2==2.0.5",
     "hyperlink==19.0.0",
     "idna==2.8",
