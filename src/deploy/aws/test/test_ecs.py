@@ -23,7 +23,7 @@ from copy import deepcopy
 from os import chdir, environ, getcwd
 from os.path import dirname
 from typing import (
-    Any, Callable, ClassVar, Dict, Iterator, List,
+    Any, Callable, ClassVar, ContextManager, Dict, Iterator, List,
     Mapping, Optional, Sequence, Set, Tuple, Type, cast,
 )
 
@@ -1012,7 +1012,7 @@ class CommandLineTests(TestCase):
 
     def _test_staging(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
-        environment=ciEnvironment,
+        environment: Callable[[], ContextManager] = ciEnvironment,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
