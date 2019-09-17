@@ -25,7 +25,7 @@ settings.register_profile(
     max_examples=settings().max_examples * 10,
     suppress_health_check=(HealthCheck.too_slow,),
 )
-settings.load_profile("CI")  # pragma: no cover
+settings.load_profile("CI")
 
 
 def ascii_text(

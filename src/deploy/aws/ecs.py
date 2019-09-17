@@ -424,7 +424,6 @@ def ensureCI() -> None:
     """
     Make sure we are in a CI environment.
     """
-
     if environ.get("TRAVIS", "false").lower() == "true":
         if environ.get("TRAVIS_PULL_REQUEST") != "false":
             log.critical("Attempted deployment from pull request")
