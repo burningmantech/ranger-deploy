@@ -424,25 +424,27 @@ def ensureCI() -> None:
     """
     Make sure we are in a CI environment.
     """
-    deploymentBranch = environ.get("DEPLOY_FROM_CI_BRANCH", "master")
-
-    if environ.get("TRAVIS") == "true":
+    if environ.get("TRAVIS", "false").lower() == "true":
         if environ.get("TRAVIS_PULL_REQUEST") != "false":
             log.critical("Attempted deployment from pull request")
             raise UsageError("Deployment not allowed from pull request")
 
-        travisBranch = environ.get("TRAVIS_BRANCH")
+        branch = environ.get("TRAVIS_BRANCH")
+        deploymentBranch = environ.get("DEPLOY_FROM_CI_BRANCH", "master")
 
-        if travisBranch != deploymentBranch:
+        if branch != deploymentBranch:
             log.critical(
                 "Attempted deployment from non-{deploymentBranch} "
-                "branch {travisBranch}",
-                deploymentBranch=deploymentBranch, travisBranch=travisBranch
+                "branch {branch}",
+                deploymentBranch=deploymentBranch, branch=branch
             )
             raise UsageError(
-                f"Deployment not allowed from branch {travisBranch!r} "
+                f"Deployment not allowed from branch {branch!r} "
                 f"(must be {deploymentBranch!r})"
             )
+
+    elif environ.get("CI", "false").lower() == "true":
+        pass
 
     else:
         log.critical("Attempted deployment outside of CI")

@@ -23,7 +23,7 @@ from copy import deepcopy
 from os import chdir, environ, getcwd
 from os.path import dirname
 from typing import (
-    Any, Callable, ClassVar, Dict, Iterator, List,
+    Any, Callable, ClassVar, ContextManager, Dict, Iterator, List,
     Mapping, Optional, Sequence, Set, Tuple, Type, cast,
 )
 
@@ -895,6 +895,49 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
         clients.clear()
 
 
+def ciWorkingDirectory(env: Mapping[str, str]) -> str:
+    if "TOX_WORK_DIR" in env:  # pragma: no cover
+        return dirname(env["TOX_WORK_DIR"])
+    else:  # pragma: no cover
+        return dirname(dirname(dirname(dirname(dirname(__file__)))))
+
+
+@contextmanager
+def notCIEnvironment() -> Iterator[None]:
+    env = environ.copy()
+
+    for key in ("CI", "TRAVIS"):
+        environ.pop(key, None)
+
+    wd = getcwd()
+    chdir(ciWorkingDirectory(env))
+
+    try:
+        yield
+
+    finally:
+        environ.clear()
+        environ.update(env)
+        chdir(wd)
+
+
+@contextmanager
+def ciEnvironment() -> Iterator[None]:
+    env = environ.copy()
+    environ["CI"] = "true"
+
+    wd = getcwd()
+    chdir(ciWorkingDirectory(env))
+
+    try:
+        yield
+
+    finally:
+        environ.clear()
+        environ.update(env)
+        chdir(wd)
+
+
 @contextmanager
 def travisEnvironment(omit: str = "") -> Iterator[None]:
     env = environ.copy()
@@ -906,10 +949,7 @@ def travisEnvironment(omit: str = "") -> Iterator[None]:
         environ["TRAVIS_BRANCH"] = "master"
 
     wd = getcwd()
-    if "TOX_WORK_DIR" in env:  # pragma: no cover
-        chdir(dirname(env["TOX_WORK_DIR"]))
-    else:  # pragma: no cover
-        chdir(dirname(dirname(dirname(dirname(dirname(__file__))))))
+    chdir(ciWorkingDirectory(env))
 
     try:
         yield
@@ -972,13 +1012,14 @@ class CommandLineTests(TestCase):
 
     def _test_staging(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        environment: Callable[[], ContextManager] = ciEnvironment,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            with travisEnvironment():
+            with environment():
                 result = clickTestRun(
                     ECSServiceClient.main,
                     [
@@ -1009,10 +1050,23 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging(
+    def test_staging_ci(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
-        self._test_staging(stagingCluster, stagingService, ecrImageName)
+        self._test_staging(
+            stagingCluster, stagingService, ecrImageName,
+            environment=ciEnvironment,
+        )
+
+
+    @given(text(min_size=1), text(min_size=1), image_names())
+    def test_staging_travis(
+        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+    ) -> None:
+        self._test_staging(
+            stagingCluster, stagingService, ecrImageName,
+            environment=travisEnvironment,
+        )
 
 
     @given(text(min_size=1), text(min_size=1), image_repository_names())
@@ -1229,15 +1283,16 @@ class CommandLineTests(TestCase):
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            result = clickTestRun(
-                ECSServiceClient.main,
-                [
-                    "deploy_aws_ecs", "staging",
-                    "--staging-cluster", stagingCluster,
-                    "--staging-service", stagingService,
-                    "--image-ecr", ecrImageName,
-                ]
-            )
+            with notCIEnvironment():
+                result = clickTestRun(
+                    ECSServiceClient.main,
+                    [
+                        "deploy_aws_ecs", "staging",
+                        "--staging-cluster", stagingCluster,
+                        "--staging-service", stagingService,
+                        "--image-ecr", ecrImageName,
+                    ]
+                )
 
             self.assertEqual(len(clients), 0)
 
@@ -1252,7 +1307,7 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_notPR(
+    def test_staging_travis_notPR(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
@@ -1284,7 +1339,7 @@ class CommandLineTests(TestCase):
 
 
     @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_notBranch(
+    def test_staging_travis_notBranch(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:

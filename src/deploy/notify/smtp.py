@@ -119,7 +119,6 @@ class SMTPNotifier(object):
                 title=title,
             )
 
-
             text = readResource("deploy.notify", f"templates/{name}")
             assert text is not None
             return text.decode("utf-8").format(**formatSpec)

@@ -1,6 +1,6 @@
 {title}
 
-Travis build #{buildNumber} for commit {commitIDShort} has completed successfully and the resulting image has been deployed to the staging environment.
+Build #{buildNumber} for commit {commitIDShort} has completed successfully and the resulting image has been deployed to the staging environment.
 
 {commitMessage}
 
