@@ -174,7 +174,7 @@ class SMTPNotifierTests(TestCase):
             expectedText = (
                 f"{title}\n"
                 f"\n"
-                f"Travis build #{buildNumber} for commit {commitIDShort} has "
+                f"Build #{buildNumber} for commit {commitIDShort} has "
                 f"completed successfully and the resulting image has been "
                 f"deployed to the staging environment.\n"
                 f"\n"
@@ -192,7 +192,7 @@ class SMTPNotifierTests(TestCase):
                 f"  <h1>{title}</h1>\n"
                 f"\n"
                 f"  <p>\n"
-                f"    <a href=\"{buildURL}\">Travis build #{buildNumber}</a>\n"
+                f"    <a href=\"{buildURL}\">Build #{buildNumber}</a>\n"
                 f"    for <a href=\"{commitURL}\">commit {commitIDShort}</a>\n"
                 f"    has completed successfully and the resulting image has\n"
                 f"    been deployed to the staging environment.\n"
