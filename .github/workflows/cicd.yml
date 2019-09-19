@@ -107,7 +107,7 @@ jobs:
     needs: [flake8, mypy]
 
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     strategy:
       matrix:
         python: ['3.6', '3.7']
