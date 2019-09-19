@@ -1,8 +1,8 @@
 ranger-deploy
 =============
 
-.. image:: https://api.travis-ci.com/burningmantech/ranger-deploy.svg?branch=master
-    :target: https://travis-ci.com/burningmantech/ranger-deploy
+.. image:: https://github.com/burningmantech/ranger-deploy/workflows/.github/workflows/cicd.yml/badge.svg
+    :target: https://github.com/burningmantech/ranger-deploy/actions
     :alt: Build Status
 .. image:: https://codecov.io/github/burningmantech/ranger-deploy/coverage.svg?branch=master
     :target: https://codecov.io/github/burningmantech/ranger-deploy?branch=master
