@@ -107,7 +107,7 @@ install_requirements = [
     # Direct dependencies
     "arrow==0.15.2",
     "attrs==19.1.0",
-    "boto3==1.9.230",
+    "boto3==1.9.231",
     "Click==7.0",
     "docker==4.0.2",  # [tls]
     "GitPython==3.0.2",
@@ -115,7 +115,7 @@ install_requirements = [
 
     # Indirect dependencies
     "Automat==0.7.0",
-    "botocore==1.12.230",
+    "botocore==1.12.231",
     "certifi==2019.9.11",
     "chardet==3.0.4",
     "constantly==15.1.0",
@@ -131,7 +131,7 @@ install_requirements = [
     "s3transfer==0.2.1",
     "six==1.12.0",
     "smmap2==2.0.5",
-    "urllib3==1.25.3",
+    "urllib3==1.25.4",
     "websocket-client==0.56.0",
     "zope.interface==4.6.0",
 ]
