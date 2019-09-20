@@ -14,9 +14,16 @@ tmp="$(mktemp -t mypy.XXXX)";
 
 mypy "$@"                                                                     \
     | grep -v                                                                 \
+        -e ": error: Cannot find module named 'arrow.[^']*'"                  \
+        -e ": error: Cannot find module named 'git"                           \
+        -e ": error: Cannot find module named 'hypothesis"                    \
+        -e ": error: Cannot find module named 'hypothesis.[^']*'"             \
+        -e ": error: Cannot find module named 'twisted.[^']*'"                \
         -e ": error: Module 'ssl' has no attribute 'Options'"                 \
+        -e ": error: No library stub file for "                               \
         -e ': error: "Callable\[\[[^\]\+\], None\]" has no attribute "todo"'  \
         -e ': error: Cannot assign to a type'                                 \
+        -e ': note: '                                                         \
         > "${tmp}" || true;
 
 sort < "${tmp}";
