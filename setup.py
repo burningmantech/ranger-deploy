@@ -65,6 +65,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
 ]
 
 
@@ -101,6 +102,8 @@ package_data = dict(
 # Dependencies
 #
 
+python_requirements = ">=3.6"
+
 setup_requirements = []
 
 install_requirements = [
@@ -112,7 +115,7 @@ install_requirements = [
     # Direct dependencies
     "arrow==0.15.2",
     "attrs==19.1.0",
-    "boto3==1.9",
+    "boto3>=1.9,<1.10",
     "Click==7.0",
     "docker==4.0.2",  # [tls]
     "GitPython==3.0.2",
@@ -120,7 +123,7 @@ install_requirements = [
 
     # Indirect dependencies
     "Automat==0.7.0",
-    "botocore==1.12",
+    "botocore>=1.12,<1.13",
     "certifi==2019.9.11",
     "chardet==3.0.4",
     "constantly==15.1.0",
@@ -176,6 +179,7 @@ def main():
         entry_points=entry_points,
         data_files=[],
         ext_modules=extensions,
+        python_requires=python_requirements,
         setup_requires=setup_requirements,
         install_requires=install_requirements,
         extras_require=extras_requirements,
