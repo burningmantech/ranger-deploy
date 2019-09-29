@@ -128,7 +128,7 @@ install_requirements = [
     "chardet==3.0.4",
     "constantly==15.1.0",
     "docutils==0.15.2",
-    "gitdb2==2.0.5",
+    "gitdb2==2.0.6",
     "hyperlink==19.0.0",
     "idna==2.8",
     "incremental==17.5.0",
@@ -139,7 +139,7 @@ install_requirements = [
     "s3transfer==0.2.1",
     "six==1.12.0",
     "smmap2==2.0.5",
-    "urllib3==1.25.5",
+    "urllib3==1.25.6",
     "websocket-client==0.56.0",
     "zope.interface==4.6.0",
 ]
