@@ -109,7 +109,7 @@ python_requirements = ">=3.6"
 setup_requirements = []
 
 install_requirements = [
-    # We are not pinning minor version for Boto because:
+    # We are not pinning patch version for Boto because:
     # • it changes very frequently
     # • it is reliably compatible
     # • it should improve interoperability with AWS services
@@ -117,7 +117,7 @@ install_requirements = [
     # Direct dependencies
     "arrow==0.15.4",
     "attrs==19.3.0",
-    "boto3==1.10.14",
+    "boto3>=1.10,<1.11",
     "Click==7.0",
     "docker==4.1.0",  # [tls]
     "GitPython==3.0.4",
@@ -125,7 +125,7 @@ install_requirements = [
 
     # Indirect dependencies
     "Automat==0.8.0",
-    "botocore==1.13.14",
+    "botocore>=1.13,<1.14",
     "certifi==2019.9.11",
     "chardet==3.0.4",
     "constantly==15.1.0",
