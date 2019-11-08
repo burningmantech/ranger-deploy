@@ -92,13 +92,13 @@ class MockSMTPSSL(object):
 @contextmanager
 def testingSMTP() -> Iterator[None]:
     SMTP_SSL = smtp.SMTP_SSL
-    smtp.SMTP_SSL = cast(Type, MockSMTPSSL)
+    smtp.SMTP_SSL = cast(Type, MockSMTPSSL)  # type: ignore[misc] unreachable
 
     try:
         yield None
 
     finally:
-        smtp.SMTP_SSL = SMTP_SSL
+        smtp.SMTP_SSL = SMTP_SSL  # type: ignore[misc] unreachable
         MockSMTPSSL._instances.clear()
 
 

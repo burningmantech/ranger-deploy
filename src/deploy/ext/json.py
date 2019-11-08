@@ -7,7 +7,7 @@ from io import TextIOWrapper
 from json import (
     JSONDecodeError, JSONEncoder as BaseJSONEncoder, dumps, load, loads
 )
-from typing import Any, BinaryIO, Optional
+from typing import Any, BinaryIO, Optional, cast
 
 from arrow.parser import DateTimeParser
 
@@ -117,7 +117,7 @@ def rfc3339TextAsDate(rfc3339: str) -> Date:
 
     :return: An :class:`Date` corresponding to :obj:`rfc3339`.
     """
-    return DateTimeParser().parse_iso(rfc3339).date()
+    return cast(Date, DateTimeParser().parse_iso(rfc3339).date())
 
 
 
@@ -142,7 +142,7 @@ def rfc3339TextAsDateTime(rfc3339: str) -> DateTime:
 
     :return: A :class:`DateTime` corresponding to :obj:`rfc3339`.
     """
-    return DateTimeParser().parse_iso(rfc3339)
+    return cast(DateTime, DateTimeParser().parse_iso(rfc3339))
 
 
 jsonTrue  = jsonTextFromObject(True)
