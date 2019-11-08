@@ -70,7 +70,7 @@ TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoSuchServiceError(Exception):
     """
     Service does not exist in the specified cluster.
@@ -80,7 +80,7 @@ class NoSuchServiceError(Exception):
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoChangesError(Exception):
     """
     Changes requested without any updates.
