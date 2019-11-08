@@ -117,7 +117,7 @@ install_requirements = [
     # Direct dependencies
     "arrow==0.15.4",
     "attrs==19.3.0",
-    "boto3>=1.9,<1.10",
+    "boto3==1.10.14",
     "Click==7.0",
     "docker==4.1.0",  # [tls]
     "GitPython==3.0.4",
@@ -125,7 +125,7 @@ install_requirements = [
 
     # Indirect dependencies
     "Automat==0.8.0",
-    "botocore>=1.12,<1.13",
+    "botocore==1.13.14",
     "certifi==2019.9.11",
     "chardet==3.0.4",
     "constantly==15.1.0",
