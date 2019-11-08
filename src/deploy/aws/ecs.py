@@ -22,7 +22,7 @@ from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
 from typing import (
-    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 )
 
 from attr import Factory, attrs
@@ -70,7 +70,7 @@ TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoSuchServiceError(Exception):
     """
     Service does not exist in the specified cluster.
@@ -80,7 +80,7 @@ class NoSuchServiceError(Exception):
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoChangesError(Exception):
     """
     Changes requested without any updates.
@@ -115,7 +115,7 @@ class ECSServiceClient(object):
 
     @staticmethod
     def _taskImageName(taskDefinition: TaskDefinition) -> str:
-        return taskDefinition["containerDefinitions"][0]["image"]
+        return cast(str, taskDefinition["containerDefinitions"][0]["image"])
 
 
     @staticmethod
@@ -175,7 +175,7 @@ class ECSServiceClient(object):
                 raise NoSuchServiceError(self.service)
             self._currentTask["arn"] = services[0]["taskDefinition"]
 
-        return self._currentTask["arn"]
+        return cast(str, self._currentTask["arn"])
 
 
     def currentTaskDefinition(self) -> TaskDefinition:
@@ -194,7 +194,7 @@ class ECSServiceClient(object):
                 currentTaskDescription["taskDefinition"]
             )
 
-        return self._currentTask["definition"]
+        return cast(TaskDefinition, self._currentTask["definition"])
 
 
     def currentImageName(self) -> str:
@@ -279,7 +279,7 @@ class ECSServiceClient(object):
         """
         self.log.debug("Registering new task definition...")
         response = self._aws.register_task_definition(**taskDefinition)
-        newTaskARN = response["taskDefinition"]["taskDefinitionArn"]
+        newTaskARN = cast(str, response["taskDefinition"]["taskDefinitionArn"])
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
         return newTaskARN
@@ -486,7 +486,9 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     AWS Elastic Container Service deployment tool.
     """
     if ctx.default_map is None:
-        commonDefaults = readConfig(profile=profile)
+        commonDefaults = readConfig(  # type: ignore[misc] unreachable
+            profile=profile
+        )
 
         commonDefaults.setdefault(
             "cluster", commonDefaults.get("staging_cluster")
@@ -561,9 +563,7 @@ def staging(
         raise UsageError(f"Unknown service: {e.service}")
 
     if (
-        repository_id and
-        build_number and build_url and commit_id and
-        commit_message is not None and
+        repository_id is not None and
         smtp_host and smtp_port and smtp_user and smtp_password and
         email_sender and email_recipient
     ):

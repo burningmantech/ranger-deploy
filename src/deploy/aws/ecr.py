@@ -26,7 +26,7 @@ from enum import IntEnum
 from ssl import (
     OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_TLSv1, OP_NO_TLSv1_1, PROTOCOL_TLS
 )
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union, cast
 
 from attr import Factory, attrs
 
@@ -64,7 +64,7 @@ def utcNow() -> DateTime:
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class DockerServiceError(Exception):
     """
     Error from Docker service.
@@ -74,7 +74,7 @@ class DockerServiceError(Exception):
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class InvalidImageNameError(Exception):
     """
     Invalid Docker image name.
@@ -217,7 +217,7 @@ class ECRServiceClient(object):
         """
         List images.
         """
-        return self._docker.images.list()
+        return cast(Iterable[Image], self._docker.images.list())
 
 
     def imageWithName(self, name: str) -> Image:
@@ -401,7 +401,9 @@ class DockerPushResponseHandler(object):
 
                 assert currentProgress >= priorStatus.currentProgress
                 if totalProgress is None:
-                    assert priorStatus.totalProgress == -1
+                    assert (  # type: ignore[misc] unreachable
+                        priorStatus.totalProgress == -1
+                    )
                     totalProgress = -1
                 else:
                     assert (
@@ -502,7 +504,9 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     AWS Elastic Container Service deployment tool.
     """
     if ctx.default_map is None:
-        commonDefaults = readConfig(profile=profile)
+        commonDefaults = readConfig(  # type: ignore[misc] unreachable
+            profile=profile
+        )
 
         ctx.default_map = {
             command: commonDefaults for command in (

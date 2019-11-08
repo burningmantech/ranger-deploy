@@ -58,11 +58,11 @@ __all__ = ()
 
 def environment_updates(
     min_size: int = 0, max_size: Optional[int] = None
-) -> Callable:
-    return dictionaries(
+) -> Mapping[str, str]:
+    return cast(Mapping[str, str], dictionaries(
         text(min_size=1), text(),
         min_size=min_size, max_size=max_size,
-    )
+    ))
 
 
 @composite
@@ -274,15 +274,17 @@ class MockBoto3ECSClient(object):
     def _currentContainerDefinition(
         cls, cluster: str, service: str
     ) -> Mapping[str, Any]:
-        return (
+        return cast(Mapping[str, Any], (
             cls._currentTaskDefinition(cluster, service)
             ["containerDefinitions"][0]
-        )
+        ))
 
 
     @classmethod
     def _currentImageName(cls, cluster: str, service: str) -> str:
-        return cls._currentContainerDefinition(cluster, service)["image"]
+        return cast(
+            str, cls._currentContainerDefinition(cluster, service)["image"]
+        )
 
 
     @classmethod
@@ -883,14 +885,16 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
             clients.append(self)
 
     Client = ecs.ECSServiceClient
-    ecs.ECSServiceClient = cast(Type, RememberMeECSServiceClient)
+    ecs.ECSServiceClient = cast(  # type: ignore[misc] type assignment
+        Type, RememberMeECSServiceClient
+    )
 
     try:
         with testingBoto3ECS():
             yield clients
 
     finally:
-        ecs.ECSServiceClient = Client
+        ecs.ECSServiceClient = Client  # type: ignore[misc] type assignment
 
         clients.clear()
 
@@ -982,14 +986,20 @@ class MockSMTPNotifier(SMTPNotifier):
 
 @contextmanager
 def testingSMTPNotifier() -> Iterator[None]:
-    SMTPNotifier = deploy.notify.smtp.SMTPNotifier
-    deploy.notify.smtp.SMTPNotifier = MockSMTPNotifier
+    SMTPNotifier = (
+        deploy.notify.smtp.SMTPNotifier
+    )
+    deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc] type assignment
+        MockSMTPNotifier
+    )
 
     try:
         yield None
 
     finally:
-        deploy.notify.smtp.SMTPNotifier = SMTPNotifier
+        deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc] type assign
+            SMTPNotifier
+        )
         MockSMTPNotifier._notifyStagingCalls.clear()
 
 
