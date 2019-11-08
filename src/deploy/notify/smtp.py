@@ -271,7 +271,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     SMTP notification tool.
     """
     if ctx.default_map is None:
-        commonDefaults = readConfig(  # type: ignore[misc] unreachable
+        commonDefaults = readConfig(  # type: ignore[misc]
             profile=profile
         )
 
