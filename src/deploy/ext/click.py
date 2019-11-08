@@ -20,9 +20,12 @@ from click import option
 
 
 __all__ = (
-    "clickTestRun",
     "ClickTestResult",
+    "clickTestRun",
+    "composedOptions",
+    "profileOption",
     "readConfig",
+    "trialRunOption",
 )
 
 
@@ -32,6 +35,9 @@ defaultConfigPath = Path("~/.ranger-deploy.ini")
 def composedOptions(
     *options: Callable[..., Callable]
 ) -> Callable[..., Callable]:
+    """
+    Combines options decorators into a single decorator.
+    """
     def wrapper(f: Callable) -> Callable:
         for o in reversed(options):
             f = o(f)
