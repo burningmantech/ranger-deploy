@@ -64,7 +64,7 @@ def utcNow() -> DateTime:
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class DockerServiceError(Exception):
     """
     Error from Docker service.
@@ -74,7 +74,7 @@ class DockerServiceError(Exception):
 
 
 
-@attrs(frozen=True, auto_attribs=True, auto_exc=True, slots=True)
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
 class InvalidImageNameError(Exception):
     """
     Invalid Docker image name.
