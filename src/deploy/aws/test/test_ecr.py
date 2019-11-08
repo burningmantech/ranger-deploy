@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from datetime import timedelta as TimeDelta
 from hashlib import sha256
 from json import JSONDecodeError
-from ssl import Options as SSLOptions  # type: ignore[attr-defined] ??
+from ssl import Options as SSLOptions  # type: ignore[attr-defined]
 from typing import (
     Any, ClassVar, Dict, Iterator, List, Optional, Sequence, Type, Union, cast
 )
@@ -1074,7 +1074,7 @@ def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
             clients.append(self)
 
     Client = ecr.ECRServiceClient
-    ecr.ECRServiceClient = cast(  # type: ignore[misc] type assignment
+    ecr.ECRServiceClient = cast(  # type: ignore[misc]
         Type, RememberMeECRServiceClient
     )
 
@@ -1083,7 +1083,7 @@ def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
             yield clients
 
     finally:
-        ecr.ECRServiceClient = Client  # type: ignore[misc] unreachable
+        ecr.ECRServiceClient = Client  # type: ignore[misc]
 
         clients.clear()
 

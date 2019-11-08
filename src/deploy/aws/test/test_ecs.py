@@ -885,7 +885,7 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
             clients.append(self)
 
     Client = ecs.ECSServiceClient
-    ecs.ECSServiceClient = cast(  # type: ignore[misc] type assignment
+    ecs.ECSServiceClient = cast(  # type: ignore[misc]
         Type, RememberMeECSServiceClient
     )
 
@@ -894,7 +894,7 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
             yield clients
 
     finally:
-        ecs.ECSServiceClient = Client  # type: ignore[misc] type assignment
+        ecs.ECSServiceClient = Client  # type: ignore[misc]
 
         clients.clear()
 
@@ -989,7 +989,7 @@ def testingSMTPNotifier() -> Iterator[None]:
     SMTPNotifier = (
         deploy.notify.smtp.SMTPNotifier
     )
-    deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc] type assignment
+    deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc]
         MockSMTPNotifier
     )
 
@@ -997,7 +997,7 @@ def testingSMTPNotifier() -> Iterator[None]:
         yield None
 
     finally:
-        deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc] type assign
+        deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc]
             SMTPNotifier
         )
         MockSMTPNotifier._notifyStagingCalls.clear()

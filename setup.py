@@ -115,16 +115,16 @@ install_requirements = [
     # • it should improve interoperability with AWS services
 
     # Direct dependencies
-    "arrow==0.15.2",
-    "attrs==19.1.0",
+    "arrow==0.15.4",
+    "attrs==19.3.0",
     "boto3>=1.9,<1.10",
     "Click==7.0",
-    "docker==4.0.2",  # [tls]
-    "GitPython==3.0.2",
+    "docker==4.1.0",  # [tls]
+    "GitPython==3.0.4",
     "Twisted==19.7.0",
 
     # Indirect dependencies
-    "Automat==0.7.0",
+    "Automat==0.8.0",
     "botocore>=1.12,<1.13",
     "certifi==2019.9.11",
     "chardet==3.0.4",
@@ -136,10 +136,10 @@ install_requirements = [
     "incremental==17.5.0",
     "jmespath==0.9.4",
     "PyHamcrest==1.9.0",
-    "python-dateutil==2.8.0",
+    "python-dateutil==2.8.1",
     "requests==2.22.0",
     "s3transfer==0.2.1",
-    "six==1.12.0",
+    "six==1.13.0",
     "smmap2==2.0.5",
     "urllib3==1.25.6",
     "websocket-client==0.56.0",

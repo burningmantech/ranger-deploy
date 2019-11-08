@@ -92,13 +92,13 @@ class MockSMTPSSL(object):
 @contextmanager
 def testingSMTP() -> Iterator[None]:
     SMTP_SSL = smtp.SMTP_SSL
-    smtp.SMTP_SSL = cast(Type, MockSMTPSSL)  # type: ignore[misc] unreachable
+    smtp.SMTP_SSL = cast(Type, MockSMTPSSL)  # type: ignore[misc]
 
     try:
         yield None
 
     finally:
-        smtp.SMTP_SSL = SMTP_SSL  # type: ignore[misc] unreachable
+        smtp.SMTP_SSL = SMTP_SSL  # type: ignore[misc]
         MockSMTPSSL._instances.clear()
 
 
@@ -213,7 +213,9 @@ class SMTPNotifierTests(TestCase):
                 elif contentType == "text/html":
                     self.assertEqual(payload, expectedHTML)
                 else:  # pragma: no cover
-                    raise AssertionError(f"Unexpected content type: {payload}")
+                    raise AssertionError(
+                        f"Unexpected content type: {payload!r}"
+                    )
 
 
 

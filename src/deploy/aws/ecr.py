@@ -401,7 +401,7 @@ class DockerPushResponseHandler(object):
 
                 assert currentProgress >= priorStatus.currentProgress
                 if totalProgress is None:
-                    assert (  # type: ignore[misc] unreachable
+                    assert (  # type: ignore[misc]
                         priorStatus.totalProgress == -1
                     )
                     totalProgress = -1
@@ -504,7 +504,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     AWS Elastic Container Service deployment tool.
     """
     if ctx.default_map is None:
-        commonDefaults = readConfig(  # type: ignore[misc] unreachable
+        commonDefaults = readConfig(  # type: ignore[misc]
             profile=profile
         )
 
