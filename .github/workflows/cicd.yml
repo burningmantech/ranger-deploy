@@ -110,7 +110,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python: ['3.6', '3.7']
+        python: ['3.6', '3.7', '3.8']
 
     steps:
 
