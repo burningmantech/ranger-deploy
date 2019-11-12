@@ -86,7 +86,9 @@ script_entry_points = {
 }
 
 for tool, (module, function) in script_entry_points.items():
-    entry_points["console_scripts"].append(f"deploy_{tool} = {module}:{function}")
+    entry_points["console_scripts"].append(
+        f"deploy_{tool} = {module}:{function}"
+    )
 
 
 #
