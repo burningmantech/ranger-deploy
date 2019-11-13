@@ -18,4 +18,4 @@
 Ranger Deployment Tools
 """
 
-__version__ = "19.0.0-dev"
+__version__ = None

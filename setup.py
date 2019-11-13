@@ -86,7 +86,9 @@ script_entry_points = {
 }
 
 for tool, (module, function) in script_entry_points.items():
-    entry_points["console_scripts"].append(f"deploy_{tool} = {module}:{function}")
+    entry_points["console_scripts"].append(
+        f"deploy_{tool} = {module}:{function}"
+    )
 
 
 #
@@ -169,6 +171,7 @@ def main():
         version=version_string,
         description=description,
         long_description=long_description,
+        long_description_content_type="text/x-rst",
         url=url,
         classifiers=classifiers,
         author=author,
