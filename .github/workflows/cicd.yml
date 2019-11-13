@@ -65,7 +65,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v1
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Tox
         run: pip install tox;
@@ -90,7 +90,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v1
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Tox
         run: pip install tox;
@@ -115,7 +115,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v1
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Tox
         run: pip install tox;
@@ -135,7 +135,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python: ['3.6', '3.7', '3.8']
+        python: ["3.6", "3.7", "3.8", "pypy3"]
 
     steps:
 
