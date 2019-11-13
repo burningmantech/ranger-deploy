@@ -101,7 +101,7 @@ jobs:
           TOX_SKIP_MISSING_INTERPRETERS: False
 
 
-  mypy:
+  packaging:
     name: Packaging
 
     runs-on: ubuntu-latest
