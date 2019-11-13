@@ -123,7 +123,7 @@ install_requirements = [
     "Click==7.0",
     "docker==4.1.0",  # [tls]
     "GitPython==3.0.4",
-    "Twisted==19.7.0",
+    "Twisted==19.10.0",
 
     # Indirect dependencies
     "Automat==0.8.0",
@@ -143,9 +143,9 @@ install_requirements = [
     "s3transfer==0.2.1",
     "six==1.13.0",
     "smmap2==2.0.5",
-    "urllib3==1.25.6",
+    "urllib3==1.25.7",
     "websocket-client==0.56.0",
-    "zope.interface==4.6.0",
+    "zope.interface==4.7.1",
 ]
 
 extras_requirements = {}
