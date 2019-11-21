@@ -154,7 +154,7 @@ jobs:
   unit:
     name: Unit Tests using Python ${{ matrix.python }} on Ubuntu
 
-    needs: [black, flake8, mypy]
+    needs: [black, flake8, mypy, packaging]
 
     runs-on: ubuntu-latest
     timeout-minutes: 10
