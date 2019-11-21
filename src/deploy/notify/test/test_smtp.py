@@ -33,8 +33,12 @@ from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from deploy.ext.click import clickTestRun
 from deploy.ext.hypothesis import (
-    ascii_text, commitIDs, email_addresses,
-    port_numbers, repository_ids, user_names,
+    ascii_text,
+    commitIDs,
+    email_addresses,
+    port_numbers,
+    repository_ids,
+    user_names,
 )
 
 from .. import smtp
@@ -44,23 +48,19 @@ from ..smtp import SMTPNotifier
 __all__ = ()
 
 
-
 @attrs(auto_attribs=True)
 class MockSMTPServer(object):
     _logins: List[Tuple[str, str]] = Factory(list)
     _messages: List[Tuple[str, str, Message]] = Factory(list)
 
-
     def login(self, user: str, password: str) -> None:
         self._logins.append((user, password))
-
 
     def send_message(
         self, message: Message, sender: str, recipient: str
     ) -> None:
         assert self._logins
         self._messages.append((sender, recipient, message))
-
 
 
 @attrs(auto_attribs=True)
@@ -73,20 +73,16 @@ class MockSMTPSSL(object):
 
     _servers: List[MockSMTPServer] = Factory(list)
 
-
     def __attrs_post_init__(self) -> None:
         self._instances.append(self)
-
 
     def __enter__(self) -> MockSMTPServer:
         server = MockSMTPServer()
         self._servers.append(server)
         return server
 
-
     def __exit__(self, *args: Any) -> None:
         pass
-
 
 
 @contextmanager
@@ -102,7 +98,6 @@ def testingSMTP() -> Iterator[None]:
         MockSMTPSSL._instances.clear()
 
 
-
 class SMTPNotifierTests(TestCase):
     """
     Tests for :class:`SMTPNotifier`
@@ -110,37 +105,49 @@ class SMTPNotifierTests(TestCase):
 
     @given(
         ascii_text(min_size=1),  # smtpHost
-        port_numbers(),          # smtpPort
-        user_names(),            # smtpUser
+        port_numbers(),  # smtpPort
+        user_names(),  # smtpUser
         ascii_text(min_size=1),  # smtpPassword
-        email_addresses(),       # senderAddress
-        email_addresses(),       # recipientAddress
+        email_addresses(),  # senderAddress
+        email_addresses(),  # recipientAddress
         ascii_text(min_size=1),  # project
-        repository_ids(),        # repository
+        repository_ids(),  # repository
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
-        commitIDs(),             # commitID
+        commitIDs(),  # commitID
         ascii_text(min_size=1),  # commitMessage  FIXME: use text()
     )
     def test_notifyStaging(
         self,
-        smtpHost: str, smtpPort: int,
-        smtpUser: str, smtpPassword: str,
-        senderAddress: str, recipientAddress: str,
-        project: str, repository: str,
-        buildNumber: str, buildURL: str,
-        commitID: str, commitMessage: str,
+        smtpHost: str,
+        smtpPort: int,
+        smtpUser: str,
+        smtpPassword: str,
+        senderAddress: str,
+        recipientAddress: str,
+        project: str,
+        repository: str,
+        buildNumber: str,
+        buildURL: str,
+        commitID: str,
+        commitMessage: str,
     ) -> None:
         with testingSMTP():
             notifier = SMTPNotifier(
-                smtpHost=smtpHost, smtpPort=smtpPort,
-                smtpUser=smtpUser, smtpPassword=smtpPassword,
-                senderAddress=senderAddress, recipientAddress=recipientAddress,
+                smtpHost=smtpHost,
+                smtpPort=smtpPort,
+                smtpUser=smtpUser,
+                smtpPassword=smtpPassword,
+                senderAddress=senderAddress,
+                recipientAddress=recipientAddress,
             )
             notifier.notifyStaging(
-                project=project, repository=repository,
-                buildNumber=buildNumber, buildURL=buildURL,
-                commitID=commitID, commitMessage=commitMessage,
+                project=project,
+                repository=repository,
+                buildNumber=buildNumber,
+                buildURL=buildURL,
+                commitID=commitID,
+                commitMessage=commitMessage,
                 trialRun=False,
             )
 
@@ -192,8 +199,8 @@ class SMTPNotifierTests(TestCase):
                 f"  <h1>{title}</h1>\n"
                 f"\n"
                 f"  <p>\n"
-                f"    <a href=\"{buildURL}\">Build #{buildNumber}</a>\n"
-                f"    for <a href=\"{commitURL}\">commit {commitIDShort}</a>\n"
+                f'    <a href="{buildURL}">Build #{buildNumber}</a>\n'
+                f'    for <a href="{commitURL}">commit {commitIDShort}</a>\n'
                 f"    has completed successfully and the resulting image has\n"
                 f"    been deployed to the staging environment.\n"
                 f"  </p>\n"
@@ -218,7 +225,6 @@ class SMTPNotifierTests(TestCase):
                     )
 
 
-
 class CommandLineTests(TestCase):
     """
     Tests for the :class:`SMTPNotifier` command line.
@@ -226,43 +232,62 @@ class CommandLineTests(TestCase):
 
     @given(
         ascii_text(min_size=1),  # smtpHost
-        port_numbers(),          # smtpPort
-        user_names(),            # smtpUser
+        port_numbers(),  # smtpPort
+        user_names(),  # smtpUser
         ascii_text(min_size=1),  # smtpPassword
-        email_addresses(),       # senderAddress
-        email_addresses(),       # recipientAddress
+        email_addresses(),  # senderAddress
+        email_addresses(),  # recipientAddress
         ascii_text(min_size=1),  # project
-        repository_ids(),        # repository
+        repository_ids(),  # repository
         ascii_text(min_size=1),  # buildNumber
         ascii_text(min_size=1),  # buildURL
-        commitIDs(),             # commitID
+        commitIDs(),  # commitID
         ascii_text(min_size=1),  # commitMessage  FIXME: use text()
-        booleans(),              # trialRun
+        booleans(),  # trialRun
     )
     def test_staging(
         self,
-        smtpHost: str, smtpPort: int,
-        smtpUser: str, smtpPassword: str,
-        senderAddress: str, recipientAddress: str,
-        project: str, repository: str,
-        buildNumber: str, buildURL: str,
-        commitID: str, commitMessage: str,
+        smtpHost: str,
+        smtpPort: int,
+        smtpUser: str,
+        smtpPassword: str,
+        senderAddress: str,
+        recipientAddress: str,
+        project: str,
+        repository: str,
+        buildNumber: str,
+        buildURL: str,
+        commitID: str,
+        commitMessage: str,
         trialRun: bool,
     ) -> None:
         args = [
-            "notify_smtp", "staging",
-            "--project-name", project,
-            "--repository-id", repository,
-            "--build-number", buildNumber,
-            "--build-url", buildURL,
-            "--commit-id", commitID,
-            "--commit-message", commitMessage,
-            "--smtp-host", smtpHost,
-            "--smtp-port", str(smtpPort),
-            "--smtp-user", smtpUser,
-            "--smtp-password", smtpPassword,
-            "--email-sender", senderAddress,
-            "--email-recipient", recipientAddress,
+            "notify_smtp",
+            "staging",
+            "--project-name",
+            project,
+            "--repository-id",
+            repository,
+            "--build-number",
+            buildNumber,
+            "--build-url",
+            buildURL,
+            "--commit-id",
+            commitID,
+            "--commit-message",
+            commitMessage,
+            "--smtp-host",
+            smtpHost,
+            "--smtp-port",
+            str(smtpPort),
+            "--smtp-user",
+            smtpUser,
+            "--smtp-password",
+            smtpPassword,
+            "--email-sender",
+            senderAddress,
+            "--email-recipient",
+            recipientAddress,
         ]
 
         if trialRun:
@@ -291,9 +316,8 @@ class CommandLineTests(TestCase):
                 commitID=commitID,
                 commitMessage=commitMessage,
                 trialRun=trialRun,
-            )
+            ),
         )
-
 
     def test_staging_noProject(self) -> None:
         """
@@ -306,17 +330,28 @@ class CommandLineTests(TestCase):
             result = clickTestRun(
                 SMTPNotifier.main,
                 [
-                    "notify_smtp", "staging",
-                    "--repository-id", "some-org/some-project",
-                    "--build-number", "build-number",
-                    "--build-url", "http://example.com/",
-                    "--commit-id", "101010",
-                    "--commit-message", "Hello",
-                    "--smtp-host", "mail.example.com",
-                    "--smtp-user", "user",
-                    "--smtp-password", "password",
-                    "--email-sender", "sender@example.com",
-                    "--email-recipient", "recipient@example.com",
+                    "notify_smtp",
+                    "staging",
+                    "--repository-id",
+                    "some-org/some-project",
+                    "--build-number",
+                    "build-number",
+                    "--build-url",
+                    "http://example.com/",
+                    "--commit-id",
+                    "101010",
+                    "--commit-message",
+                    "Hello",
+                    "--smtp-host",
+                    "mail.example.com",
+                    "--smtp-user",
+                    "user",
+                    "--smtp-password",
+                    "password",
+                    "--email-sender",
+                    "sender@example.com",
+                    "--email-recipient",
+                    "recipient@example.com",
                 ],
             )
 
@@ -325,28 +360,36 @@ class CommandLineTests(TestCase):
         args, kwargs = notifyStaging.call_args
         self.assertEqual(kwargs["project"], "some-project")
 
-
     def test_staging_badRepository(self) -> None:
         """
         A bad repository ID results in a usage error.
         """
-        with patch(
-            "deploy.notify.smtp.SMTPNotifier.notifyStaging"
-        ):
+        with patch("deploy.notify.smtp.SMTPNotifier.notifyStaging"):
             result = clickTestRun(
                 SMTPNotifier.main,
                 [
-                    "notify_smtp", "staging",
-                    "--repository-id", "some-org/some-project/garbage",
-                    "--build-number", "build-number",
-                    "--build-url", "http://example.com/",
-                    "--commit-id", "101010",
-                    "--commit-message", "Hello",
-                    "--smtp-host", "mail.example.com",
-                    "--smtp-user", "user",
-                    "--smtp-password", "password",
-                    "--email-sender", "sender@example.com",
-                    "--email-recipient", "recipient@example.com",
+                    "notify_smtp",
+                    "staging",
+                    "--repository-id",
+                    "some-org/some-project/garbage",
+                    "--build-number",
+                    "build-number",
+                    "--build-url",
+                    "http://example.com/",
+                    "--commit-id",
+                    "101010",
+                    "--commit-message",
+                    "Hello",
+                    "--smtp-host",
+                    "mail.example.com",
+                    "--smtp-user",
+                    "user",
+                    "--smtp-password",
+                    "password",
+                    "--email-sender",
+                    "sender@example.com",
+                    "--email-recipient",
+                    "recipient@example.com",
                 ],
             )
 
@@ -357,7 +400,7 @@ class CommandLineTests(TestCase):
             (
                 "Usage: notify_smtp staging [OPTIONS]\n"
                 "\n"
-                "Error: Invalid value for \"--repository-id\": "
+                'Error: Invalid value for "--repository-id": '
                 "Invalid repository ID: some-org/some-project/garbage\n"
-            )
+            ),
         )

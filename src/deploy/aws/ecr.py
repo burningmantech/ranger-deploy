@@ -20,11 +20,17 @@ AWS EC2 Container Registry support.
 
 from base64 import b64decode
 from datetime import (
-    datetime as DateTime, timedelta as TimeDelta, timezone as TimeZone
+    datetime as DateTime,
+    timedelta as TimeDelta,
+    timezone as TimeZone,
 )
 from enum import IntEnum
 from ssl import (
-    OP_NO_SSLv2, OP_NO_SSLv3, OP_NO_TLSv1, OP_NO_TLSv1_1, PROTOCOL_TLS
+    OP_NO_SSLv2,
+    OP_NO_SSLv3,
+    OP_NO_TLSv1,
+    OP_NO_TLSv1_1,
+    PROTOCOL_TLS,
 )
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union, cast
 
@@ -34,12 +40,15 @@ from boto3 import client as boto3Client
 
 import click
 from click import (
-    Context as ClickContext, group as commandGroup,
-    pass_context as passContext, version_option as versionOption,
+    Context as ClickContext,
+    group as commandGroup,
+    pass_context as passContext,
+    version_option as versionOption,
 )
 
 from docker import (
-    APIClient as DockerClient, from_env as dockerClientFromEnvironment
+    APIClient as DockerClient,
+    from_env as dockerClientFromEnvironment,
 )
 from docker.models.images import Image
 
@@ -63,7 +72,6 @@ def utcNow() -> DateTime:
     return DateTime.utcnow().replace(tzinfo=TimeZone.utc)
 
 
-
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
 class DockerServiceError(Exception):
     """
@@ -73,7 +81,6 @@ class DockerServiceError(Exception):
     message: str
 
 
-
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
 class InvalidImageNameError(Exception):
     """
@@ -81,7 +88,6 @@ class InvalidImageNameError(Exception):
     """
 
     name: str
-
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -106,7 +112,6 @@ class ECRAuthorizationToken(object):
         }
 
 
-
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class ECRServiceClient(object):
     """
@@ -125,7 +130,6 @@ class ECRServiceClient(object):
         except ValueError:
             raise InvalidImageNameError(name)
 
-
     #
     # Class attributes
     #
@@ -134,12 +138,8 @@ class ECRServiceClient(object):
 
     _tokenRefreshWindow: ClassVar = TimeDelta(minutes=30)
     _tlsVersion: ClassVar = (
-        PROTOCOL_TLS
-        | OP_NO_SSLv2 | OP_NO_SSLv3
-        | OP_NO_TLSv1 | OP_NO_TLSv1_1
+        PROTOCOL_TLS | OP_NO_SSLv2 | OP_NO_SSLv3 | OP_NO_TLSv1 | OP_NO_TLSv1_1
     )
-
-
 
     @classmethod
     def main(cls) -> None:
@@ -147,7 +147,6 @@ class ECRServiceClient(object):
         Command line entry point.
         """
         main()
-
 
     #
     # Instance attributes
@@ -157,22 +156,19 @@ class ECRServiceClient(object):
     _dockerClient: List[DockerClient] = Factory(list)
     _authorizationToken: List[ECRAuthorizationToken] = Factory(list)
 
-
     @property
     def _aws(self) -> Boto3ECRClient:
         if not self._botoClient:
             self._botoClient.append(boto3Client("ecr"))
         return self._botoClient[0]
 
-
     @property
     def _docker(self) -> DockerClient:
         if not self._dockerClient:
-            self._dockerClient.append(dockerClientFromEnvironment(
-                ssl_version=self._tlsVersion,
-            ))
+            self._dockerClient.append(
+                dockerClientFromEnvironment(ssl_version=self._tlsVersion,)
+            )
         return self._dockerClient[0]
-
 
     def authorizationToken(self) -> ECRAuthorizationToken:
         """
@@ -196,11 +192,12 @@ class ECRServiceClient(object):
 
             data = response["authorizationData"][0]
             token = data["authorizationToken"]
-            username, password = b64decode(token).decode("utf-8").split(':')
+            username, password = b64decode(token).decode("utf-8").split(":")
 
             self._authorizationToken.append(
                 ECRAuthorizationToken(
-                    username=username, password=password,
+                    username=username,
+                    password=password,
                     expiration=data["expiresAt"],
                     proxyEndpoint=data["proxyEndpoint"],
                 )
@@ -212,13 +209,11 @@ class ECRServiceClient(object):
 
         return self._authorizationToken[0]
 
-
     def listImages(self) -> Iterable[Image]:
         """
         List images.
         """
         return cast(Iterable[Image], self._docker.images.list())
-
 
     def imageWithName(self, name: str) -> Image:
         """
@@ -226,7 +221,6 @@ class ECRServiceClient(object):
         """
         self.validateImageName(name)
         return self._docker.images.get(name)
-
 
     def tag(self, existingName: str, newName: str) -> None:
         """
@@ -243,9 +237,10 @@ class ECRServiceClient(object):
 
         self.log.info(
             "Tagged image {image.short_id} ({existingName}) as {newName}.",
-            image=image, existingName=existingName, newName=newName,
+            image=image,
+            existingName=existingName,
+            newName=newName,
         )
-
 
     def push(
         self, localName: str, ecrName: str, trialRun: bool = False
@@ -265,7 +260,8 @@ class ECRServiceClient(object):
 
         self.log.debug(
             "Pushing image {localName} to ECR with name {ecrName}...",
-            localName=localName, ecrName=ecrName,
+            localName=localName,
+            ecrName=ecrName,
         )
         if not trialRun:
             response = self._docker.images.push(
@@ -277,22 +273,22 @@ class ECRServiceClient(object):
                 self.log.error(
                     "Error processing response while pushing to "
                     "{imageName}: {error}",
-                    imageName=ecrName, error=error,
+                    imageName=ecrName,
+                    error=error,
                 )
         self.log.info(
             "Pushed image {localName} to ECR with name {ecrName}.",
-            localName=localName, ecrName=ecrName,
+            localName=localName,
+            ecrName=ecrName,
         )
 
 
-
 class ImagePushState(IntEnum):
-    start     = 1
+    start = 1
     preparing = 2
-    waiting   = 3
-    pushing   = 4
-    pushed    = 5
-
+    waiting = 3
+    pushing = 4
+    pushed = 5
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -300,8 +296,7 @@ class ImagePushStatus(object):
     state: ImagePushState = ImagePushState.start
 
     currentProgress: int = 0
-    totalProgress: int   = -1
-
+    totalProgress: int = -1
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -311,14 +306,12 @@ class ImagePushResult(object):
     size: int
 
 
-
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class DockerPushResponseHandler(object):
     log = Logger()
 
     _repoStatusPrefix = "The push refers to a repository ["
     _repoStatusSuffix = "]"
-
 
     repository: str
     tag: str
@@ -327,15 +320,12 @@ class DockerPushResponseHandler(object):
     errors: List[str] = Factory(list)
     result: List[ImagePushResult] = Factory(list)
 
-
     def _statusForImage(self, imageID: str) -> ImagePushStatus:
         return self.status.setdefault(imageID, ImagePushStatus())
-
 
     def _error(self, message: str) -> None:
         self.log.error("Docker push error: {error}", error=message)
         self.errors.append(message)
-
 
     def _handleGeneralStatusUpdate(self, json: Dict[str, Any]) -> None:
         message = json["status"]
@@ -344,22 +334,19 @@ class DockerPushResponseHandler(object):
             assert message.endswith(self._repoStatusSuffix)
 
             repository = message[
-                len(self._repoStatusPrefix):
-                -len(self._repoStatusSuffix)
+                len(self._repoStatusPrefix) : -len(self._repoStatusSuffix)
             ]
-            assert repository == self.repository, (
-                f"{repository} != {self.repository}"
-            )
+            assert (
+                repository == self.repository
+            ), f"{repository} != {self.repository}"
 
         elif (
-            message.startswith(f"{self.tag}: digest: ") and
-            "size: " in message
+            message.startswith(f"{self.tag}: digest: ") and "size: " in message
         ):
             pass
 
         else:
             self._error(f"Unknown push status message: {message!r}")
-
 
     def _handleImageStatusUpdate(self, json: Dict[str, Any]) -> None:
         assert not self.result
@@ -382,22 +369,22 @@ class DockerPushResponseHandler(object):
             assert priorStatus.state <= state
 
             if (
-                state is ImagePushState.preparing or
-                state is ImagePushState.waiting
+                state is ImagePushState.preparing
+                or state is ImagePushState.waiting
             ):
                 assert (
-                    priorStatus.currentProgress == 0 and
-                    priorStatus.totalProgress == -1
+                    priorStatus.currentProgress == 0
+                    and priorStatus.totalProgress == -1
                 ), priorStatus
 
                 currentProgress = priorStatus.currentProgress
-                totalProgress   = priorStatus.totalProgress
+                totalProgress = priorStatus.totalProgress
 
             elif state is ImagePushState.pushing:
                 progressDetail = json["progressDetail"]
 
                 currentProgress = progressDetail["current"]
-                totalProgress   = progressDetail.get("total")
+                totalProgress = progressDetail.get("total")
 
                 assert currentProgress >= priorStatus.currentProgress
                 if totalProgress is None:
@@ -407,8 +394,8 @@ class DockerPushResponseHandler(object):
                     totalProgress = -1
                 else:
                     assert (
-                        totalProgress == priorStatus.totalProgress or
-                        priorStatus.totalProgress == -1
+                        totalProgress == priorStatus.totalProgress
+                        or priorStatus.totalProgress == -1
                     )
 
             elif state is ImagePushState.pushed:
@@ -424,16 +411,16 @@ class DockerPushResponseHandler(object):
             totalProgress=totalProgress,
         )
 
-
     def _handleAux(self, json: Dict[str, Any]) -> None:
         assert not self.result
 
         aux = json["aux"]
 
-        self.result.append(ImagePushResult(
-            tag=aux["Tag"], digest=aux["Digest"], size=aux["Size"]
-        ))
-
+        self.result.append(
+            ImagePushResult(
+                tag=aux["Tag"], digest=aux["Digest"], size=aux["Size"]
+            )
+        )
 
     def _handleLine(self, line: str) -> None:
         line = line.strip()
@@ -459,10 +446,7 @@ class DockerPushResponseHandler(object):
                 self._handleAux(json)
                 return
 
-        raise DockerServiceError(
-            f"Unrecognized push response JSON: {json}"
-        )
-
+        raise DockerServiceError(f"Unrecognized push response JSON: {json}")
 
     def _handlePayload(self, payload: bytes) -> None:
         assert isinstance(payload, bytes)
@@ -472,16 +456,15 @@ class DockerPushResponseHandler(object):
                 self._handleLine(line)
             except Exception as e:
                 from twisted.python.failure import Failure
+
                 self.log.critical(
                     "While handling push response line: {line}",
-                    line=line, failure=Failure()
+                    line=line,
+                    failure=Failure(),
                 )
                 self._error(str(e))
 
-
-    def handleResponse(
-        self, response: Union[bytes, Iterable[bytes]],
-    ) -> None:
+    def handleResponse(self, response: Union[bytes, Iterable[bytes]],) -> None:
         if isinstance(response, bytes):
             self._handlePayload(response)
             return
@@ -490,10 +473,10 @@ class DockerPushResponseHandler(object):
             self._handlePayload(payload)
 
 
-
 #
 # Command line
 #
+
 
 @commandGroup()
 @versionOption()
@@ -509,11 +492,8 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
         )
 
         ctx.default_map = {
-            command: commonDefaults for command in (
-                "authorization",
-                "list",
-                "tag",
-            )
+            command: commonDefaults
+            for command in ("authorization", "list", "tag",)
         }
 
     startLogging()
@@ -555,7 +535,6 @@ def tag(existing_name: str, new_name: str) -> None:
 def push(local_name: str, ecr_name: str) -> None:
     client = ECRServiceClient()
     client.push(local_name, ecr_name)
-
 
 
 if __name__ == "__main__":  # pragma: no cover

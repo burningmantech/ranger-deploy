@@ -29,23 +29,28 @@ from typing import Callable, Optional, Tuple, Union
 from attr import attrs
 
 from click import (
-    BadParameter, Context as ClickContext, Option, Parameter,
-    group as commandGroup, option as commandOption,
-    pass_context as passContext, version_option as versionOption,
+    BadParameter,
+    Context as ClickContext,
+    Option,
+    Parameter,
+    group as commandGroup,
+    option as commandOption,
+    pass_context as passContext,
+    version_option as versionOption,
 )
 
 from twisted.logger import Logger
 
 from deploy.ext.click import (
-    composedOptions, profileOption, readConfig, trialRunOption
+    composedOptions,
+    profileOption,
+    readConfig,
+    trialRunOption,
 )
 from deploy.ext.logger import startLogging
 
 
-__all__ = (
-    "SMTPNotifier",
-)
-
+__all__ = ("SMTPNotifier",)
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -60,14 +65,12 @@ class SMTPNotifier(object):
 
     log = Logger()
 
-
     @classmethod
     def main(cls) -> None:
         """
         Command line entry point.
         """
         main()
-
 
     #
     # Instance attributes
@@ -80,11 +83,15 @@ class SMTPNotifier(object):
     senderAddress: str
     recipientAddress: str
 
-
     def notifyStaging(
         self,
-        project: str, repository: str, buildNumber: str, buildURL: str,
-        commitID: str, commitMessage: str, trialRun: bool,
+        project: str,
+        repository: str,
+        buildNumber: str,
+        buildURL: str,
+        commitID: str,
+        commitMessage: str,
+        trialRun: bool,
     ) -> None:
         """
         Send notification of a deployment to staging.
@@ -92,9 +99,12 @@ class SMTPNotifier(object):
         self.log.debug(
             "Sending email notification for project {project} ({repository}) "
             "build {buildNumber} of commit {commitID}...",
-            project=project, repository=repository,
-            buildNumber=buildNumber, buildURL=buildURL,
-            commitID=commitID, commitMessage=commitMessage,
+            project=project,
+            repository=repository,
+            buildNumber=buildNumber,
+            buildURL=buildURL,
+            commitID=commitID,
+            commitMessage=commitMessage,
         )
 
         title = f"{project} Deployed to Staging"
@@ -142,16 +152,19 @@ class SMTPNotifier(object):
         self.log.info(
             "Sent email notification for project {project} ({repository}) "
             "build {buildNumber} of commit {commitID}...",
-            project=project, repository=repository,
-            buildNumber=buildNumber, buildURL=buildURL,
-            commitID=commitID, commitMessage=commitMessage,
+            project=project,
+            repository=repository,
+            buildNumber=buildNumber,
+            buildURL=buildURL,
+            commitID=commitID,
+            commitMessage=commitMessage,
         )
-
 
 
 #
 # Command line
 #
+
 
 def validateRepositoryID(
     ctx: ClickContext, param: Union[Option, Parameter], value: Optional[str]
@@ -173,44 +186,56 @@ def buildOptions(required: bool = True) -> Callable[..., Callable]:
             "--project-name",
             envvar="PROJECT_NAME",
             help="project name",
-            type=str, metavar="<name>",
-            prompt=False, required=False,
+            type=str,
+            metavar="<name>",
+            prompt=False,
+            required=False,
         ),
         commandOption(
             "--repository-id",
             envvar="REPOSITORY_ID",
             help="repository",
-            type=str, metavar="<organization>/<project>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<organization>/<project>",
+            prompt=required,
+            required=required,
             callback=validateRepositoryID,
         ),
         commandOption(
             "--build-number",
             envvar="BUILD_NUMBER",
             help="build number",
-            type=str, metavar="<number>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<number>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--build-url",
             envvar="BUILD_URL",
             help="build URL",
-            type=str, metavar="<url>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<url>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--commit-id",
             envvar="COMMIT_ID",
             help="commit ID",
-            type=str, metavar="<id>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<id>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--commit-message",
             envvar="COMMIT_MESSAGE",
             help="commit message",
-            type=str, metavar="<message>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<message>",
+            prompt=required,
+            required=required,
         ),
     )
 
@@ -221,43 +246,56 @@ def smtpOptions(required: bool = True) -> Callable[..., Callable]:
             "--smtp-host",
             envvar="NOTIFY_SMTP_HOST",
             help="SMTP server host name",
-            type=str, metavar="<host>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<host>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--smtp-port",
             envvar="NOTIFY_SMTP_PORT",
             help="SMTP server port",
-            type=int, metavar="<port>",
-            prompt=False, required=False, default=465,
+            type=int,
+            metavar="<port>",
+            prompt=False,
+            required=False,
+            default=465,
         ),
         commandOption(
             "--smtp-user",
             envvar="NOTIFY_SMTP_USER",
             help="SMTP user name",
-            type=str, metavar="<user>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<user>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--smtp-password",
             envvar="NOTIFY_SMTP_PASSWORD",
             help="SMTP user password",
-            type=str, metavar="<password>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<password>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--email-sender",
             envvar="NOTIFY_EMAIL_SENDER",
             help="email sender address",
-            type=str, metavar="<address>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<address>",
+            prompt=required,
+            required=required,
         ),
         commandOption(
             "--email-recipient",
             envvar="NOTIFY_EMAIL_RECIPIENT",
             help="email recipient address",
-            type=str, metavar="<address>",
-            prompt=required, required=required,
+            type=str,
+            metavar="<address>",
+            prompt=required,
+            required=required,
         ),
     )
 
@@ -275,11 +313,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
             profile=profile
         )
 
-        ctx.default_map = {
-            command: commonDefaults for command in (
-                "staging",
-            )
-        }
+        ctx.default_map = {command: commonDefaults for command in ("staging",)}
 
     startLogging()
 
@@ -289,10 +323,18 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 @smtpOptions()
 @trialRunOption
 def staging(
-    project_name: Optional[str], repository_id: Optional[Tuple[str, str, str]],
-    build_number: str, build_url: str, commit_id: str, commit_message: str,
-    smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
-    email_sender: str, email_recipient: str,
+    project_name: Optional[str],
+    repository_id: Optional[Tuple[str, str, str]],
+    build_number: str,
+    build_url: str,
+    commit_id: str,
+    commit_message: str,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    email_sender: str,
+    email_recipient: str,
     trial_run: bool,
 ) -> None:
     """
@@ -301,21 +343,35 @@ def staging(
     assert repository_id is not None
 
     _staging(
-        project_name=project_name, repository_id=repository_id,
-        build_number=build_number, build_url=build_url,
-        commit_id=commit_id, commit_message=commit_message,
-        smtp_host=smtp_host, smtp_port=smtp_port,
-        smtp_user=smtp_user, smtp_password=smtp_password,
-        email_sender=email_sender, email_recipient=email_recipient,
+        project_name=project_name,
+        repository_id=repository_id,
+        build_number=build_number,
+        build_url=build_url,
+        commit_id=commit_id,
+        commit_message=commit_message,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_user=smtp_user,
+        smtp_password=smtp_password,
+        email_sender=email_sender,
+        email_recipient=email_recipient,
         trial_run=trial_run,
     )
 
 
 def _staging(
-    project_name: Optional[str], repository_id: Tuple[str, str, str],
-    build_number: str, build_url: str, commit_id: str, commit_message: str,
-    smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
-    email_sender: str, email_recipient: str,
+    project_name: Optional[str],
+    repository_id: Tuple[str, str, str],
+    build_number: str,
+    build_url: str,
+    commit_id: str,
+    commit_message: str,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    email_sender: str,
+    email_recipient: str,
     trial_run: bool,
 ) -> None:
     """
@@ -336,9 +392,12 @@ def _staging(
     )
 
     notifier.notifyStaging(
-        project=project_name, repository=repository,
-        buildNumber=build_number, buildURL=build_url,
-        commitID=commit_id, commitMessage=commit_message,
+        project=project_name,
+        repository=repository,
+        buildNumber=build_number,
+        buildURL=build_url,
+        commitID=commit_id,
+        commitMessage=commit_message,
         trialRun=trial_run,
     )
 

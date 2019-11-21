@@ -7,8 +7,12 @@ from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, TextIO
 
 from twisted.logger import (
-    FilteringLogObserver, LogLevel, LogLevelFilterPredicate,
-    globalLogBeginner, globalLogPublisher, textFileLogObserver,
+    FilteringLogObserver,
+    LogLevel,
+    LogLevelFilterPredicate,
+    globalLogBeginner,
+    globalLogPublisher,
+    textFileLogObserver,
 )
 
 
@@ -18,9 +22,7 @@ __all__ = (
 )
 
 
-globalLogLevelPredicate = LogLevelFilterPredicate(
-    defaultLogLevel=LogLevel.info
-)
+globalLogLevelPredicate = LogLevelFilterPredicate(defaultLogLevel=LogLevel.info)
 
 
 def startLogging(file: TextIO = sys.stdout) -> None:

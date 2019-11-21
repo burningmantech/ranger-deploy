@@ -19,8 +19,10 @@ Tests for :mod:`deploy.ext.json`
 """
 
 from datetime import (
-    date as Date, datetime as DateTime,
-    timedelta as TimeDelta, timezone as TimeZone,
+    date as Date,
+    datetime as DateTime,
+    timedelta as TimeDelta,
+    timezone as TimeZone,
 )
 from io import BytesIO
 from json import JSONDecodeError
@@ -30,21 +32,31 @@ from typing import Any, Callable, Dict, List, cast
 
 from hypothesis import given
 from hypothesis.strategies import (
-    SearchStrategy, composite, dates, datetimes as _datetimes, dictionaries,
-    integers, lists, one_of, text,
+    SearchStrategy,
+    composite,
+    dates,
+    datetimes as _datetimes,
+    dictionaries,
+    integers,
+    lists,
+    one_of,
+    text,
 )
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from ..json import (
-    dateAsRFC3339Text, dateTimeAsRFC3339Text,
-    jsonTextFromObject, objectFromJSONBytesIO, objectFromJSONText,
-    rfc3339TextAsDate, rfc3339TextAsDateTime,
+    dateAsRFC3339Text,
+    dateTimeAsRFC3339Text,
+    jsonTextFromObject,
+    objectFromJSONBytesIO,
+    objectFromJSONText,
+    rfc3339TextAsDate,
+    rfc3339TextAsDateTime,
 )
 
 
 __all__ = ()
-
 
 
 @composite
@@ -61,11 +73,13 @@ def datetimes() -> SearchStrategy:
 
 def json() -> SearchStrategy:
     return one_of(
-        integers(), text(),
-        lists(integers()), lists(text()),
-        dictionaries(text(), integers()), dictionaries(text(), text()),
+        integers(),
+        text(),
+        lists(integers()),
+        lists(text()),
+        dictionaries(text(), integers()),
+        dictionaries(text(), text()),
     )
-
 
 
 class JSONEncodingTests(TestCase):
@@ -82,10 +96,8 @@ class JSONEncodingTests(TestCase):
         This indirectly tests :class:`..json.Encoder`.
         """
         self.assertEqual(
-            jsonTextFromObject(iter(items)),
-            jsonTextFromObject(items),
+            jsonTextFromObject(iter(items)), jsonTextFromObject(items),
         )
-
 
     @given(dictionaries(text(), json()))
     def test_encodeMappings(self, items: Dict[str, Any]) -> None:
@@ -99,7 +111,6 @@ class JSONEncodingTests(TestCase):
             jsonTextFromObject(items),
         )
 
-
     @given(datetimes())
     def test_encodeDateTimes(self, dateTime: DateTime) -> None:
         """
@@ -112,7 +123,6 @@ class JSONEncodingTests(TestCase):
             f'"{dateTimeAsRFC3339Text(dateTime)}"',
         )
 
-
     def test_encodeUnknown(self) -> None:
         """
         :func:`jsonTextFromObject` raises :exc:`TypeError` when given an
@@ -121,7 +131,6 @@ class JSONEncodingTests(TestCase):
         This indirectly tests :class:`config_service.util.json.Encoder`.
         """
         self.assertRaises(TypeError, jsonTextFromObject, object())
-
 
     def test_jsonTextFromObject_ugly(self) -> None:
         """
@@ -132,9 +141,8 @@ class JSONEncodingTests(TestCase):
 
         self.assertEqual(
             jsonTextFromObject(obj, pretty=False),
-            '{"x":"Hello","y":["one","two","three"]}'
+            '{"x":"Hello","y":["one","two","three"]}',
         )
-
 
     def test_jsonTextFromObject_pretty(self) -> None:
         """
@@ -156,9 +164,8 @@ class JSONEncodingTests(TestCase):
                   ]
                 }
                 """
-            )[1:-1]
+            )[1:-1],
         )
-
 
 
 class JSONDecodingTests(TestCase):
@@ -183,9 +190,8 @@ class JSONDecodingTests(TestCase):
                 }
                 """
             ),
-            dict(x="Hello", y=["one", "two", "three"])
+            dict(x="Hello", y=["one", "two", "three"]),
         )
-
 
     def test_objectFromJSONText_badInput(self) -> None:
         """
@@ -193,7 +199,6 @@ class JSONDecodingTests(TestCase):
         invalid JSON text.
         """
         self.assertRaises(JSONDecodeError, objectFromJSONText, "foo}")
-
 
     def test_objectFromJSONBytesIO(self) -> None:
         """
@@ -211,12 +216,13 @@ class JSONDecodingTests(TestCase):
                         "three"
                       ]
                     }
-                    """.encode("ascii")
+                    """.encode(
+                        "ascii"
+                    )
                 )
             ),
-            dict(x="Hello", y=["one", "two", "three"])
+            dict(x="Hello", y=["one", "two", "three"]),
         )
-
 
     def test_objectFromJSONBytesIO_badInput(self) -> None:
         """
@@ -228,7 +234,6 @@ class JSONDecodingTests(TestCase):
             objectFromJSONBytesIO,
             BytesIO("foo}".encode("ascii")),
         )
-
 
 
 class DateTimeTests(TestCase):
@@ -247,7 +252,6 @@ class DateTimeTests(TestCase):
         :obj:`date`.
         """
         return f"{date.year:04d}-{date.month:02d}-{date.day:02d}"
-
 
     @staticmethod
     def dateTimeAsRFC3339Text(dateTime: DateTime) -> str:
@@ -290,7 +294,6 @@ class DateTimeTests(TestCase):
             f"{tzSign}{tzHour:02d}:{tzMinute:02d}"
         )
 
-
     @given(dates())
     def test_dateAsRFC3339Text(self, date: Date) -> None:
         """
@@ -299,7 +302,6 @@ class DateTimeTests(TestCase):
         """
         self.assertEqual(dateAsRFC3339Text(date), self.dateAsRFC3339Text(date))
 
-
     @given(dates())
     def test_rfc3339TextAsDate(self, date: Date) -> None:
         """
@@ -307,7 +309,6 @@ class DateTimeTests(TestCase):
         into a :class:`Date`.
         """
         self.assertEqual(rfc3339TextAsDate(self.dateAsRFC3339Text(date)), date)
-
 
     @given(datetimes())
     def test_dateTimeAsRFC3339Text(self, dateTime: DateTime) -> None:
@@ -320,7 +321,6 @@ class DateTimeTests(TestCase):
             self.dateTimeAsRFC3339Text(dateTime),
         )
 
-
     @given(datetimes())
     def test_rfc3339TextAsDateTime(self, dateTime: DateTime) -> None:
         """
@@ -329,5 +329,5 @@ class DateTimeTests(TestCase):
         """
         self.assertEqual(
             rfc3339TextAsDateTime(self.dateTimeAsRFC3339Text(dateTime)),
-            dateTime
+            dateTime,
         )
