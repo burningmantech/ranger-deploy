@@ -5,7 +5,11 @@ Extensions to :mod:`json`
 from datetime import date as Date, datetime as DateTime
 from io import TextIOWrapper
 from json import (
-    JSONDecodeError, JSONEncoder as BaseJSONEncoder, dumps, load, loads
+    JSONDecodeError,
+    JSONEncoder as BaseJSONEncoder,
+    dumps,
+    load,
+    loads,
 )
 from typing import Any, BinaryIO, Optional, cast
 
@@ -20,7 +24,6 @@ __all__ = (
     "rfc3339TextAsDate",
     "rfc3339TextAsDateTime",
 )
-
 
 
 class JSONEncoder(BaseJSONEncoder):
@@ -42,7 +45,6 @@ class JSONEncoder(BaseJSONEncoder):
             return dateAsRFC3339Text(obj)
 
         return BaseJSONEncoder.default(self, obj)
-
 
 
 def jsonTextFromObject(obj: Any, pretty: bool = False) -> str:
@@ -72,7 +74,6 @@ def jsonTextFromObject(obj: Any, pretty: bool = False) -> str:
     )
 
 
-
 def objectFromJSONText(text: str) -> Any:
     """
     Convert JSON text into an object.
@@ -81,11 +82,8 @@ def objectFromJSONText(text: str) -> Any:
         return loads(text)
     except JSONDecodeError as e:
         raise JSONDecodeError(
-            msg=f"{e.msg} in {text!r}",
-            doc=e.doc,
-            pos=e.pos,
+            msg=f"{e.msg} in {text!r}", doc=e.doc, pos=e.pos,
         )
-
 
 
 def objectFromJSONBytesIO(io: BinaryIO, encoding: str = "utf-8") -> Any:
@@ -94,7 +92,6 @@ def objectFromJSONBytesIO(io: BinaryIO, encoding: str = "utf-8") -> Any:
     """
     textIO = TextIOWrapper(io, encoding=encoding, newline="")
     return load(textIO)
-
 
 
 def dateAsRFC3339Text(date: Date) -> str:
@@ -108,7 +105,6 @@ def dateAsRFC3339Text(date: Date) -> str:
     return date.isoformat()
 
 
-
 def rfc3339TextAsDate(rfc3339: str) -> Date:
     """
     Convert an RFC 3339 formatted string to a :class:`Date`.
@@ -118,7 +114,6 @@ def rfc3339TextAsDate(rfc3339: str) -> Date:
     :return: An :class:`Date` corresponding to :obj:`rfc3339`.
     """
     return cast(Date, DateTimeParser().parse_iso(rfc3339).date())
-
 
 
 def dateTimeAsRFC3339Text(dateTime: DateTime) -> str:
@@ -133,7 +128,6 @@ def dateTimeAsRFC3339Text(dateTime: DateTime) -> str:
     return dateTime.isoformat()
 
 
-
 def rfc3339TextAsDateTime(rfc3339: str) -> DateTime:
     """
     Convert an RFC 3339 formatted string to a :class:`DateTime`.
@@ -145,5 +139,5 @@ def rfc3339TextAsDateTime(rfc3339: str) -> DateTime:
     return cast(DateTime, DateTimeParser().parse_iso(rfc3339))
 
 
-jsonTrue  = jsonTextFromObject(True)
+jsonTrue = jsonTextFromObject(True)
 jsonFalse = jsonTextFromObject(False)

@@ -8,8 +8,17 @@ from enum import Enum, auto
 from io import StringIO
 from pathlib import Path
 from typing import (
-    Any, Callable, ClassVar, Dict, List, Mapping,
-    Optional, Sequence, Tuple, Union, cast,
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
 )
 from unittest.mock import patch
 
@@ -38,17 +47,22 @@ def composedOptions(
     """
     Combines options decorators into a single decorator.
     """
+
     def wrapper(f: Callable) -> Callable:
         for o in reversed(options):
             f = o(f)
         return f
+
     return wrapper
 
 
 profileOption = option(
     "--profile",
     help="Profile to load from configuration file",
-    type=str, metavar="<name>", prompt=False, required=False,
+    type=str,
+    metavar="<name>",
+    prompt=False,
+    required=False,
 )
 
 trialRunOption = option(
@@ -56,10 +70,8 @@ trialRunOption = option(
 )
 
 
-
 class Internal(Enum):
     UNSET = auto()
-
 
 
 @attrs(auto_attribs=True, slots=True, kw_only=True)
@@ -74,12 +86,11 @@ class ClickTestResult(object):
 
     echoOutput: echoOutputType = Factory(list)
 
-    stdin:  StringIO = Factory(StringIO)
+    stdin: StringIO = Factory(StringIO)
     stdout: StringIO = Factory(StringIO)
     stderr: StringIO = Factory(StringIO)
 
     beginLoggingToCalls: Sequence[Tuple[Sequence[str], Mapping[str, str]]] = ()
-
 
 
 def clickTestRun(
@@ -92,11 +103,11 @@ def clickTestRun(
 
     result = ClickTestResult()
 
-    stdin  = sys.stdin
+    stdin = sys.stdin
     stdout = sys.stdout
     stderr = sys.stderr
 
-    sys.stdin  = result.stdin
+    sys.stdin = result.stdin
     sys.stdout = result.stdout
     sys.stderr = result.stderr
 
@@ -123,11 +134,11 @@ def clickTestRun(
 
     result.beginLoggingToCalls = beginLoggingTo.call_args_list
 
-    sys.stdin  = stdin
+    sys.stdin = stdin
     sys.stdout = stdout
     sys.stderr = stderr
-    sys.argv   = argv
-    sys.exit   = exit
+    sys.argv = argv
+    sys.exit = exit
     click.echo = echo
 
     return result

@@ -22,7 +22,15 @@ from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
 from typing import (
-    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, cast
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
 )
 
 from attr import Factory, attrs
@@ -31,9 +39,13 @@ from boto3 import client as boto3Client
 
 import click
 from click import (
-    Context as ClickContext, UsageError, argument as commandArgument,
-    group as commandGroup, option as commandOption,
-    pass_context as passContext, version_option as versionOption,
+    Context as ClickContext,
+    UsageError,
+    argument as commandArgument,
+    group as commandGroup,
+    option as commandOption,
+    pass_context as passContext,
+    version_option as versionOption,
 )
 
 from git import Repo
@@ -41,11 +53,16 @@ from git import Repo
 from twisted.logger import Logger
 
 from deploy.ext.click import (
-    composedOptions, profileOption, readConfig, trialRunOption
+    composedOptions,
+    profileOption,
+    readConfig,
+    trialRunOption,
 )
 from deploy.ext.logger import startLogging
 from deploy.notify.smtp import (
-    _staging as notifyStaging, buildOptions, smtpOptions
+    _staging as notifyStaging,
+    buildOptions,
+    smtpOptions,
 )
 
 from .ecr import ECRServiceClient
@@ -69,7 +86,6 @@ TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
-
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoSuchServiceError(Exception):
     """
@@ -79,13 +95,11 @@ class NoSuchServiceError(Exception):
     service: str
 
 
-
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoChangesError(Exception):
     """
     Changes requested without any updates.
     """
-
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -100,23 +114,19 @@ class ECSServiceClient(object):
 
     @staticmethod
     def _environmentAsJSON(
-        environment: TaskEnvironment
+        environment: TaskEnvironment,
     ) -> List[Dict[str, str]]:
         return [
-            {"name": key, "value": value}
-            for key, value in environment.items()
+            {"name": key, "value": value} for key, value in environment.items()
         ]
-
 
     @staticmethod
     def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
         return {e["name"]: e["value"] for e in json}
 
-
     @staticmethod
     def _taskImageName(taskDefinition: TaskDefinition) -> str:
         return cast(str, taskDefinition["containerDefinitions"][0]["image"])
-
 
     @staticmethod
     def _taskEnvironment(taskDefinition: TaskDefinition) -> TaskEnvironment:
@@ -124,13 +134,11 @@ class ECSServiceClient(object):
             taskDefinition["containerDefinitions"][0]["environment"]
         )
 
-
     #
     # Class attributes
     #
 
     log = Logger()
-
 
     @classmethod
     def main(cls) -> None:
@@ -138,7 +146,6 @@ class ECSServiceClient(object):
         Command line entry point.
         """
         main()
-
 
     #
     # Instance attributes
@@ -150,13 +157,11 @@ class ECSServiceClient(object):
     _botoClient: List[Boto3ECSClient] = Factory(list)
     _currentTask: Dict[str, Any] = Factory(dict)
 
-
     @property
     def _aws(self) -> Boto3ECSClient:
         if not self._botoClient:
             self._botoClient.append(boto3Client("ecs"))
         return self._botoClient[0]
-
 
     def currentTaskARN(self) -> str:
         """
@@ -165,7 +170,8 @@ class ECSServiceClient(object):
         if "arn" not in self._currentTask:
             self.log.debug(
                 "Looking up current task ARN for {cluster}:{service}...",
-                cluster=self.cluster, service=self.service,
+                cluster=self.cluster,
+                service=self.service,
             )
             serviceDescription = self._aws.describe_services(
                 cluster=self.cluster, services=[self.service]
@@ -176,7 +182,6 @@ class ECSServiceClient(object):
             self._currentTask["arn"] = services[0]["taskDefinition"]
 
         return cast(str, self._currentTask["arn"])
-
 
     def currentTaskDefinition(self) -> TaskDefinition:
         """
@@ -190,12 +195,11 @@ class ECSServiceClient(object):
             currentTaskDescription = self._aws.describe_task_definition(
                 taskDefinition=currentTaskARN
             )
-            self._currentTask["definition"] = (
-                currentTaskDescription["taskDefinition"]
-            )
+            self._currentTask["definition"] = currentTaskDescription[
+                "taskDefinition"
+            ]
 
         return cast(TaskDefinition, self._currentTask["definition"])
-
 
     def currentImageName(self) -> str:
         """
@@ -203,7 +207,6 @@ class ECSServiceClient(object):
         """
         currentTaskDefinition = self.currentTaskDefinition()
         return self._taskImageName(currentTaskDefinition)
-
 
     def updateTaskDefinition(
         self,
@@ -240,9 +243,9 @@ class ECSServiceClient(object):
             environment = self.currentTaskEnvironment()
 
         # If no changes are being applied, there's nothing to do.
-        newTaskDefinition["containerDefinitions"][0]["environment"] = (
-            self._environmentAsJSON(environment)
-        )
+        newTaskDefinition["containerDefinitions"][0][
+            "environment"
+        ] = self._environmentAsJSON(environment)
         if newTaskDefinition == currentTaskDefinition:
             raise NoChangesError()
 
@@ -266,12 +269,11 @@ class ECSServiceClient(object):
                 environment[f"CI_{key}"] = value
 
         # Edit the container environment to the new one.
-        newTaskDefinition["containerDefinitions"][0]["environment"] = (
-            self._environmentAsJSON(environment)
-        )
+        newTaskDefinition["containerDefinitions"][0][
+            "environment"
+        ] = self._environmentAsJSON(environment)
 
         return newTaskDefinition
-
 
     def registerTaskDefinition(self, taskDefinition: TaskDefinition) -> str:
         """
@@ -284,7 +286,6 @@ class ECSServiceClient(object):
 
         return newTaskARN
 
-
     def currentTaskEnvironment(self) -> TaskEnvironment:
         """
         Look up the environment variables used for the service's current task.
@@ -295,7 +296,6 @@ class ECSServiceClient(object):
         assert len(currentTaskDefinition["containerDefinitions"]) == 1
 
         return self._taskEnvironment(currentTaskDefinition)
-
 
     def updateTaskEnvironment(
         self, updates: TaskEnvironmentUpdates
@@ -317,14 +317,15 @@ class ECSServiceClient(object):
 
         return environment
 
-
     def deployTask(self, arn: str) -> None:
         """
         Deploy a new task to the service.
         """
         self.log.debug(
             "Deploying task ARN {arn} to service {cluster}:{service}...",
-            cluster=self.cluster, service=self.service, arn=arn
+            cluster=self.cluster,
+            service=self.service,
+            arn=arn,
         )
         self._currentTask.clear()
         self._aws.update_service(
@@ -332,9 +333,10 @@ class ECSServiceClient(object):
         )
         self.log.info(
             "Deployed task ARN {arn} to service {cluster}:{service}.",
-            cluster=self.cluster, service=self.service, arn=arn
+            cluster=self.cluster,
+            service=self.service,
+            arn=arn,
         )
-
 
     def deployTaskDefinition(self, taskDefinition: TaskDefinition) -> None:
         """
@@ -343,7 +345,6 @@ class ECSServiceClient(object):
         arn = self.registerTaskDefinition(taskDefinition)
         self.deployTask(arn)
 
-
     def deployImage(self, imageName: str, trialRun: bool = False) -> None:
         """
         Deploy a Docker Image to the service.
@@ -351,22 +352,23 @@ class ECSServiceClient(object):
         try:
             newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
         except NoChangesError:
-            self.log.info(
-                "Image name is unchanged. Nothing to deploy."
-            )
+            self.log.info("Image name is unchanged. Nothing to deploy.")
             return
 
         self.log.debug(
             "Deploying image {image} to service {cluster}:{service}...",
-            cluster=self.cluster, service=self.service, image=imageName
+            cluster=self.cluster,
+            service=self.service,
+            image=imageName,
         )
         if not trialRun:
             self.deployTaskDefinition(newTaskDefinition)
         self.log.info(
             "Deployed image {image} to service {cluster}:{service}.",
-            cluster=self.cluster, service=self.service, image=imageName
+            cluster=self.cluster,
+            service=self.service,
+            image=imageName,
         )
-
 
     def deployTaskEnvironment(self, updates: TaskEnvironmentUpdates) -> None:
         """
@@ -390,14 +392,17 @@ class ECSServiceClient(object):
 
         self.log.debug(
             "Deploying task environment to service {cluster}:{service}...",
-            cluster=self.cluster, service=self.service, updates=updates
+            cluster=self.cluster,
+            service=self.service,
+            updates=updates,
         )
         self.deployTaskDefinition(newTaskDefinition)
         self.log.info(
             "Deployed task environment to service {cluster}:{service}.",
-            cluster=self.cluster, service=self.service, updates=updates
+            cluster=self.cluster,
+            service=self.service,
+            updates=updates,
         )
-
 
     def rollback(self) -> None:
         """
@@ -415,10 +420,10 @@ class ECSServiceClient(object):
         self.deployTask(taskARN)
 
 
-
 #
 # Command line
 #
+
 
 def ensureCI() -> None:
     """
@@ -436,7 +441,8 @@ def ensureCI() -> None:
             log.critical(
                 "Attempted deployment from non-{deploymentBranch} "
                 "branch {branch}",
-                deploymentBranch=deploymentBranch, branch=branch
+                deploymentBranch=deploymentBranch,
+                branch=branch,
             )
             raise UsageError(
                 f"Deployment not allowed from branch {branch!r} "
@@ -461,14 +467,17 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         help = f"ECS {optionName} for the {environment} environment"
 
     return commandOption(
-        flag, envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
-        help=help, type=str, metavar="<name>", prompt=True, required=True,
+        flag,
+        envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
+        help=help,
+        type=str,
+        metavar="<name>",
+        prompt=True,
+        required=True,
     )
 
 
-environmentOptions = composedOptions(
-    ecsOption("cluster"), ecsOption("service")
-)
+environmentOptions = composedOptions(ecsOption("cluster"), ecsOption("service"))
 stagingEnvironmentOptions = composedOptions(
     ecsOption("cluster", "staging"), ecsOption("service", "staging")
 )
@@ -498,7 +507,8 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
         )
 
         ctx.default_map = {
-            command: commonDefaults for command in (
+            command: commonDefaults
+            for command in (
                 "staging",
                 "rollback",
                 "production",
@@ -518,7 +528,10 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     "--image-local",
     envvar="LOCAL_IMAGE_NAME",
     help="Local Docker image to push to ECR",
-    type=str, metavar="<name>", prompt=False, required=False,
+    type=str,
+    metavar="<name>",
+    prompt=False,
+    required=False,
 )
 @commandOption(
     "--image-ecr",
@@ -527,16 +540,29 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
         "ECR Docker image to push into"
         " (if no tag included, use shortened commit ID as tag)"
     ),
-    type=str, metavar="<name>", prompt=True, required=False,
+    type=str,
+    metavar="<name>",
+    prompt=True,
+    required=False,
 )
 @trialRunOption
 def staging(
-    staging_cluster: str, staging_service: str,
-    project_name: Optional[str], repository_id: Optional[Tuple[str, str, str]],
-    build_number: str, build_url: str, commit_id: str, commit_message: str,
-    smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str,
-    email_sender: str, email_recipient: str,
-    image_local: str, image_ecr: str,
+    staging_cluster: str,
+    staging_service: str,
+    project_name: Optional[str],
+    repository_id: Optional[Tuple[str, str, str]],
+    build_number: str,
+    build_url: str,
+    commit_id: str,
+    commit_message: str,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    email_sender: str,
+    email_recipient: str,
+    image_local: str,
+    image_ecr: str,
     trial_run: bool,
 ) -> None:
     """
@@ -563,17 +589,27 @@ def staging(
         raise UsageError(f"Unknown service: {e.service}")
 
     if (
-        repository_id is not None and
-        smtp_host and smtp_port and smtp_user and smtp_password and
-        email_sender and email_recipient
+        repository_id is not None
+        and smtp_host
+        and smtp_port
+        and smtp_user
+        and smtp_password
+        and email_sender
+        and email_recipient
     ):
         notifyStaging(
-            project_name=project_name, repository_id=repository_id,
-            build_number=build_number, build_url=build_url,
-            commit_id=commit_id, commit_message=commit_message,
-            smtp_host=smtp_host, smtp_port=smtp_port,
-            smtp_user=smtp_user, smtp_password=smtp_password,
-            email_sender=email_sender, email_recipient=email_recipient,
+            project_name=project_name,
+            repository_id=repository_id,
+            build_number=build_number,
+            build_url=build_url,
+            commit_id=commit_id,
+            commit_message=commit_message,
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+            email_sender=email_sender,
+            email_recipient=email_recipient,
             trial_run=trial_run,
         )
     else:
@@ -582,9 +618,7 @@ def staging(
 
 @main.command()
 @stagingEnvironmentOptions
-def rollback(
-    staging_cluster: str, staging_service: str,
-) -> None:
+def rollback(staging_cluster: str, staging_service: str,) -> None:
     """
     Roll back the staging environment to the previous task definition.
     """
@@ -598,8 +632,10 @@ def rollback(
 @stagingEnvironmentOptions
 @productionEnvironmentOptions
 def production(
-    staging_cluster: str, staging_service: str,
-    production_cluster: str, production_service: str,
+    staging_cluster: str,
+    staging_service: str,
+    production_cluster: str,
+    production_service: str,
 ) -> None:
     """
     Deploy the image in the staging environment to the production environment.
@@ -618,8 +654,10 @@ def production(
 @stagingEnvironmentOptions
 @productionEnvironmentOptions
 def compare(
-    staging_cluster: str, staging_service: str,
-    production_cluster: str, production_service: str,
+    staging_cluster: str,
+    staging_service: str,
+    production_cluster: str,
+    production_service: str,
 ) -> None:
     """
     Compare the staging environment to the production environment.
@@ -642,8 +680,7 @@ def compare(
     productionEnvironment = productionClient.currentTaskEnvironment()
 
     keys = frozenset(
-        tuple(stagingEnvironment.keys()) +
-        tuple(productionEnvironment.keys())
+        tuple(stagingEnvironment.keys()) + tuple(productionEnvironment.keys())
     )
 
     same = set()
@@ -704,7 +741,6 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
         click.echo(f"Environment variables for {cluster}:{service}:")
         for key, value in currentTaskEnvironment.items():
             click.echo(f"    {key} = {value!r}")
-
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -34,9 +34,7 @@ def ascii_text(
     """
     A strategy which generates ASCII-encodable text.
     """
-    return text(
-        min_size=min_size, max_size=max_size, alphabet=printable
-    )
+    return text(min_size=min_size, max_size=max_size, alphabet=printable)
 
 
 def user_names() -> SearchStrategy:

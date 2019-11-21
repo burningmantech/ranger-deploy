@@ -52,9 +52,8 @@ class ReadConfigTests(TestCase):
         text(  # profile
             min_size=1,
             alphabet=characters(
-                blacklist_categories=configBlacklistCategories + (
-                    "Zs",  # Spaces
-                ),
+                blacklist_categories=configBlacklistCategories
+                + ("Zs",),  # Spaces
                 blacklist_characters="]",
             ),
         ),
@@ -73,9 +72,7 @@ class ReadConfigTests(TestCase):
             ),
         ),
     )
-    def test_readConfig(
-        self, profile: str, configDict: Dict[str, str]
-    ) -> None:
+    def test_readConfig(self, profile: str, configDict: Dict[str, str]) -> None:
         # Normalize the config dict so that we ensure keys and valid and that
         # we can can compare this dict with the result:
         #  * Keys and values are stripped of leading and trailing whitespace.
@@ -105,7 +102,6 @@ class ReadConfigTests(TestCase):
 
         self.assertEqual(resultConfig, configDict)
 
-
     def test_readConfig_noProfile(self) -> None:
         configText = ""
 
@@ -114,7 +110,6 @@ class ReadConfigTests(TestCase):
             configFile.write(configText)
 
         self.assertEqual(readConfig(profile="foo", path=configFilePath), {})
-
 
     def test_readConfig_default(self) -> None:
         configText = "[default]\nfoo = bar\n"
