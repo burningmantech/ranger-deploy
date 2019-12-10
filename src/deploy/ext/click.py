@@ -146,7 +146,7 @@ def clickTestRun(
 
 def readConfig(
     profile: str = "default", path: Path = defaultConfigPath
-) -> Dict[str, str]:
+) -> Dict[str, Optional[str]]:
     """
     Read configuration from the given path using the given profile.
     """

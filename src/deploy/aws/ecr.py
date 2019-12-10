@@ -487,9 +487,10 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     AWS Elastic Container Service deployment tool.
     """
     if ctx.default_map is None:
-        commonDefaults = readConfig(  # type: ignore[misc]
-            profile=profile
-        )
+        if profile is None:
+            commonDefaults = readConfig()
+        else:
+            commonDefaults = readConfig(profile=profile)
 
         ctx.default_map = {
             command: commonDefaults
