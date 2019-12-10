@@ -122,13 +122,13 @@ install_requirements = [
     "boto3>=1.10,<1.11",
     "Click==7.0",
     "docker==4.1.0",  # [tls]
-    "GitPython==3.0.4",
+    "GitPython==3.0.5",
     "Twisted==19.10.0",
 
     # Indirect dependencies
     "Automat==0.8.0",
     "botocore>=1.13,<1.14",
-    "certifi==2019.9.11",
+    "certifi==2019.11.28",
     "chardet==3.0.4",
     "constantly==15.1.0",
     "docutils==0.15.2",
