@@ -2,4 +2,6 @@ include *.toml
 include *.txt
 include *.yml
 include bin/deploy_aws_ecs
+include docs/*.rst
+include docs/conf.py
 include tox.ini
