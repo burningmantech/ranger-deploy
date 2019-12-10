@@ -126,6 +126,32 @@ jobs:
           TOX_SKIP_MISSING_INTERPRETERS: False
 
 
+  docs:
+
+    name: Build documentation
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+
+    steps:
+
+      - name: Checkout source code
+        uses: actions/checkout@v1
+
+      - name: Install Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: "3.8"
+
+      - name: Install Tox
+        run: pip install tox;
+
+      - name: Build documentation
+        run: tox -e docs;
+        env:
+          TOX_SKIP_MISSING_INTERPRETERS: False
+
+
   packaging:
     name: Packaging
 
@@ -154,10 +180,10 @@ jobs:
   unit:
     name: Unit Tests using Python ${{ matrix.python }} on Ubuntu
 
-    needs: [black, flake8, mypy, packaging]
+    needs: [black, flake8, mypy, docs, packaging]
 
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       matrix:
         python: ["3.6", "3.7", "3.8"]
