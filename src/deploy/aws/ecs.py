@@ -73,6 +73,7 @@ __all__ = (
     "TaskEnvironment",
     "TaskEnvironmentUpdates",
     "NoChangesError",
+    "NoSuchServiceError",
     "ECSServiceClient",
 )
 
