@@ -39,6 +39,7 @@ __all__ = (
 
 
 defaultConfigPath = Path("~/.ranger-deploy.ini")
+defaultConfigProfile = "default"
 
 
 def composedOptions(
@@ -145,11 +146,15 @@ def clickTestRun(
 
 
 def readConfig(
-    profile: str = "default", path: Path = defaultConfigPath
+    profile: Optional[str] = defaultConfigProfile,
+    path: Path = defaultConfigPath,
 ) -> Dict[str, Optional[str]]:
     """
     Read configuration from the given path using the given profile.
     """
+    if profile is None:
+        profile = defaultConfigProfile
+
     path = path.expanduser()
 
     parser = ConfigParser(
