@@ -13,7 +13,7 @@ jobs:
   info:
 
     name: Workflow information
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-latest
     timeout-minutes: 1
 
     steps:
