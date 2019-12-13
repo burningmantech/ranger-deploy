@@ -119,3 +119,14 @@ class ReadConfigTests(TestCase):
             configFile.write(configText)
 
         self.assertEqual(readConfig(path=configFilePath), {"foo": "bar"})
+
+    def test_readConfig_none(self) -> None:
+        configText = "[default]\nfoo = bar\n"
+
+        configFilePath = Path(self.mktemp())
+        with configFilePath.open("w") as configFile:
+            configFile.write(configText)
+
+        self.assertEqual(
+            readConfig(profile=None, path=configFilePath), {"foo": "bar"}
+        )

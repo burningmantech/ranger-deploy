@@ -309,9 +309,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
     SMTP notification tool.
     """
     if ctx.default_map is None:
-        commonDefaults = readConfig(  # type: ignore[misc]
-            profile=profile
-        )
+        commonDefaults = readConfig(profile=profile)
 
         ctx.default_map = {command: commonDefaults for command in ("staging",)}
 
