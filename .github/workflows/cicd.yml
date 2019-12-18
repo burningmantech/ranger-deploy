@@ -199,3 +199,9 @@ jobs:
           GITHUB_COMMIT: ${{ github.sha }}
           GITHUB_USER: ${{ github.actor }}
           GITHUB_WORKFLOW: ${{ github.workflow }}
+
+      - name: Upload Trial log artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: trial
+          path: .tox/coverage-py/log/trial.log
