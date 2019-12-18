@@ -71,8 +71,6 @@ jobs:
 
       - name: Run Flake8
         run: tox -e flake8;
-        env:
-          TOX_SKIP_MISSING_INTERPRETERS: False
 
 
   black:
@@ -97,8 +95,6 @@ jobs:
 
       - name: Run Flake8
         run: tox -e black;
-        env:
-          TOX_SKIP_MISSING_INTERPRETERS: False
 
 
   mypy:
@@ -122,8 +118,6 @@ jobs:
 
       - name: Run Mypy
         run: tox -e mypy;
-        env:
-          TOX_SKIP_MISSING_INTERPRETERS: False
 
 
   docs:
@@ -131,7 +125,7 @@ jobs:
     name: Build documentation
 
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 3
 
     steps:
 
@@ -148,8 +142,6 @@ jobs:
 
       - name: Build documentation
         run: tox -e docs;
-        env:
-          TOX_SKIP_MISSING_INTERPRETERS: False
 
 
   packaging:
@@ -173,17 +165,15 @@ jobs:
 
       - name: Check packaging
         run: tox -e packaging;
-        env:
-          TOX_SKIP_MISSING_INTERPRETERS: False
 
 
   unit:
     name: Unit Tests using Python ${{ matrix.python }} on Ubuntu
 
-    needs: [black, flake8, mypy, docs, packaging]
+    needs: [flake8, black, mypy, docs, packaging]
 
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       matrix:
         python: ["3.6", "3.7", "3.8"]
@@ -204,5 +194,8 @@ jobs:
       - name: Run unit tests
         run: tox -e coverage-py,codecov;
         env:
-          TOX_SKIP_MISSING_INTERPRETERS: False
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_COMMIT: ${{ github.sha }}
+          GITHUB_USER: ${{ github.actor }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
