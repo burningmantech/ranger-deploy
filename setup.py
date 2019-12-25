@@ -144,7 +144,7 @@ install_requirements = [
     "six==1.13.0",
     "smmap2==2.0.5",
     "urllib3==1.25.7",
-    "websocket-client==0.56.0",
+    "websocket-client==0.57.0",
     "zope.interface==4.7.1",
 ]
 
