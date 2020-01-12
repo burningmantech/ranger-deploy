@@ -131,7 +131,7 @@ install_requirements = [
     "certifi==2019.11.28",
     "chardet==3.0.4",
     "constantly==15.1.0",
-    "docutils==0.15.2",
+    "docutils==0.16",
     "gitdb2==2.0.6",
     "hyperlink==19.0.0",
     "idna==2.8",
