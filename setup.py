@@ -137,7 +137,7 @@ install_requirements = [
     "idna==2.8",
     "incremental==17.5.0",
     "jmespath==0.9.4",
-    "PyHamcrest==1.10.1",
+    "PyHamcrest==2.0.0",
     "python-dateutil==2.8.1",
     "requests==2.22.0",
     "s3transfer==0.3.0",
