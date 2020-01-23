@@ -140,7 +140,7 @@ install_requirements = [
     "PyHamcrest==2.0.0",
     "python-dateutil==2.8.1",
     "requests==2.22.0",
-    "s3transfer==0.3.1",
+    "s3transfer==0.3.2",
     "six==1.14.0",
     "smmap2==2.0.5",
     "urllib3==1.25.8",
