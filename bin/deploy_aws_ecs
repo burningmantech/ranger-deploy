@@ -47,8 +47,9 @@ else
 fi;
 
 echo "Installing dependencies...";
-deploy_url=git+https://github.com/burningmantech/ranger-deploy;
-"${python}" -m pip install --disable-pip-version-check --quiet \
-    "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
+deploy_url="https://github.com/burningmantech/ranger-deploy/archive/";
+deploy_url="${deploy_url}${DEPLOY_TOOLS_VERSION:=master}.tar.gz";
+deploy_url="${deploy_url}#egg=ranger-deploy";
+"${python}" -m pip install --disable-pip-version-check --quiet "${deploy_url}";
 
 "${python}" -m deploy.aws.ecs "${@}";
