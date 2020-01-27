@@ -41,9 +41,6 @@ else
 
     # Upgrade pip in the virtual environment
     "${python}" -m pip install --upgrade pip;
-
-    cleanup() { rm -rf "${virtualenv}"; }
-    trap cleanup EXIT;
 fi;
 
 echo "Installing dependencies...";
