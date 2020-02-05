@@ -188,23 +188,6 @@ For example::
   recipient     = ${rangers:recipient}
 
 
-  [clubhouse-classic]
-
-  repository_id = ${rangers:github_org}/ranger-secret-clubhouse
-
-  staging_cluster    = ${rangers:staging_cluster}
-  production_cluster = ${rangers:production_cluster}
-  staging_service    = ranger-secret-clubhouse-staging-fg
-  production_service = ranger-secret-clubhouse-production-fg
-
-  smtp_host     = ${rangers:smtp_host}
-  smtp_port     = ${rangers:smtp_port}
-  smtp_user     = ${rangers:smtp_user}
-  smtp_password = ${rangers:smtp_password}
-  sender        = ${rangers:sender}
-  recipient     = ${rangers:recipient}
-
-
   [ims]
 
   repository_id = ${rangers:github_org}/ranger-ims-server
