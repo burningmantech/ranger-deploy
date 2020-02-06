@@ -121,7 +121,7 @@ install_requirements = [
     "attrs==19.3.0",
     "boto3>=1.11,<1.12",
     "Click==7.0",
-    "docker==4.1.0",  # [tls]
+    "docker==4.2.0",  # [tls]
     "GitPython==3.0.5",
     "Twisted==19.10.0",
 
@@ -140,7 +140,7 @@ install_requirements = [
     "PyHamcrest==2.0.0",
     "python-dateutil==2.8.1",
     "requests==2.22.0",
-    "s3transfer==0.3.2",
+    "s3transfer==0.3.3",
     "six==1.14.0",
     "smmap2==2.0.5",
     "urllib3==1.25.8",
