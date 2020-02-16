@@ -126,7 +126,7 @@ install_requirements = [
     "Twisted==19.10.0",
 
     # Indirect dependencies
-    "Automat==0.8.0",
+    "Automat==20.2.0",
     "botocore>=1.15,<1.16",
     "certifi==2019.11.28",
     "chardet==3.0.4",
