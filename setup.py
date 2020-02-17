@@ -132,7 +132,7 @@ install_requirements = [
     "chardet==3.0.4",
     "constantly==15.1.0",
     "docutils==0.16",
-    "gitdb2==3.0.1",
+    "gitdb2==3.0.2",
     "hyperlink==19.0.0",
     "idna==2.8",
     "incremental==17.5.0",
