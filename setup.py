@@ -122,7 +122,7 @@ install_requirements = [
     "boto3>=1.12,<1.13",
     "Click==7.0",
     "docker==4.2.0",  # [tls]
-    "GitPython==3.0.7",
+    "GitPython==3.0.8",
     "Twisted==19.10.0",
 
     # Indirect dependencies
@@ -132,9 +132,9 @@ install_requirements = [
     "chardet==3.0.4",
     "constantly==15.1.0",
     "docutils==0.16",
-    "gitdb2==3.0.0",
+    "gitdb2==3.0.2",
     "hyperlink==19.0.0",
-    "idna==2.8",
+    "idna==2.9",
     "incremental==17.5.0",
     "jmespath==0.9.4",
     "PyHamcrest==2.0.0",
