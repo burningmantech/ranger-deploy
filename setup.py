@@ -139,7 +139,7 @@ install_requirements = [
     "jmespath==0.9.4",
     "PyHamcrest==2.0.0",
     "python-dateutil==2.8.1",
-    "requests==2.22.0",
+    "requests==2.23.0",
     "s3transfer==0.3.3",
     "six==1.14.0",
     "smmap2==2.0.5",
