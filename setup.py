@@ -136,7 +136,7 @@ install_requirements = [
     "hyperlink==19.0.0",
     "idna==2.9",
     "incremental==17.5.0",
-    "jmespath==0.9.4",
+    "jmespath==0.9.5",
     "PyHamcrest==2.0.0",
     "python-dateutil==2.8.1",
     "requests==2.23.0",
