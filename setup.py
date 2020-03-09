@@ -120,7 +120,7 @@ install_requirements = [
     "arrow==0.15.5",
     "attrs==19.3.0",
     "boto3>=1.12,<1.13",
-    "Click==7.1",
+    "Click==7.1.1",
     "docker==4.2.0",  # [tls]
     "GitPython==3.1.0",
     "Twisted==19.10.0",
