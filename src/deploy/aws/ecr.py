@@ -388,7 +388,7 @@ class DockerPushResponseHandler(object):
 
                 assert currentProgress >= priorStatus.currentProgress
                 if totalProgress is None:
-                    assert (  # type: ignore[misc]
+                    assert (  # type: ignore[unreachable]
                         priorStatus.totalProgress == -1
                     )
                     totalProgress = -1
