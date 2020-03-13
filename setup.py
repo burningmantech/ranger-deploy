@@ -120,7 +120,7 @@ install_requirements = [
     "arrow==0.15.5",
     "attrs==19.3.0",
     "boto3>=1.12,<1.13",
-    "Click==7.0",
+    "Click==7.1.1",
     "docker==4.2.0",  # [tls]
     "GitPython==3.1.0",
     "Twisted==19.10.0",
@@ -136,8 +136,8 @@ install_requirements = [
     "hyperlink==19.0.0",
     "idna==2.9",
     "incremental==17.5.0",
-    "jmespath==0.9.4",
-    "PyHamcrest==2.0.0",
+    "jmespath==0.9.5",
+    "PyHamcrest==2.0.2",
     "python-dateutil==2.8.1",
     "requests==2.23.0",
     "s3transfer==0.3.3",
@@ -145,7 +145,7 @@ install_requirements = [
     "smmap2==3.0.1",
     "urllib3==1.25.8",
     "websocket-client==0.57.0",
-    "zope.interface==4.7.1",
+    "zope.interface==4.7.2",
 ]
 
 extras_requirements = {}

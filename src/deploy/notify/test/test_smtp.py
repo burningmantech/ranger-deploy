@@ -395,12 +395,26 @@ class CommandLineTests(TestCase):
 
         self.assertEqual(result.exitCode, 2)
         self.assertEqual(result.stdout.getvalue(), "")
-        self.assertEqual(
-            result.stderr.getvalue(),
-            (
-                "Usage: notify_smtp staging [OPTIONS]\n"
-                "\n"
-                'Error: Invalid value for "--repository-id": '
-                "Invalid repository ID: some-org/some-project/garbage\n"
-            ),
+
+        errors = result.stderr.getvalue()
+
+        # Note "Invalid value" line below sometimes generates different quotes
+        expectedErrors_start = (
+            "Usage: notify_smtp staging [OPTIONS]\n"
+            "\n"
         )
+        expectedErrors_end = (
+            "Invalid repository ID: some-org/some-project/garbage\n"
+        )
+        expectedErrors = (
+            expectedErrors_start
+            + 'Error: Invalid value for "--repository-id": '
+            + expectedErrors_end
+        )
+
+        try:
+            self.assertTrue(errors.startswith(expectedErrors_start))
+            self.assertTrue(errors.endswith(expectedErrors_end))
+        except self.failureException:
+            # This will print a more useful error
+            self.assertEqual(errors, expectedErrors)
