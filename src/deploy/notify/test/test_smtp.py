@@ -415,6 +415,6 @@ class CommandLineTests(TestCase):
         try:
             self.assertTrue(errors.startswith(expectedErrors_start))
             self.assertTrue(errors.endswith(expectedErrors_end))
-        except self.failureException:
+        except self.failureException:  # pragma: nocov
             # This will print a more useful error
             self.assertEqual(errors, expectedErrors)
