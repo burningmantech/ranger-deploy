@@ -87,13 +87,38 @@ TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ECSCluster(object):
+    """
+    ECS Cluster
+    """
+
+    name: str
+
+    def __str__(self) -> str:
+        return f"{self.name}"
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ECSService(object):
+    """
+    ECS Service
+    """
+
+    cluster: ECSCluster
+    name: str
+
+    def __str__(self) -> str:
+        return f"{self.cluster}:{self.name}"
+
+
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoSuchServiceError(Exception):
     """
     Service does not exist in the specified cluster.
     """
 
-    service: str
+    service: ECSService
 
 
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
@@ -152,8 +177,7 @@ class ECSServiceClient(object):
     # Instance attributes
     #
 
-    cluster: str
-    service: str
+    service: ECSService
 
     _botoClient: List[Boto3ECSClient] = Factory(list)
     _currentTask: Dict[str, Any] = Factory(dict)
@@ -170,12 +194,11 @@ class ECSServiceClient(object):
         """
         if "arn" not in self._currentTask:
             self.log.debug(
-                "Looking up current task ARN for {cluster}:{service}...",
-                cluster=self.cluster,
+                "Looking up current task ARN for {service}...",
                 service=self.service,
             )
             serviceDescription = self._aws.describe_services(
-                cluster=self.cluster, services=[self.service]
+                cluster=self.service.cluster.name, services=[self.service.name]
             )
             services = serviceDescription["services"]
             if not services:
@@ -323,18 +346,18 @@ class ECSServiceClient(object):
         Deploy a new task to the service.
         """
         self.log.debug(
-            "Deploying task ARN {arn} to service {cluster}:{service}...",
-            cluster=self.cluster,
+            "Deploying task ARN {arn} to service {service}...",
             service=self.service,
             arn=arn,
         )
         self._currentTask.clear()
         self._aws.update_service(
-            cluster=self.cluster, service=self.service, taskDefinition=arn
+            cluster=self.service.cluster.name,
+            service=self.service.name,
+            taskDefinition=arn,
         )
         self.log.info(
-            "Deployed task ARN {arn} to service {cluster}:{service}.",
-            cluster=self.cluster,
+            "Deployed task ARN {arn} to service {service}.",
             service=self.service,
             arn=arn,
         )
@@ -357,16 +380,14 @@ class ECSServiceClient(object):
             return
 
         self.log.debug(
-            "Deploying image {image} to service {cluster}:{service}...",
-            cluster=self.cluster,
+            "Deploying image {image} to service {service}...",
             service=self.service,
             image=imageName,
         )
         if not trialRun:
             self.deployTaskDefinition(newTaskDefinition)
         self.log.info(
-            "Deployed image {image} to service {cluster}:{service}.",
-            cluster=self.cluster,
+            "Deployed image {image} to service {service}.",
             service=self.service,
             image=imageName,
         )
@@ -392,15 +413,13 @@ class ECSServiceClient(object):
             return
 
         self.log.debug(
-            "Deploying task environment to service {cluster}:{service}...",
-            cluster=self.cluster,
+            "Deploying task environment to service {service}...",
             service=self.service,
             updates=updates,
         )
         self.deployTaskDefinition(newTaskDefinition)
         self.log.info(
-            "Deployed task environment to service {cluster}:{service}.",
-            cluster=self.cluster,
+            "Deployed task environment to service {service}.",
             service=self.service,
             updates=updates,
         )
@@ -580,8 +599,11 @@ def staging(
         ecrClient.push(image_local, image_ecr, trialRun=trial_run)
 
     stagingClient = ECSServiceClient(
-        cluster=staging_cluster, service=staging_service
+        service=ECSService(
+            cluster=ECSCluster(name=staging_cluster), name=staging_service,
+        )
     )
+
     try:
         stagingClient.deployImage(image_ecr, trialRun=trial_run)
     except NoSuchServiceError as e:
@@ -622,7 +644,9 @@ def rollback(staging_cluster: str, staging_service: str,) -> None:
     Roll back the staging environment to the previous task definition.
     """
     stagingClient = ECSServiceClient(
-        cluster=staging_cluster, service=staging_service
+        service=ECSService(
+            cluster=ECSCluster(name=staging_cluster), name=staging_service,
+        )
     )
     stagingClient.rollback()
 
@@ -640,10 +664,15 @@ def production(
     Deploy the image in the staging environment to the production environment.
     """
     stagingClient = ECSServiceClient(
-        cluster=staging_cluster, service=staging_service
+        service=ECSService(
+            cluster=ECSCluster(name=staging_cluster), name=staging_service,
+        )
     )
     productionClient = ECSServiceClient(
-        cluster=production_cluster, service=production_service
+        service=ECSService(
+            cluster=ECSCluster(name=production_cluster),
+            name=production_service,
+        )
     )
     stagingImageName = stagingClient.currentImageName()
     productionClient.deployImage(stagingImageName)
@@ -662,10 +691,15 @@ def compare(
     Compare the staging environment to the production environment.
     """
     stagingClient = ECSServiceClient(
-        cluster=staging_cluster, service=staging_service
+        service=ECSService(
+            cluster=ECSCluster(name=staging_cluster), name=staging_service,
+        )
     )
     productionClient = ECSServiceClient(
-        cluster=production_cluster, service=production_service
+        service=ECSService(
+            cluster=ECSCluster(name=production_cluster),
+            name=production_service,
+        )
     )
 
     for name, client in (
@@ -721,7 +755,9 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     If arguments are given, set environment variables with the given names to
     the given values.  If a value is not provided, remove the variable.
     """
-    stagingClient = ECSServiceClient(cluster=cluster, service=service)
+    stagingClient = ECSServiceClient(
+        service=ECSService(cluster=ECSCluster(name=cluster), name=service)
+    )
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
