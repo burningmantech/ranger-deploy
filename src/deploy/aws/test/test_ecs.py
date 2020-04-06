@@ -410,7 +410,7 @@ class ECSServiceClientTests(TestCase):
         return ECSCluster(name=MockBoto3ECSClient._sampleClusterStaging)
 
     def stagingService(self) -> ECSService:
-        ECSService(
+        return ECSService(
             cluster=self.stagingCluster(),
             name=MockBoto3ECSClient._sampleServiceStaging,
         )
@@ -472,8 +472,7 @@ class ECSServiceClientTests(TestCase):
             doesntExistService = "xyzzy"
             client = ECSServiceClient(
                 service=ECSService(
-                    cluster=self.stagingCluster(),
-                    name=doesntExistService,
+                    cluster=self.stagingCluster(), name=doesntExistService,
                 )
             )
 
