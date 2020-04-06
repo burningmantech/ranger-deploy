@@ -128,7 +128,7 @@ install_requirements = [
     # Indirect dependencies
     "Automat==20.2.0",
     "botocore>=1.15,<1.16",
-    "certifi==2019.11.28",
+    "certifi==2020.4.5.1",
     "chardet==3.0.4",
     "constantly==15.1.0",
     "docutils==0.16",
