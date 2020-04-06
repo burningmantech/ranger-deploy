@@ -122,6 +122,10 @@ class MockImage(object):
     id: str
     tags: List[str]
 
+    @property
+    def short_id(self):
+        return self.id[:12]
+
     def tag(self, repository: str, tag: Optional[str] = None) -> bool:
         assert ":" not in repository
         assert tag is not None
