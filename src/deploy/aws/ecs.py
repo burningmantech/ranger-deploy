@@ -477,7 +477,28 @@ def ensureCI() -> None:
         raise UsageError("Deployment not allowed outside of CI environment")
 
 
-def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
+def clientFromCLI(cluster: Optional[str], service: str) -> ECSServiceClient:
+    if cluster is None:
+        try:
+            cluster, service = service.split(":")
+        except ValueError:
+            raise UsageError(f"Invalid service: {service}")
+    else:
+        log.warn("Cluster argument is deprecated")
+
+        if ":" in service:
+            raise UsageError(
+                f"Invalid service (cluster re-specified): {service}"
+            )
+
+    return ECSServiceClient(
+        service=ECSService(cluster=ECSCluster(name=cluster), name=service)
+    )
+
+
+def ecsOption(
+    optionName: str, environment: Optional[str] = None, required: bool = True
+) -> Callable:
     if environment is None:
         flag = f"--{optionName}"
         help = f"ECS {optionName}"
@@ -493,16 +514,20 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         type=str,
         metavar="<name>",
         prompt=True,
-        required=True,
+        required=required,
     )
 
 
-environmentOptions = composedOptions(ecsOption("cluster"), ecsOption("service"))
+environmentOptions = composedOptions(
+    ecsOption("cluster", required=False), ecsOption("service"),
+)
 stagingEnvironmentOptions = composedOptions(
-    ecsOption("cluster", "staging"), ecsOption("service", "staging")
+    ecsOption("cluster", "staging", required=False),
+    ecsOption("service", "staging"),
 )
 productionEnvironmentOptions = composedOptions(
-    ecsOption("cluster", "production"), ecsOption("service", "production")
+    ecsOption("cluster", "production", required=False),
+    ecsOption("service", "production"),
 )
 
 
@@ -565,7 +590,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 )
 @trialRunOption
 def staging(
-    staging_cluster: str,
+    staging_cluster: Optional[str],
     staging_service: str,
     project_name: Optional[str],
     repository_id: Optional[Tuple[str, str, str]],
@@ -598,11 +623,7 @@ def staging(
         ecrClient = ECRServiceClient()
         ecrClient.push(image_local, image_ecr, trialRun=trial_run)
 
-    stagingClient = ECSServiceClient(
-        service=ECSService(
-            cluster=ECSCluster(name=staging_cluster), name=staging_service,
-        )
-    )
+    stagingClient = clientFromCLI(staging_cluster, staging_service)
 
     try:
         stagingClient.deployImage(image_ecr, trialRun=trial_run)
@@ -639,15 +660,11 @@ def staging(
 
 @main.command()
 @stagingEnvironmentOptions
-def rollback(staging_cluster: str, staging_service: str,) -> None:
+def rollback(staging_cluster: Optional[str], staging_service: str,) -> None:
     """
     Roll back the staging environment to the previous task definition.
     """
-    stagingClient = ECSServiceClient(
-        service=ECSService(
-            cluster=ECSCluster(name=staging_cluster), name=staging_service,
-        )
-    )
+    stagingClient = clientFromCLI(staging_cluster, staging_service)
     stagingClient.rollback()
 
 
@@ -655,25 +672,17 @@ def rollback(staging_cluster: str, staging_service: str,) -> None:
 @stagingEnvironmentOptions
 @productionEnvironmentOptions
 def production(
-    staging_cluster: str,
+    staging_cluster: Optional[str],
     staging_service: str,
-    production_cluster: str,
+    production_cluster: Optional[str],
     production_service: str,
 ) -> None:
     """
     Deploy the image in the staging environment to the production environment.
     """
-    stagingClient = ECSServiceClient(
-        service=ECSService(
-            cluster=ECSCluster(name=staging_cluster), name=staging_service,
-        )
-    )
-    productionClient = ECSServiceClient(
-        service=ECSService(
-            cluster=ECSCluster(name=production_cluster),
-            name=production_service,
-        )
-    )
+    stagingClient = clientFromCLI(staging_cluster, staging_service)
+    productionClient = clientFromCLI(production_cluster, production_service)
+
     stagingImageName = stagingClient.currentImageName()
     productionClient.deployImage(stagingImageName)
 
@@ -682,25 +691,16 @@ def production(
 @stagingEnvironmentOptions
 @productionEnvironmentOptions
 def compare(
-    staging_cluster: str,
+    staging_cluster: Optional[str],
     staging_service: str,
-    production_cluster: str,
+    production_cluster: Optional[str],
     production_service: str,
 ) -> None:
     """
     Compare the staging environment to the production environment.
     """
-    stagingClient = ECSServiceClient(
-        service=ECSService(
-            cluster=ECSCluster(name=staging_cluster), name=staging_service,
-        )
-    )
-    productionClient = ECSServiceClient(
-        service=ECSService(
-            cluster=ECSCluster(name=production_cluster),
-            name=production_service,
-        )
-    )
+    stagingClient = clientFromCLI(staging_cluster, staging_service)
+    productionClient = clientFromCLI(production_cluster, production_service)
 
     for name, client in (
         ("Staging", stagingClient),
@@ -745,7 +745,9 @@ def compare(
 @main.command()
 @environmentOptions
 @commandArgument("arguments", nargs=-1, metavar="[name[=value]]")
-def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
+def environment(
+    cluster: Optional[str], service: str, arguments: Sequence[str]
+) -> None:
     """
     Show or modify environment variables.
 
@@ -755,9 +757,7 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     If arguments are given, set environment variables with the given names to
     the given values.  If a value is not provided, remove the variable.
     """
-    stagingClient = ECSServiceClient(
-        service=ECSService(cluster=ECSCluster(name=cluster), name=service)
-    )
+    stagingClient = clientFromCLI(cluster, service)
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}

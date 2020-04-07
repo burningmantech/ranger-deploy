@@ -123,7 +123,7 @@ class MockImage(object):
     tags: List[str]
 
     @property
-    def short_id(self):
+    def short_id(self) -> str:
         return self.id[:12]
 
     def tag(self, repository: str, tag: Optional[str] = None) -> bool:
