@@ -41,7 +41,7 @@ from typing import (
 
 from attr import Attribute, attrib, attrs
 
-from hypothesis import assume, given
+from hypothesis import assume, given, settings
 from hypothesis.strategies import (
     booleans,
     characters,
@@ -1031,6 +1031,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(aws_resource_names(), aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_ci(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1042,6 +1043,7 @@ class CommandLineTests(TestCase):
         )
 
     @given(aws_resource_names(), aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_travis(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1053,6 +1055,7 @@ class CommandLineTests(TestCase):
         )
 
     @given(aws_resource_names(), aws_resource_names(), image_repository_names())
+    @settings(max_examples=5)
     def test_staging_noECRImageTag(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1063,6 +1066,7 @@ class CommandLineTests(TestCase):
         aws_resource_names(),
         one_of(image_names(), image_repository_names()),
     )
+    @settings(max_examples=50)
     def test_staging_push(
         self, stagingCluster: str, stagingService: str, ecrImageName: str
     ) -> None:
@@ -1220,6 +1224,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(aws_resource_names(), aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_trial(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1261,6 +1266,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_noSuchService(
         self, stagingCluster: str, ecrImageName: str
     ) -> None:
@@ -1302,6 +1308,7 @@ class CommandLineTests(TestCase):
         )
 
     @given(aws_resource_names(), aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_notCI(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1337,6 +1344,7 @@ class CommandLineTests(TestCase):
         )
 
     @given(aws_resource_names(), aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_travis_notPR(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1372,6 +1380,7 @@ class CommandLineTests(TestCase):
         )
 
     @given(aws_resource_names(), aws_resource_names(), image_names())
+    @settings(max_examples=5)
     def test_staging_travis_notBranch(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1409,6 +1418,7 @@ class CommandLineTests(TestCase):
         )
 
     @given(aws_resource_names(), aws_resource_names())
+    @settings(max_examples=5)
     def test_rollback(self, stagingCluster: str, stagingService: str) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1452,6 +1462,7 @@ class CommandLineTests(TestCase):
         aws_resource_names(),
         aws_resource_names(),
     )
+    @settings(max_examples=5)
     def test_production(
         self,
         stagingCluster: str,
@@ -1515,6 +1526,7 @@ class CommandLineTests(TestCase):
         aws_resource_names(),
         aws_resource_names(),
     )
+    @settings(max_examples=5)
     def test_compare(
         self,
         stagingCluster: str,
@@ -1583,6 +1595,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(aws_resource_names(), aws_resource_names())
+    @settings(max_examples=5)
     def test_environment_get(self, cluster: str, service: str) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1636,6 +1649,7 @@ class CommandLineTests(TestCase):
             min_size=1,
         ),
     )
+    @settings(max_examples=50)
     def test_environment_set(
         self, cluster: str, service: str, updates: List[Tuple[str, str]]
     ) -> None:
@@ -1698,6 +1712,7 @@ class CommandLineTests(TestCase):
             min_size=1,
         ),
     )
+    @settings(max_examples=50)
     def test_environment_unset(
         self, cluster: str, service: str, removes: List[str]
     ) -> None:
