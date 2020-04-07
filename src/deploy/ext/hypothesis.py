@@ -107,3 +107,18 @@ def image_names(draw: Callable) -> str:
     A strategy which generates Docker image names.
     """
     return f"{draw(image_repository_names())}:{draw(image_tag_names())}"
+
+@composite
+def aws_resource_names(draw: Callable) -> str:
+    """
+    A strategy which generates AWS resource names.
+    """
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html
+    first = draw(text(min_size=1, max_size=1, alphabet=ascii_letters))
+    rest = draw(
+        text(
+            min_size=1,
+            alphabet=ascii_letters + digits + "-",
+        ).filter(lambda s: "--" not in s)
+    )
+    return f"{first}{rest}"

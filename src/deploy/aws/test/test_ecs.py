@@ -63,6 +63,7 @@ import deploy.notify.smtp
 from deploy.ext.click import clickTestRun
 from deploy.ext.hypothesis import (
     ascii_text,
+    aws_resource_names,
     commitIDs,
     email_addresses,
     image_names,
@@ -1029,7 +1030,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(aws_resource_names(), aws_resource_names(), image_names())
     def test_staging_ci(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1040,7 +1041,7 @@ class CommandLineTests(TestCase):
             environment=ciEnvironment,
         )
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(aws_resource_names(), aws_resource_names(), image_names())
     def test_staging_travis(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1051,15 +1052,15 @@ class CommandLineTests(TestCase):
             environment=travisEnvironment,
         )
 
-    @given(text(min_size=1), text(min_size=1), image_repository_names())
+    @given(aws_resource_names(), aws_resource_names(), image_repository_names())
     def test_staging_noECRImageTag(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
         self._test_staging(stagingCluster, stagingService, ecrImageName)
 
     @given(
-        text(min_size=1),
-        text(min_size=1),
+        aws_resource_names(),
+        aws_resource_names(),
         one_of(image_names(), image_repository_names()),
     )
     def test_staging_push(
@@ -1116,9 +1117,9 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(
-        text(min_size=1),
-        text(min_size=1),
-        one_of(image_names(), image_repository_names()),
+        aws_resource_names(),  # stagingCluster
+        aws_resource_names(),  # stagingService
+        one_of(image_names(), image_repository_names()),  # ecrImageName
         ascii_text(min_size=1),  # smtpHost
         port_numbers(),  # smtpPort
         user_names(),  # smtpUser
@@ -1218,7 +1219,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(aws_resource_names(), aws_resource_names(), image_names())
     def test_staging_trial(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1259,7 +1260,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
 
-    @given(text(min_size=1), image_names())
+    @given(aws_resource_names(), image_names())
     def test_staging_noSuchService(
         self, stagingCluster: str, ecrImageName: str
     ) -> None:
@@ -1300,7 +1301,7 @@ class CommandLineTests(TestCase):
             errorMessage,
         )
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(aws_resource_names(), aws_resource_names(), image_names())
     def test_staging_notCI(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1335,7 +1336,7 @@ class CommandLineTests(TestCase):
             )
         )
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(aws_resource_names(), aws_resource_names(), image_names())
     def test_staging_travis_notPR(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1370,7 +1371,7 @@ class CommandLineTests(TestCase):
             )
         )
 
-    @given(text(min_size=1), text(min_size=1), image_names())
+    @given(aws_resource_names(), aws_resource_names(), image_names())
     def test_staging_travis_notBranch(
         self, stagingCluster: str, stagingService: str, ecrImageName: str,
     ) -> None:
@@ -1407,7 +1408,7 @@ class CommandLineTests(TestCase):
             )
         )
 
-    @given(text(min_size=1), text(min_size=1))
+    @given(aws_resource_names(), aws_resource_names())
     def test_rollback(self, stagingCluster: str, stagingService: str) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1446,7 +1447,10 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(
-        text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
+        aws_resource_names(),
+        aws_resource_names(),
+        aws_resource_names(),
+        aws_resource_names(),
     )
     def test_production(
         self,
@@ -1506,7 +1510,10 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(
-        text(min_size=1), text(min_size=1), text(min_size=1), text(min_size=1)
+        aws_resource_names(),
+        aws_resource_names(),
+        aws_resource_names(),
+        aws_resource_names(),
     )
     def test_compare(
         self,
@@ -1575,7 +1582,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
 
-    @given(text(min_size=1), text(min_size=1))
+    @given(aws_resource_names(), aws_resource_names())
     def test_environment_get(self, cluster: str, service: str) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1615,8 +1622,8 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(
-        text(min_size=1),
-        text(min_size=1),
+        aws_resource_names(),
+        aws_resource_names(),
         lists(  # updates
             tuples(
                 text(  # updates/keys
@@ -1676,8 +1683,8 @@ class CommandLineTests(TestCase):
             self.assertEqual(resultEnvironment[key], value)
 
     @given(
-        text(min_size=1),
-        text(min_size=1),
+        aws_resource_names(),
+        aws_resource_names(),
         lists(
             sampled_from(
                 sorted(
