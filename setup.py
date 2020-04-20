@@ -122,7 +122,7 @@ install_requirements = [
     "boto3>=1.12,<1.13",
     "Click==7.1.1",
     "docker==4.2.0",  # [tls]
-    "GitPython==3.1.0",
+    "GitPython==3.1.1",
     "Twisted==20.3.0",
 
     # Indirect dependencies
@@ -143,9 +143,9 @@ install_requirements = [
     "s3transfer==0.3.3",
     "six==1.14.0",
     "smmap2==3.0.1",
-    "urllib3==1.25.8",
+    "urllib3==1.25.9",
     "websocket-client==0.57.0",
-    "zope.interface==5.0.2",
+    "zope.interface==5.1.0",
 ]
 
 extras_requirements = {}
