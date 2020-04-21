@@ -447,37 +447,36 @@ class ECSServiceClientTests(TestCase):
 
             self.assertIsInstance(client._aws, MockBoto3ECSClient)
 
-    def test_currentTaskARN(self) -> None:
+    def test_lookupTaskARN(self) -> None:
         """
-        :meth:`ECSServiceClient.currentTaskARN` returns the ARN of the current
+        :meth:`ECSServiceClient._lookupTaskARN` returns the ARN of the given
         task.
         """
         with testingBoto3ECS():
             client = self.stagingClient()
-            arn = client.currentTaskARN()
+            service = client.service
 
             self.assertEqual(
-                arn,
-                client._aws._currentTaskARN(
-                    client.service.cluster.name, client.service.name
-                ),
+                client._lookupTaskARN(service),
+                client._aws._currentTaskARN(service.cluster.name, service.name),
             )
 
-    def test_currentTaskARN_noSuchService(self) -> None:
+    def test_lookupTaskARN_noSuchService(self) -> None:
         """
-        :meth:`ECSServiceClient.currentTaskARN` raises
+        :meth:`ECSServiceClient._lookupTaskARN` raises
         :exc:`NoSuchServiceError` when the service doesn't exist.
         task.
         """
         with testingBoto3ECS():
             doesntExistService = "xyzzy"
-            client = ECSServiceClient(
-                service=ECSService(
-                    cluster=self.stagingCluster(), name=doesntExistService,
-                )
+            service = ECSService(
+                cluster=self.stagingCluster(), name=doesntExistService
             )
+            client = ECSServiceClient(service=service)
 
-            e = self.assertRaises(NoSuchServiceError, client.currentTaskARN)
+            e = self.assertRaises(
+                NoSuchServiceError, client._lookupTaskARN, service
+            )
             self.assertEqual(e.service.name, doesntExistService)
 
     def test_currentTaskDefinition(self) -> None:

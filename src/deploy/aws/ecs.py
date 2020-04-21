@@ -188,22 +188,28 @@ class ECSServiceClient(object):
             self._botoClient.append(boto3Client("ecs"))
         return self._botoClient[0]
 
+    def _lookupTaskARN(self, service: ECSService) -> str:
+        self.log.debug(
+            "Looking up current task ARN for {service}...", service=service
+        )
+        serviceDescription = self._aws.describe_services(
+            cluster=service.cluster.name, services=[service.name]
+        )
+        services = serviceDescription["services"]
+        if not services:
+            raise NoSuchServiceError(service)
+
+        assert len(services) == 1
+
+        return cast(str, services[0]["taskDefinition"])
+
+    # TODO: remove
     def currentTaskARN(self) -> str:
         """
         Look up the ARN for the service's current task.
         """
         if "arn" not in self._currentTask:
-            self.log.debug(
-                "Looking up current task ARN for {service}...",
-                service=self.service,
-            )
-            serviceDescription = self._aws.describe_services(
-                cluster=self.service.cluster.name, services=[self.service.name]
-            )
-            services = serviceDescription["services"]
-            if not services:
-                raise NoSuchServiceError(self.service)
-            self._currentTask["arn"] = services[0]["taskDefinition"]
+            self._currentTask["arn"] = self._lookupTaskARN(self.service)
 
         return cast(str, self._currentTask["arn"])
 
@@ -212,7 +218,7 @@ class ECSServiceClient(object):
         Look up the definition for the service's current task.
         """
         if "definition" not in self._currentTask:
-            currentTaskARN = self.currentTaskARN()
+            currentTaskARN = self._lookupTaskARN(self.service)
             self.log.debug(
                 "Looking up task definition for {arn}...", arn=currentTaskARN
             )
