@@ -203,6 +203,13 @@ class ECSServiceClient(object):
 
         return cast(str, services[0]["taskDefinition"])
 
+    def _lookupTaskDefinition(self, arn: str) -> TaskDefinition:
+        self.log.debug("Looking up task definition for {arn}...", arn=arn)
+        currentTaskDescription = self._aws.describe_task_definition(
+            taskDefinition=arn
+        )
+        return cast(TaskDefinition, currentTaskDescription["taskDefinition"])
+
     # TODO: remove
     def currentTaskARN(self) -> str:
         """
@@ -213,21 +220,14 @@ class ECSServiceClient(object):
 
         return cast(str, self._currentTask["arn"])
 
+    # TODO: remove
     def currentTaskDefinition(self) -> TaskDefinition:
         """
         Look up the definition for the service's current task.
         """
         if "definition" not in self._currentTask:
-            currentTaskARN = self._lookupTaskARN(self.service)
-            self.log.debug(
-                "Looking up task definition for {arn}...", arn=currentTaskARN
-            )
-            currentTaskDescription = self._aws.describe_task_definition(
-                taskDefinition=currentTaskARN
-            )
-            self._currentTask["definition"] = currentTaskDescription[
-                "taskDefinition"
-            ]
+            arn = self._lookupTaskARN(self.service)
+            self._currentTask["definition"] = self._lookupTaskDefinition(arn)
 
         return cast(TaskDefinition, self._currentTask["definition"])
 
