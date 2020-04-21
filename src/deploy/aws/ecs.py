@@ -69,9 +69,6 @@ from .ecr import ECRServiceClient
 
 
 __all__ = (
-    "TaskDefinition",
-    "TaskEnvironment",
-    "TaskEnvironmentUpdates",
     "NoChangesError",
     "NoSuchServiceError",
     "ECSServiceClient",
