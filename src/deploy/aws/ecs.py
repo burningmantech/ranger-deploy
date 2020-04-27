@@ -126,6 +126,16 @@ class NoChangesError(Exception):
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ECSTask(object):
+    """
+    ECS Task
+    """
+
+    arn: str
+    _definition: TaskDefinition
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class ECSServiceClient(object):
     """
     Elastic Container Service Client
@@ -177,7 +187,7 @@ class ECSServiceClient(object):
     service: ECSService
 
     _botoClient: List[Boto3ECSClient] = Factory(list)
-    _currentTask: Dict[str, Any] = Factory(dict)
+    _currentTasks: Dict[ECSService, ECSTask] = Factory(dict)
 
     @property
     def _aws(self) -> Boto3ECSClient:
@@ -205,26 +215,32 @@ class ECSServiceClient(object):
         taskDescription = self._aws.describe_task_definition(taskDefinition=arn)
         return cast(TaskDefinition, taskDescription["taskDefinition"])
 
+    def currentTask(self, service: ECSService) -> ECSTask:
+        """
+        Return the current task for the given service.
+        """
+        if service not in self._currentTasks:
+            arn = self._lookupTaskARN(service)
+            definition = self._lookupTaskDefinition(arn)
+            self._currentTasks[service] = ECSTask(
+                arn=arn, definition=definition
+            )
+
+        return self._currentTasks[service]
+
     # TODO: remove
     def _currentTaskARN(self) -> str:
         """
         Look up the ARN for the service's current task.
         """
-        if "arn" not in self._currentTask:
-            self._currentTask["arn"] = self._lookupTaskARN(self.service)
-
-        return cast(str, self._currentTask["arn"])
+        return self.currentTask(self.service).arn
 
     # TODO: remove
     def _currentTaskDefinition(self) -> TaskDefinition:
         """
         Look up the definition for the service's current task.
         """
-        if "definition" not in self._currentTask:
-            arn = self._lookupTaskARN(self.service)
-            self._currentTask["definition"] = self._lookupTaskDefinition(arn)
-
-        return cast(TaskDefinition, self._currentTask["definition"])
+        return self.currentTask(self.service)._definition
 
     def currentImageName(self) -> str:
         """
@@ -351,7 +367,7 @@ class ECSServiceClient(object):
             service=self.service,
             arn=arn,
         )
-        self._currentTask.clear()
+        del self._currentTasks[self.service]
         self._aws.update_service(
             cluster=self.service.cluster.name,
             service=self.service.name,
