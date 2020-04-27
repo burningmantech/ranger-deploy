@@ -206,7 +206,7 @@ class ECSServiceClient(object):
         return cast(TaskDefinition, taskDescription["taskDefinition"])
 
     # TODO: remove
-    def currentTaskARN(self) -> str:
+    def _currentTaskARN(self) -> str:
         """
         Look up the ARN for the service's current task.
         """
@@ -216,7 +216,7 @@ class ECSServiceClient(object):
         return cast(str, self._currentTask["arn"])
 
     # TODO: remove
-    def currentTaskDefinition(self) -> TaskDefinition:
+    def _currentTaskDefinition(self) -> TaskDefinition:
         """
         Look up the definition for the service's current task.
         """
@@ -230,7 +230,7 @@ class ECSServiceClient(object):
         """
         Look up the Docker image name used for the service's current task.
         """
-        currentTaskDefinition = self.currentTaskDefinition()
+        currentTaskDefinition = self._currentTaskDefinition()
         return self._taskImageName(currentTaskDefinition)
 
     def updateTaskDefinition(
@@ -242,7 +242,7 @@ class ECSServiceClient(object):
         Update the definition for the service's current task.
         Returns the updated task definition.
         """
-        currentTaskDefinition = self.currentTaskDefinition()
+        currentTaskDefinition = self._currentTaskDefinition()
 
         # We don't handle tasks with multiple containers for now.
         assert len(currentTaskDefinition["containerDefinitions"]) == 1
@@ -315,7 +315,7 @@ class ECSServiceClient(object):
         """
         Look up the environment variables used for the service's current task.
         """
-        currentTaskDefinition = self.currentTaskDefinition()
+        currentTaskDefinition = self._currentTaskDefinition()
 
         # We don't handle tasks with multiple containers for now.
         assert len(currentTaskDefinition["containerDefinitions"]) == 1
@@ -430,7 +430,7 @@ class ECSServiceClient(object):
         Deploy the most recently deployed task definition prior to the one
         currently used by service.
         """
-        currentTaskDefinition = self.currentTaskDefinition()
+        currentTaskDefinition = self._currentTaskDefinition()
 
         family = currentTaskDefinition["family"]
         response = self._aws.list_task_definitions(familyPrefix=family)
@@ -707,7 +707,7 @@ def compare(
         ("Staging", stagingClient),
         ("Producton", productionClient),
     ):
-        click.echo(f"{name} task ARN: {client.currentTaskARN()}")
+        click.echo(f"{name} task ARN: {client._currentTaskARN()}")
         click.echo(f"{name} container image: {client.currentImageName()}")
 
     stagingEnvironment = stagingClient.currentTaskEnvironment()

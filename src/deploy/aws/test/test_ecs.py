@@ -482,7 +482,7 @@ class ECSServiceClientTests(TestCase):
     def test_currentTaskDefinition(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
-            taskDefinition = client.currentTaskDefinition()
+            taskDefinition = client._currentTaskDefinition()
 
             self.assertIsInstance(taskDefinition, dict)
             self.assertTrue(taskDefinition.get("family"))
@@ -736,7 +736,7 @@ class ECSServiceClientTests(TestCase):
 
             client.deployTaskDefinition(newTaskDefinition)
 
-            newTaskDefinition = client.currentTaskDefinition()
+            newTaskDefinition = client._currentTaskDefinition()
 
             self.assertEqual(
                 ECSServiceClient._taskImageName(newTaskDefinition),
@@ -751,7 +751,7 @@ class ECSServiceClientTests(TestCase):
 
             client.deployImage(newImageName)
 
-            newTaskDefinition = client.currentTaskDefinition()
+            newTaskDefinition = client._currentTaskDefinition()
 
             self.assertEqual(
                 ECSServiceClient._taskImageName(newTaskDefinition),
