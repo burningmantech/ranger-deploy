@@ -131,8 +131,17 @@ class ECSTask(object):
     ECS Task
     """
 
+    # TODO: remove
+    @staticmethod
+    def _taskImageName(taskDefinition: TaskDefinition) -> str:
+        return cast(str, taskDefinition["containerDefinitions"][0]["image"])
+
     arn: str
     _definition: TaskDefinition
+
+    @property
+    def imageName(self) -> str:
+        return self._taskImageName(self._definition)
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -156,10 +165,6 @@ class ECSServiceClient(object):
     @staticmethod
     def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
         return {e["name"]: e["value"] for e in json}
-
-    @staticmethod
-    def _taskImageName(taskDefinition: TaskDefinition) -> str:
-        return cast(str, taskDefinition["containerDefinitions"][0]["image"])
 
     @staticmethod
     def _taskEnvironment(taskDefinition: TaskDefinition) -> TaskEnvironment:
@@ -229,13 +234,6 @@ class ECSServiceClient(object):
         return self._currentTasks[service]
 
     # TODO: remove
-    def _currentTaskARN(self) -> str:
-        """
-        Look up the ARN for the service's current task.
-        """
-        return self.currentTask(self.service).arn
-
-    # TODO: remove
     def _currentTaskDefinition(self) -> TaskDefinition:
         """
         Look up the definition for the service's current task.
@@ -246,8 +244,7 @@ class ECSServiceClient(object):
         """
         Look up the Docker image name used for the service's current task.
         """
-        currentTaskDefinition = self._currentTaskDefinition()
-        return self._taskImageName(currentTaskDefinition)
+        return self.currentTask(self.service).imageName
 
     def updateTaskDefinition(
         self,
@@ -723,7 +720,9 @@ def compare(
         ("Staging", stagingClient),
         ("Producton", productionClient),
     ):
-        click.echo(f"{name} task ARN: {client._currentTaskARN()}")
+        service = client.service
+        currentTask = client.currentTask(service)
+        click.echo(f"{name} task ARN: {currentTask.arn}")
         click.echo(f"{name} container image: {client.currentImageName()}")
 
     stagingEnvironment = stagingClient.currentTaskEnvironment()

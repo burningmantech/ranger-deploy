@@ -80,6 +80,7 @@ from ..ecs import (
     ECSCluster,
     ECSService,
     ECSServiceClient,
+    ECSTask,
     NoChangesError,
     NoSuchServiceError,
     TaskDefinition,
@@ -490,6 +491,11 @@ class ECSServiceClientTests(TestCase):
             self.assertTrue(taskDefinition.get("containerDefinitions"))
             self.assertIn("FARGATE", taskDefinition.get("compatibilities", []))
 
+    def test_currentTask(self) -> None:
+        raise NotImplementedError()
+
+    test_currentTask.todo = "unimplemented"  # type: ignore[attr-defined]
+
     def test_currentImageName(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
@@ -516,7 +522,7 @@ class ECSServiceClientTests(TestCase):
             )
 
             self.assertEqual(
-                client._taskImageName(newTaskDefinition), newImageName
+                ECSTask._taskImageName(newTaskDefinition), newImageName
             )
 
     def test_updateTaskDefinition_none(self) -> None:
@@ -739,8 +745,7 @@ class ECSServiceClientTests(TestCase):
             newTaskDefinition = client._currentTaskDefinition()
 
             self.assertEqual(
-                ECSServiceClient._taskImageName(newTaskDefinition),
-                newImageName,
+                ECSTask._taskImageName(newTaskDefinition), newImageName,
             )
 
     def test_deployImage_new(self) -> None:
@@ -754,8 +759,7 @@ class ECSServiceClientTests(TestCase):
             newTaskDefinition = client._currentTaskDefinition()
 
             self.assertEqual(
-                ECSServiceClient._taskImageName(newTaskDefinition),
-                newImageName,
+                ECSTask._taskImageName(newTaskDefinition), newImageName,
             )
 
     def test_deployImage_same(self) -> None:
