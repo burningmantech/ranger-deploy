@@ -240,12 +240,6 @@ class ECSServiceClient(object):
         """
         return self.currentTask(self.service)._definition
 
-    def currentImageName(self) -> str:
-        """
-        Look up the Docker image name used for the service's current task.
-        """
-        return self.currentTask(self.service).imageName
-
     def updateTaskDefinition(
         self,
         imageName: Optional[str] = None,
@@ -697,7 +691,9 @@ def production(
     stagingClient = clientFromCLI(staging_cluster, staging_service)
     productionClient = clientFromCLI(production_cluster, production_service)
 
-    stagingImageName = stagingClient.currentImageName()
+    stagingService = stagingClient.service
+    stagingImageName = stagingClient.currentTask(stagingService).imageName
+
     productionClient.deployImage(stagingImageName)
 
 
@@ -723,7 +719,7 @@ def compare(
         service = client.service
         currentTask = client.currentTask(service)
         click.echo(f"{name} task ARN: {currentTask.arn}")
-        click.echo(f"{name} container image: {client.currentImageName()}")
+        click.echo(f"{name} container image: {currentTask.imageName}")
 
     stagingEnvironment = stagingClient.currentTaskEnvironment()
     productionEnvironment = productionClient.currentTaskEnvironment()
