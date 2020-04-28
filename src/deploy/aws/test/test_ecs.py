@@ -480,10 +480,13 @@ class ECSServiceClientTests(TestCase):
             )
             self.assertEqual(e.service.name, doesntExistServiceName)
 
-    def test_currentTaskDefinition(self) -> None:
+    def test_lookupTaskDefinition(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
-            taskDefinition = client._currentTaskDefinition()
+            service = client.service
+
+            arn = client._lookupTaskARN(service)
+            taskDefinition = client._lookupTaskDefinition(arn)
 
             self.assertIsInstance(taskDefinition, dict)
             self.assertTrue(taskDefinition.get("family"))
@@ -500,8 +503,7 @@ class ECSServiceClientTests(TestCase):
 
             self.assertEqual(currentTask.arn, client._lookupTaskARN(service))
             self.assertEqual(
-                currentTask._definition,
-                client._lookupTaskDefinition(currentTask.arn),
+                currentTask.json, client._lookupTaskDefinition(currentTask.arn),
             )
 
     def test_currentTask_cached(self) -> None:

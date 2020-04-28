@@ -137,11 +137,20 @@ class ECSTask(object):
         return cast(str, taskDefinition["containerDefinitions"][0]["image"])
 
     arn: str
-    _definition: TaskDefinition
+    json: TaskDefinition
 
     @property
     def imageName(self) -> str:
-        return self._taskImageName(self._definition)
+        return self._taskImageName(self.json)
+
+    @property
+    def environment(self) -> TaskEnvironment:
+        # We don't handle tasks with multiple containers for now.
+        assert len(self.json["containerDefinitions"]) == 1
+
+        return ECSServiceClient._environmentFromJSON(
+            self.json["containerDefinitions"][0]["environment"]
+        )
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -165,12 +174,6 @@ class ECSServiceClient(object):
     @staticmethod
     def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
         return {e["name"]: e["value"] for e in json}
-
-    @staticmethod
-    def _taskEnvironment(taskDefinition: TaskDefinition) -> TaskEnvironment:
-        return ECSServiceClient._environmentFromJSON(
-            taskDefinition["containerDefinitions"][0]["environment"]
-        )
 
     #
     # Class attributes
@@ -227,18 +230,9 @@ class ECSServiceClient(object):
         if service not in self._currentTasks:
             arn = self._lookupTaskARN(service)
             definition = self._lookupTaskDefinition(arn)
-            self._currentTasks[service] = ECSTask(
-                arn=arn, definition=definition
-            )
+            self._currentTasks[service] = ECSTask(arn=arn, json=definition)
 
         return self._currentTasks[service]
-
-    # TODO: remove
-    def _currentTaskDefinition(self) -> TaskDefinition:
-        """
-        Look up the definition for the service's current task.
-        """
-        return self.currentTask(self.service)._definition
 
     def updateTaskDefinition(
         self,
@@ -249,7 +243,9 @@ class ECSServiceClient(object):
         Update the definition for the service's current task.
         Returns the updated task definition.
         """
-        currentTaskDefinition = self._currentTaskDefinition()
+        service = self.service
+
+        currentTaskDefinition = self.currentTask(service).json
 
         # We don't handle tasks with multiple containers for now.
         assert len(currentTaskDefinition["containerDefinitions"]) == 1
@@ -272,7 +268,7 @@ class ECSServiceClient(object):
 
         if environment is None:
             # Start with current environment
-            environment = self.currentTaskEnvironment()
+            environment = self.currentTask(service).environment
 
         # If no changes are being applied, there's nothing to do.
         newTaskDefinition["containerDefinitions"][0][
@@ -318,16 +314,12 @@ class ECSServiceClient(object):
 
         return newTaskARN
 
+    # TODO: remove
     def currentTaskEnvironment(self) -> TaskEnvironment:
         """
         Look up the environment variables used for the service's current task.
         """
-        currentTaskDefinition = self._currentTaskDefinition()
-
-        # We don't handle tasks with multiple containers for now.
-        assert len(currentTaskDefinition["containerDefinitions"]) == 1
-
-        return self._taskEnvironment(currentTaskDefinition)
+        return self.currentTask(self.service).environment
 
     def updateTaskEnvironment(
         self, updates: TaskEnvironmentUpdates
@@ -336,7 +328,7 @@ class ECSServiceClient(object):
         Update the environment variables for the service's current task.
         Returns the updated task environment.
         """
-        environment = dict(self.currentTaskEnvironment())
+        environment = dict(self.currentTask(self.service).environment)
 
         for key, value in updates.items():
             if value is None:
@@ -437,7 +429,7 @@ class ECSServiceClient(object):
         Deploy the most recently deployed task definition prior to the one
         currently used by service.
         """
-        currentTaskDefinition = self._currentTaskDefinition()
+        currentTaskDefinition = self.currentTask(self.service).json
 
         family = currentTaskDefinition["family"]
         response = self._aws.list_task_definitions(familyPrefix=family)
@@ -712,17 +704,21 @@ def compare(
     stagingClient = clientFromCLI(staging_cluster, staging_service)
     productionClient = clientFromCLI(production_cluster, production_service)
 
-    for name, client in (
-        ("Staging", stagingClient),
-        ("Producton", productionClient),
-    ):
-        service = client.service
-        currentTask = client.currentTask(service)
-        click.echo(f"{name} task ARN: {currentTask.arn}")
-        click.echo(f"{name} container image: {currentTask.imageName}")
+    stagingService = stagingClient.service
+    productionService = productionClient.service
 
-    stagingEnvironment = stagingClient.currentTaskEnvironment()
-    productionEnvironment = productionClient.currentTaskEnvironment()
+    stagingTask = stagingClient.currentTask(stagingService)
+    productionTask = productionClient.currentTask(productionService)
+
+    for name, task in (
+        ("Staging", stagingTask),
+        ("Producton", productionTask),
+    ):
+        click.echo(f"{name} task ARN: {task.arn}")
+        click.echo(f"{name} container image: {task.imageName}")
+
+    stagingEnvironment = stagingTask.environment
+    productionEnvironment = productionTask.environment
 
     keys = frozenset(
         tuple(stagingEnvironment.keys()) + tuple(productionEnvironment.keys())
@@ -769,7 +765,7 @@ def environment(
     If arguments are given, set environment variables with the given names to
     the given values.  If a value is not provided, remove the variable.
     """
-    stagingClient = clientFromCLI(cluster, service)
+    client = clientFromCLI(cluster, service)
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
@@ -782,11 +778,11 @@ def environment(
                 updates[arg] = None
                 click.echo(f"    Removing {arg}.")
 
-        stagingClient.deployTaskEnvironment(updates)
+        client.deployTaskEnvironment(updates)
     else:
-        currentTaskEnvironment = stagingClient.currentTaskEnvironment()
+        environment = client.currentTask(client.service).environment
         click.echo(f"Environment variables for {cluster}:{service}:")
-        for key, value in currentTaskEnvironment.items():
+        for key, value in environment.items():
             click.echo(f"    {key} = {value!r}")
 
 
