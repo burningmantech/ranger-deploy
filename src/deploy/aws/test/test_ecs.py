@@ -154,7 +154,7 @@ class MockBoto3ECSClient(object):
                         },
                     ],
                     "essential": True,
-                    "environment": ECSServiceClient._environmentAsJSON(
+                    "environment": ECSTask._environmentAsJSON(
                         {"version": "0", "happiness": "true",}
                     ),
                     "mountPoints": [],
@@ -191,7 +191,7 @@ class MockBoto3ECSClient(object):
                         },
                     ],
                     "essential": True,
-                    "environment": ECSServiceClient._environmentAsJSON(
+                    "environment": ECSTask._environmentAsJSON(
                         {
                             "version": "0",
                             "happiness": "true",
@@ -315,7 +315,7 @@ class MockBoto3ECSClient(object):
 
     @classmethod
     def _currentEnvironment(cls, cluster: str, service: str) -> TaskEnvironment:
-        return ECSServiceClient._environmentFromJSON(
+        return ECSTask._environmentFromJSON(
             cls._currentContainerDefinition(cluster, service)["environment"]
         )
 
@@ -403,6 +403,33 @@ def testingBoto3ECS() -> Iterator[None]:
         MockBoto3ECSClient._clearTaskDefinitions()
 
 
+class ECSTaskTests(TestCase):
+    """
+    Tests for :class:`ECSTask`
+    """
+
+    def test_environmentFromJSON(self) -> None:
+        self.assertEqual(
+            ECSTask._environmentFromJSON(
+                [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"},]
+            ),
+            {"foo": "bar", "x": "1"},
+        )
+
+    def test_environmentAsJSON(self) -> None:
+        self.assertEqual(
+            ECSTask._environmentAsJSON({"foo": "bar", "x": "1"}),
+            [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}],
+        )
+
+    def test_taskImageName(self) -> None:
+        name = "xyzzy"
+        self.assertEqual(
+            ECSTask._taskImageName({"containerDefinitions": [{"image": name}]}),
+            name,
+        )
+
+
 class ECSServiceClientTests(TestCase):
     """
     Tests for :class:`ECSServiceClient`
@@ -419,25 +446,6 @@ class ECSServiceClientTests(TestCase):
 
     def stagingClient(self) -> ECSServiceClient:
         return ECSServiceClient(service=self.stagingService())
-
-    def test_environmentAsJSON(self) -> None:
-        with testingBoto3ECS():
-            self.assertEqual(
-                ECSServiceClient._environmentAsJSON({"foo": "bar", "x": "1"}),
-                [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}],
-            )
-
-    def test_environmentFromJSON(self) -> None:
-        with testingBoto3ECS():
-            self.assertEqual(
-                ECSServiceClient._environmentFromJSON(
-                    [
-                        {"name": "foo", "value": "bar"},
-                        {"name": "x", "value": "1"},
-                    ]
-                ),
-                {"foo": "bar", "x": "1"},
-            )
 
     def test_aws(self) -> None:
         """
@@ -564,7 +572,7 @@ class ECSServiceClientTests(TestCase):
                 environment=newEnvironment
             )
             updatedEnvironment = dict(
-                client._environmentFromJSON(
+                ECSTask._environmentFromJSON(
                     newTaskDefinition["containerDefinitions"][0]["environment"]
                 )
             )
@@ -615,7 +623,7 @@ class ECSServiceClientTests(TestCase):
                 imageName=f"{client.currentTask(service).imageName}4027"
             )
             updatedEnvironment = dict(
-                client._environmentFromJSON(
+                ECSTask._environmentFromJSON(
                     newTaskDefinition["containerDefinitions"][0]["environment"]
                 )
             )
@@ -1775,7 +1783,7 @@ class CommandLineTests(TestCase):
         lists(
             sampled_from(
                 sorted(
-                    ECSServiceClient._environmentFromJSON(
+                    ECSTask._environmentFromJSON(
                         MockBoto3ECSClient._defaultTaskDefinitions[0][
                             "containerDefinitions"
                         ][0]["environment"]

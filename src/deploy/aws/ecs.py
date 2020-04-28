@@ -131,10 +131,29 @@ class ECSTask(object):
     ECS Task
     """
 
-    # TODO: remove
+    #
+    # Static attributes
+    #
+
     @staticmethod
-    def _taskImageName(taskDefinition: TaskDefinition) -> str:
-        return cast(str, taskDefinition["containerDefinitions"][0]["image"])
+    def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
+        return {e["name"]: e["value"] for e in json}
+
+    @staticmethod
+    def _environmentAsJSON(
+        environment: TaskEnvironment,
+    ) -> List[Dict[str, str]]:
+        return [
+            {"name": key, "value": value} for key, value in environment.items()
+        ]
+
+    @staticmethod
+    def _taskImageName(json: TaskDefinition) -> str:
+        return cast(str, json["containerDefinitions"][0]["image"])
+
+    #
+    # Instance attributes
+    #
 
     arn: str
     json: TaskDefinition
@@ -148,7 +167,7 @@ class ECSTask(object):
         # We don't handle tasks with multiple containers for now.
         assert len(self.json["containerDefinitions"]) == 1
 
-        return ECSServiceClient._environmentFromJSON(
+        return self._environmentFromJSON(
             self.json["containerDefinitions"][0]["environment"]
         )
 
@@ -158,22 +177,6 @@ class ECSServiceClient(object):
     """
     Elastic Container Service Client
     """
-
-    #
-    # Static methods
-    #
-
-    @staticmethod
-    def _environmentAsJSON(
-        environment: TaskEnvironment,
-    ) -> List[Dict[str, str]]:
-        return [
-            {"name": key, "value": value} for key, value in environment.items()
-        ]
-
-    @staticmethod
-    def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
-        return {e["name"]: e["value"] for e in json}
 
     #
     # Class attributes
@@ -273,7 +276,7 @@ class ECSServiceClient(object):
         # If no changes are being applied, there's nothing to do.
         newTaskDefinition["containerDefinitions"][0][
             "environment"
-        ] = self._environmentAsJSON(environment)
+        ] = ECSTask._environmentAsJSON(environment)
         if newTaskDefinition == currentTaskDefinition:
             raise NoChangesError()
 
@@ -299,7 +302,7 @@ class ECSServiceClient(object):
         # Edit the container environment to the new one.
         newTaskDefinition["containerDefinitions"][0][
             "environment"
-        ] = self._environmentAsJSON(environment)
+        ] = ECSTask._environmentAsJSON(environment)
 
         return newTaskDefinition
 
