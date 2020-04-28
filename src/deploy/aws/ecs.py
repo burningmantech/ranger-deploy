@@ -69,9 +69,13 @@ from .ecr import ECRServiceClient
 
 
 __all__ = (
+    "ECSCluster",
+    "ECSService",
+    "ECSServiceClient",
+    "ECSTask",
     "NoChangesError",
     "NoSuchServiceError",
-    "ECSServiceClient",
+    "TaskDefinitionJSON",
 )
 
 
@@ -160,10 +164,16 @@ class ECSTask(object):
 
     @property
     def imageName(self) -> str:
+        """
+        Image name.
+        """
         return self._taskImageName(self.json)
 
     @property
     def environment(self) -> TaskEnvironment:
+        """
+        Container environment.
+        """
         # We don't handle tasks with multiple containers for now.
         assert len(self.json["containerDefinitions"]) == 1
 
