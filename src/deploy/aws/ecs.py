@@ -79,7 +79,7 @@ log = Logger()
 
 Boto3ECSClient = Any
 
-TaskDefinition = Mapping[str, Any]
+TaskDefinitionJSON = Mapping[str, Any]
 TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
@@ -148,7 +148,7 @@ class ECSTask(object):
         ]
 
     @staticmethod
-    def _taskImageName(json: TaskDefinition) -> str:
+    def _taskImageName(json: TaskDefinitionJSON) -> str:
         return cast(str, json["containerDefinitions"][0]["image"])
 
     #
@@ -156,7 +156,7 @@ class ECSTask(object):
     #
 
     arn: str
-    json: TaskDefinition
+    json: TaskDefinitionJSON
 
     @property
     def imageName(self) -> str:
@@ -221,10 +221,10 @@ class ECSServiceClient(object):
 
         return cast(str, services[0]["taskDefinition"])
 
-    def _lookupTaskDefinition(self, arn: str) -> TaskDefinition:
+    def _lookupTaskDefinition(self, arn: str) -> TaskDefinitionJSON:
         self.log.debug("Looking up task definition for {arn}...", arn=arn)
         taskDescription = self._aws.describe_task_definition(taskDefinition=arn)
-        return cast(TaskDefinition, taskDescription["taskDefinition"])
+        return cast(TaskDefinitionJSON, taskDescription["taskDefinition"])
 
     def currentTask(self, service: ECSService) -> ECSTask:
         """
@@ -232,8 +232,8 @@ class ECSServiceClient(object):
         """
         if service not in self._currentTasks:
             arn = self._lookupTaskARN(service)
-            definition = self._lookupTaskDefinition(arn)
-            self._currentTasks[service] = ECSTask(arn=arn, json=definition)
+            json = self._lookupTaskDefinition(arn)
+            self._currentTasks[service] = ECSTask(arn=arn, json=json)
 
         return self._currentTasks[service]
 
@@ -241,7 +241,7 @@ class ECSServiceClient(object):
         self,
         imageName: Optional[str] = None,
         environment: Optional[TaskEnvironment] = None,
-    ) -> TaskDefinition:
+    ) -> TaskDefinitionJSON:
         """
         Update the definition for the service's current task.
         Returns the updated task definition.
@@ -306,7 +306,7 @@ class ECSServiceClient(object):
 
         return newTaskDefinition
 
-    def registerTaskDefinition(self, taskDefinition: TaskDefinition) -> str:
+    def registerTaskDefinition(self, taskDefinition: TaskDefinitionJSON) -> str:
         """
         Register a new task definition for the service.
         """
@@ -365,7 +365,7 @@ class ECSServiceClient(object):
             arn=arn,
         )
 
-    def deployTaskDefinition(self, taskDefinition: TaskDefinition) -> None:
+    def deployTaskDefinition(self, taskDefinition: TaskDefinitionJSON) -> None:
         """
         Register a new task definition and deploy it to the service.
         """

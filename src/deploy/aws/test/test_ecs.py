@@ -83,7 +83,7 @@ from ..ecs import (
     ECSTask,
     NoChangesError,
     NoSuchServiceError,
-    TaskDefinition,
+    TaskDefinitionJSON,
     TaskEnvironment,
     TaskEnvironmentUpdates,
 )
@@ -135,7 +135,7 @@ class MockBoto3ECSClient(object):
         {"name": "com.amazonaws.ecs.capability.task-iam-role"},
     ]
 
-    _defaultTaskDefinitions: ClassVar[Sequence[TaskDefinition]] = [
+    _defaultTaskDefinitions: ClassVar[Sequence[TaskDefinitionJSON]] = [
         {
             "taskDefinitionArn": f"{_defaultARNNamespace}:0",
             "family": "service-fg",
@@ -217,7 +217,7 @@ class MockBoto3ECSClient(object):
         },
     ]
 
-    _taskDefinitions: ClassVar[Dict[str, TaskDefinition]] = {}
+    _taskDefinitions: ClassVar[Dict[str, TaskDefinitionJSON]] = {}
     _services: ClassVar[Dict[str, Dict[str, str]]] = {}
 
     @classmethod
@@ -291,7 +291,7 @@ class MockBoto3ECSClient(object):
     @classmethod
     def _currentTaskDefinition(
         cls, cluster: str, service: str
-    ) -> TaskDefinition:
+    ) -> TaskDefinitionJSON:
         return cls._taskDefinitions[cls._currentTaskARN(cluster, service)]
 
     @classmethod
@@ -331,7 +331,7 @@ class MockBoto3ECSClient(object):
 
     def describe_task_definition(
         self, taskDefinition: str
-    ) -> Mapping[str, TaskDefinition]:
+    ) -> Mapping[str, TaskDefinitionJSON]:
         return {"taskDefinition": self._taskDefinitions[taskDefinition]}
 
     def list_task_definitions(
@@ -347,7 +347,7 @@ class MockBoto3ECSClient(object):
 
     def register_task_definition(
         self, **taskDefinition: Any
-    ) -> Mapping[str, TaskDefinition]:
+    ) -> Mapping[str, TaskDefinitionJSON]:
         # Come up with a new task ARN
         maxVersion = 0
         for arn in self._taskDefinitions:
