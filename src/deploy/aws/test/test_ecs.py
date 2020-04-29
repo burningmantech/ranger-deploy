@@ -408,6 +408,14 @@ class ECSTaskTests(TestCase):
     Tests for :class:`ECSTask`
     """
 
+    def task(self) -> ECSTask:
+        cluster = ECSCluster(name=MockBoto3ECSClient._sampleClusterStaging)
+        service = ECSService(
+            cluster=cluster, name=MockBoto3ECSClient._sampleServiceStaging,
+        )
+        client = ECSServiceClient(service=service)
+        return client.currentTask(service)
+
     def test_environmentFromJSON(self) -> None:
         self.assertEqual(
             ECSTask._environmentFromJSON(
@@ -428,6 +436,119 @@ class ECSTaskTests(TestCase):
             ECSTask._taskImageName({"containerDefinitions": [{"image": name}]}),
             name,
         )
+
+    @given(integers(min_value=2))
+    def test_update_updated(self, tag: int) -> None:
+        with testingBoto3ECS():
+            currentTask = self.task()
+
+            repo, oldTag = currentTask.imageName.split(":")
+            assume(int(oldTag) != tag)
+            newImageName = f"{repo}:{tag}"
+
+            newTaskDefinition = currentTask.update(imageName=newImageName)
+
+            self.assertEqual(
+                ECSTask._taskImageName(newTaskDefinition), newImageName
+            )
+
+    def test_update_none(self) -> None:
+        with testingBoto3ECS():
+            currentTask = self.task()
+
+            self.assertRaises(NoChangesError, currentTask.update)
+
+    def test_update_same(self) -> None:
+        with testingBoto3ECS():
+            currentTask = self.task()
+
+            self.assertRaises(
+                NoChangesError,
+                currentTask.update,
+                imageName=currentTask.imageName,
+            )
+
+    @given(environment_updates(min_size=1))
+    def test_update_updateEnvironment(
+        self, newEnvironment: TaskEnvironment
+    ) -> None:
+        with testingBoto3ECS():
+            currentTask = self.task()
+
+            # TRAVIS environment variable makes Travis-CI things happen which
+            # we aren't testing for here.
+            assume("TRAVIS" not in newEnvironment)
+
+            newTaskDefinition = currentTask.update(environment=newEnvironment)
+            updatedEnvironment = dict(
+                ECSTask._environmentFromJSON(
+                    newTaskDefinition["containerDefinitions"][0]["environment"]
+                )
+            )
+            expectedEnvironment = dict(newEnvironment)
+
+            # TASK_UPDATED is inserted during updates.
+            self.assertIn("TASK_UPDATED", updatedEnvironment)
+            expectedEnvironment["TASK_UPDATED"] = updatedEnvironment[
+                "TASK_UPDATED"
+            ]
+
+            self.assertEqual(updatedEnvironment, expectedEnvironment)
+
+    @given(
+        ascii_text(min_size=1),  # project
+        repository_ids(),  # repository
+        integers(),  # buildNumber
+        ascii_text(min_size=1),  # buildURL
+        commitIDs(),  # commitID
+        ascii_text(min_size=1),  # commitMessage
+    )
+    def test_update_ci(
+        self,
+        project: str,
+        repository: str,
+        buildNumber: int,
+        buildURL: str,
+        commitID: str,
+        commitMessage: str,
+    ) -> None:
+        with testingBoto3ECS():
+            currentTask = self.task()
+
+            ciEnvironment = {
+                "BUILD_NUMBER": str(buildNumber),
+                "BUILD_URL": buildURL,
+                "COMMIT_ID": "0" * 40,
+                "COMMIT_MESSAGE": commitMessage,
+                "PROJECT_NAME": project,
+                "REPOSITORY_ID": repository,
+            }
+
+            expectedEnvironment = dict(currentTask.environment)
+            expectedEnvironment.update(
+                {(f"CI_{k}", v) for (k, v) in ciEnvironment.items()}
+            )
+
+            # Patch the (local) system environment to emulate CI
+            self.patch(ecs, "environ", ciEnvironment)
+
+            # Make an unrelated change to avoid NoChangesError
+            newTaskDefinition = currentTask.update(
+                imageName=f"{currentTask.imageName}4027"
+            )
+            updatedEnvironment = dict(
+                ECSTask._environmentFromJSON(
+                    newTaskDefinition["containerDefinitions"][0]["environment"]
+                )
+            )
+
+            # TASK_UPDATED is inserted during updates.
+            self.assertIn("TASK_UPDATED", updatedEnvironment)
+            expectedEnvironment["TASK_UPDATED"] = updatedEnvironment[
+                "TASK_UPDATED"
+            ]
+
+            self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
 class ECSServiceClientTests(TestCase):
@@ -506,7 +627,6 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-
             currentTask = client.currentTask(service)
 
             self.assertEqual(currentTask.arn, client._lookupTaskARN(service))
@@ -518,143 +638,20 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-
             currentTask = client.currentTask(service)
+
             self.assertIdentical(client.currentTask(service), currentTask)
-
-    @given(integers(min_value=2))
-    def test_updateTaskDefinition_updated(self, tag: int) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
-
-            repo, oldTag = client.currentTask(service).imageName.split(":")
-            assume(int(oldTag) != tag)
-            newImageName = f"{repo}:{tag}"
-
-            newTaskDefinition = client.updateTaskDefinition(
-                imageName=newImageName
-            )
-
-            self.assertEqual(
-                ECSTask._taskImageName(newTaskDefinition), newImageName
-            )
-
-    def test_updateTaskDefinition_none(self) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-
-            self.assertRaises(NoChangesError, client.updateTaskDefinition)
-
-    def test_updateTaskDefinition_same(self) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
-
-            self.assertRaises(
-                NoChangesError,
-                client.updateTaskDefinition,
-                imageName=client.currentTask(service).imageName,
-            )
-
-    @given(environment_updates(min_size=1))
-    def test_updateTaskDefinition_updateEnvironment(
-        self, newEnvironment: TaskEnvironment
-    ) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-
-            # TRAVIS environment variable makes Travis-CI things happen which
-            # we aren't testing for here.
-            assume("TRAVIS" not in newEnvironment)
-
-            newTaskDefinition = client.updateTaskDefinition(
-                environment=newEnvironment
-            )
-            updatedEnvironment = dict(
-                ECSTask._environmentFromJSON(
-                    newTaskDefinition["containerDefinitions"][0]["environment"]
-                )
-            )
-            expectedEnvironment = dict(newEnvironment)
-
-            # TASK_UPDATED is inserted during updates.
-            self.assertIn("TASK_UPDATED", updatedEnvironment)
-            expectedEnvironment["TASK_UPDATED"] = updatedEnvironment[
-                "TASK_UPDATED"
-            ]
-
-            self.assertEqual(updatedEnvironment, expectedEnvironment)
-
-    @given(
-        ascii_text(min_size=1),  # project
-        repository_ids(),  # repository
-        integers(),  # buildNumber
-        ascii_text(min_size=1),  # buildURL
-        commitIDs(),  # commitID
-        ascii_text(min_size=1),  # commitMessage
-    )
-    def test_updateTaskDefinition_ci(
-        self,
-        project: str,
-        repository: str,
-        buildNumber: int,
-        buildURL: str,
-        commitID: str,
-        commitMessage: str,
-    ) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
-
-            # Patch the (local) system environment to emulate CI
-            ciEnvironment = {
-                "BUILD_NUMBER": str(buildNumber),
-                "BUILD_URL": buildURL,
-                "COMMIT_ID": "0" * 40,
-                "COMMIT_MESSAGE": commitMessage,
-                "PROJECT_NAME": project,
-                "REPOSITORY_ID": repository,
-            }
-            self.patch(ecs, "environ", ciEnvironment)
-
-            # Make an unrelated change to avoid NoChangesError
-            newTaskDefinition = client.updateTaskDefinition(
-                imageName=f"{client.currentTask(service).imageName}4027"
-            )
-            updatedEnvironment = dict(
-                ECSTask._environmentFromJSON(
-                    newTaskDefinition["containerDefinitions"][0]["environment"]
-                )
-            )
-            expectedEnvironment = dict(
-                client._aws._currentEnvironment(
-                    service.cluster.name, service.name
-                )
-            )
-            expectedEnvironment.update(
-                {(f"CI_{k}", v) for (k, v) in ciEnvironment.items()}
-            )
-
-            # TASK_UPDATED is inserted during updates.
-            self.assertIn("TASK_UPDATED", updatedEnvironment)
-            expectedEnvironment["TASK_UPDATED"] = updatedEnvironment[
-                "TASK_UPDATED"
-            ]
-
-            self.assertEqual(updatedEnvironment, expectedEnvironment)
 
     def test_registerTaskDefinition(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
+            currentTask = client.currentTask(service)
 
-            repo, tag = client.currentTask(service).imageName.split(":")
+            repo, tag = currentTask.imageName.split(":")
             newImageName = f"{repo}:{tag}1987"
 
-            newTaskDefinition = client.updateTaskDefinition(
-                imageName=newImageName
-            )
+            newTaskDefinition = currentTask.update(imageName=newImageName)
 
             arn = client.registerTaskDefinition(newTaskDefinition)
             registeredTaskDefinition = client._aws.describe_task_definition(
@@ -736,11 +733,10 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
+            currentTask = client.currentTask(service)
 
-            newImageName = f"{client.currentTask(service).imageName}1934"
-            newTaskDefinition = client.updateTaskDefinition(
-                imageName=newImageName
-            )
+            newImageName = f"{currentTask.imageName}1934"
+            newTaskDefinition = currentTask.update(imageName=newImageName)
 
             arn = client.registerTaskDefinition(newTaskDefinition)
             client.deployTask(arn)
@@ -754,41 +750,38 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
+            currentTask = client.currentTask(service)
 
-            newImageName = f"{client.currentTask(service).imageName}9347"
-            newTaskDefinition = client.updateTaskDefinition(
-                imageName=newImageName
-            )
+            newImageName = f"{currentTask.imageName}9347"
+            newTaskDefinition = currentTask.update(imageName=newImageName)
 
             client.deployTaskDefinition(newTaskDefinition)
+            newTask = client.currentTask(service)
 
-            self.assertEqual(
-                client.currentTask(service).imageName, newImageName,
-            )
+            self.assertEqual(newTask.imageName, newImageName)
 
     def test_deployImage_new(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
+            currentTask = client.currentTask(service)
 
-            newImageName = f"{client.currentTask(service).imageName}1046"
+            newImageName = f"{currentTask.imageName}1046"
 
             client.deployImage(newImageName)
+            newTask = client.currentTask(service)
 
-            self.assertEqual(
-                client.currentTask(service).imageName, newImageName,
-            )
+            self.assertEqual(newTask.imageName, newImageName)
 
     def test_deployImage_same(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
+            currentTask = client.currentTask(service)
 
-            expectedImageName = client.currentTask(service).imageName
+            expectedImageName = currentTask.imageName
             client.deployImage(expectedImageName)
-            self.assertEqual(
-                client.currentTask(service).imageName, expectedImageName
-            )
+            self.assertEqual(currentTask.imageName, expectedImageName)
 
     @given(environment_updates(min_size=1))
     def test_deployTaskEnvironment_updates(
@@ -854,16 +847,15 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
+            currentTask = client.currentTask(service)
 
-            expectedImageName = client.currentTask(service).imageName
+            expectedImageName = currentTask.imageName
             newImageName = f"{expectedImageName}2957"
 
             client.deployImage(newImageName)
             client.rollback()
 
-            self.assertEqual(
-                client.currentTask(service).imageName, expectedImageName
-            )
+            self.assertEqual(currentTask.imageName, expectedImageName)
 
 
 @contextmanager
@@ -1044,20 +1036,15 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
             service = client.service
+            currentTask = client.currentTask(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
             self.assertEqual(service.name, stagingServiceName)
 
             if ":" in ecrImageName:
-                self.assertEqual(
-                    client.currentTask(service).imageName, ecrImageName
-                )
+                self.assertEqual(currentTask.imageName, ecrImageName)
             else:
-                self.assertTrue(
-                    client.currentTask(service).imageName.startswith(
-                        ecrImageName
-                    )
-                )
+                self.assertTrue(currentTask.imageName.startswith(ecrImageName))
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -1310,12 +1297,11 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
             service = client.service
+            currentTask = client.currentTask(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
             self.assertEqual(service.name, stagingServiceName)
-            self.assertEqual(
-                client.currentTask(service).imageName, startingImageName
-            )
+            self.assertEqual(currentTask.imageName, startingImageName)
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -1508,11 +1494,12 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
             service = client.service
+            currentTask = client.currentTask(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
             self.assertEqual(service.name, stagingServiceName)
             self.assertEqual(
-                client.currentTask(service).imageName,
+                currentTask.imageName,
                 (
                     client._aws._defaultTaskDefinitions[-2][
                         "containerDefinitions"

@@ -181,6 +181,74 @@ class ECSTask(object):
             self.json["containerDefinitions"][0]["environment"]
         )
 
+    def update(
+        self,
+        imageName: Optional[str] = None,
+        environment: Optional[TaskEnvironment] = None,
+    ) -> TaskDefinitionJSON:
+        """
+        Update the task definition and return the updated task definition.
+        """
+        currentJSON = self.json
+
+        # We don't handle tasks with multiple containers for now.
+        assert len(currentJSON["containerDefinitions"]) == 1
+
+        # Copy, then remove keys that may not be re-submitted.
+        currentJSON = dict(currentJSON)
+        del currentJSON["revision"]
+        del currentJSON["status"]
+        del currentJSON["taskDefinitionArn"]
+        if "FARGATE" in currentJSON["compatibilities"]:
+            del currentJSON["compatibilities"]
+            del currentJSON["requiresAttributes"]
+
+        # Deep copy the current task definition for editing.
+        newJSON = deepcopy(currentJSON)
+
+        if imageName is not None:
+            # Edit the container image to the new one.
+            newJSON["containerDefinitions"][0]["image"] = imageName
+
+        if environment is None:
+            # Start with current environment
+            environment = self._environmentFromJSON(
+                currentJSON["containerDefinitions"][0]["environment"]
+            )
+
+        # If no changes are being applied, there's nothing to do.
+        newJSON["containerDefinitions"][0][
+            "environment"
+        ] = self._environmentAsJSON(environment)
+        if newJSON == currentJSON:
+            raise NoChangesError()
+
+        newEnvironment = dict(environment)
+
+        # Record the current time
+        newEnvironment["TASK_UPDATED"] = str(DateTime.utcnow())
+
+        # Record some information about the CI build.
+        # FIXME: Get these values from parsed CLI, not environment.
+        for key in (
+            "BUILD_NUMBER",
+            "BUILD_URL",
+            "COMMIT_ID",
+            "COMMIT_MESSAGE",
+            "PROJECT_NAME",
+            "REPOSITORY_ID",
+        ):
+            value = environ.get(key, None)
+            if value is not None:
+                newEnvironment[f"CI_{key}"] = value
+
+        # Edit the container environment to the new one.
+        newJSON["containerDefinitions"][0][
+            "environment"
+        ] = self._environmentAsJSON(newEnvironment)
+
+        return newJSON
+
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class ECSServiceClient(object):
@@ -246,75 +314,6 @@ class ECSServiceClient(object):
             self._currentTasks[service] = ECSTask(arn=arn, json=json)
 
         return self._currentTasks[service]
-
-    def updateTaskDefinition(
-        self,
-        imageName: Optional[str] = None,
-        environment: Optional[TaskEnvironment] = None,
-    ) -> TaskDefinitionJSON:
-        """
-        Update the definition for the service's current task.
-        Returns the updated task definition.
-        """
-        service = self.service
-
-        currentTaskDefinition = self.currentTask(service).json
-
-        # We don't handle tasks with multiple containers for now.
-        assert len(currentTaskDefinition["containerDefinitions"]) == 1
-
-        # Copy, then remove keys that may not be re-submitted.
-        currentTaskDefinition = dict(currentTaskDefinition)
-        del currentTaskDefinition["revision"]
-        del currentTaskDefinition["status"]
-        del currentTaskDefinition["taskDefinitionArn"]
-        if "FARGATE" in currentTaskDefinition["compatibilities"]:
-            del currentTaskDefinition["compatibilities"]
-            del currentTaskDefinition["requiresAttributes"]
-
-        # Deep copy the current task definition for editing.
-        newTaskDefinition = deepcopy(currentTaskDefinition)
-
-        if imageName is not None:
-            # Edit the container image to the new one.
-            newTaskDefinition["containerDefinitions"][0]["image"] = imageName
-
-        if environment is None:
-            # Start with current environment
-            environment = self.currentTask(service).environment
-
-        # If no changes are being applied, there's nothing to do.
-        newTaskDefinition["containerDefinitions"][0][
-            "environment"
-        ] = ECSTask._environmentAsJSON(environment)
-        if newTaskDefinition == currentTaskDefinition:
-            raise NoChangesError()
-
-        environment = dict(environment)
-
-        # Record the current time
-        environment["TASK_UPDATED"] = str(DateTime.utcnow())
-
-        # Record some information about the CI build.
-        # FIXME: Get these values from parsed CLI, not environment.
-        for key in (
-            "BUILD_NUMBER",
-            "BUILD_URL",
-            "COMMIT_ID",
-            "COMMIT_MESSAGE",
-            "PROJECT_NAME",
-            "REPOSITORY_ID",
-        ):
-            value = environ.get(key, None)
-            if value is not None:
-                environment[f"CI_{key}"] = value
-
-        # Edit the container environment to the new one.
-        newTaskDefinition["containerDefinitions"][0][
-            "environment"
-        ] = ECSTask._environmentAsJSON(environment)
-
-        return newTaskDefinition
 
     def registerTaskDefinition(self, taskDefinition: TaskDefinitionJSON) -> str:
         """
@@ -386,8 +385,10 @@ class ECSServiceClient(object):
         """
         Deploy a Docker Image to the service.
         """
+        currentTask = self.currentTask(self.service)
+
         try:
-            newTaskDefinition = self.updateTaskDefinition(imageName=imageName)
+            newTaskDefinition = currentTask.update(imageName=imageName)
         except NoChangesError:
             self.log.info("Image name is unchanged. Nothing to deploy.")
             return
@@ -415,8 +416,10 @@ class ECSServiceClient(object):
 
         newTaskEnvironment = self.updateTaskEnvironment(updates)
 
+        currentTask = self.currentTask(self.service)
+
         try:
-            newTaskDefinition = self.updateTaskDefinition(
+            newTaskDefinition = currentTask.update(
                 environment=newTaskEnvironment
             )
         except NoChangesError:
