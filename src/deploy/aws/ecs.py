@@ -72,7 +72,7 @@ __all__ = (
     "ECSCluster",
     "ECSService",
     "ECSServiceClient",
-    "ECSTask",
+    "ECSTaskDefinition",
     "NoChangesError",
     "NoSuchServiceError",
     "TaskDefinitionJSON",
@@ -89,9 +89,9 @@ TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ECSTask(object):
+class ECSTaskDefinition(object):
     """
-    ECS Task
+    ECS Task Definition.
     """
 
     #
@@ -282,7 +282,7 @@ class ECSServiceClient(object):
     service: ECSService
 
     _botoClient: List[Boto3ECSClient] = Factory(list)
-    _currentTasks: Dict[ECSService, ECSTask] = Factory(dict)
+    _currentTasks: Dict[ECSService, ECSTaskDefinition] = Factory(dict)
 
     @property
     def _aws(self) -> Boto3ECSClient:
@@ -292,7 +292,8 @@ class ECSServiceClient(object):
 
     def _lookupTaskARN(self, service: ECSService) -> str:
         self.log.debug(
-            "Looking up current task ARN for {service}...", service=service
+            "Looking up current task definition ARN for {service}...",
+            service=service,
         )
         serviceDescription = self._aws.describe_services(
             cluster=service.cluster.name, services=[service.name]
@@ -312,14 +313,14 @@ class ECSServiceClient(object):
         assert definitionJSON.get("taskDefinitionArn") == arn
         return cast(TaskDefinitionJSON, definitionJSON)
 
-    def currentTask(self, service: ECSService) -> ECSTask:
+    def currentTaskDefinition(self, service: ECSService) -> ECSTaskDefinition:
         """
-        Return the current task for the given service.
+        Return the current task definition for the given service.
         """
         if service not in self._currentTasks:
             arn = self._lookupTaskARN(service)
             json = self._lookupTaskDefinition(arn)
-            self._currentTasks[service] = ECSTask(json=json)
+            self._currentTasks[service] = ECSTaskDefinition(json=json)
 
         return self._currentTasks[service]
 
@@ -337,18 +338,20 @@ class ECSServiceClient(object):
     # TODO: remove
     def currentTaskEnvironment(self) -> TaskEnvironment:
         """
-        Look up the environment variables used for the service's current task.
+        Look up the environment variables used for the service's current task
+        definition.
         """
-        return self.currentTask(self.service).environment
+        return self.currentTaskDefinition(self.service).environment
 
     def updateTaskEnvironment(
         self, updates: TaskEnvironmentUpdates
     ) -> TaskEnvironment:
         """
-        Update the environment variables for the service's current task.
+        Update the environment variables for the service's current task
+        definition.
         Returns the updated task environment.
         """
-        environment = dict(self.currentTask(self.service).environment)
+        environment = dict(self.currentTaskDefinition(self.service).environment)
 
         for key, value in updates.items():
             if value is None:
@@ -393,10 +396,12 @@ class ECSServiceClient(object):
         """
         Deploy a Docker Image to the service.
         """
-        currentTask = self.currentTask(self.service)
+        currentTaskDefinition = self.currentTaskDefinition(self.service)
 
         try:
-            newTaskDefinition = currentTask.update(imageName=imageName)
+            newTaskDefinition = currentTaskDefinition.update(
+                imageName=imageName
+            )
         except NoChangesError:
             self.log.info("Image name is unchanged. Nothing to deploy.")
             return
@@ -424,10 +429,10 @@ class ECSServiceClient(object):
 
         newTaskEnvironment = self.updateTaskEnvironment(updates)
 
-        currentTask = self.currentTask(self.service)
+        currentTaskDefinition = self.currentTaskDefinition(self.service)
 
         try:
-            newTaskDefinition = currentTask.update(
+            newTaskDefinition = currentTaskDefinition.update(
                 environment=newTaskEnvironment
             )
         except NoChangesError:
@@ -453,7 +458,7 @@ class ECSServiceClient(object):
         Deploy the most recently deployed task definition prior to the one
         currently used by service.
         """
-        currentTaskDefinition = self.currentTask(self.service).json
+        currentTaskDefinition = self.currentTaskDefinition(self.service).json
 
         family = currentTaskDefinition["family"]
         response = self._aws.list_task_definitions(familyPrefix=family)
@@ -708,7 +713,9 @@ def production(
     productionClient = clientFromCLI(production_cluster, production_service)
 
     stagingService = stagingClient.service
-    stagingImageName = stagingClient.currentTask(stagingService).imageName
+    stagingImageName = stagingClient.currentTaskDefinition(
+        stagingService
+    ).imageName
 
     productionClient.deployImage(stagingImageName)
 
@@ -731,8 +738,8 @@ def compare(
     stagingService = stagingClient.service
     productionService = productionClient.service
 
-    stagingTask = stagingClient.currentTask(stagingService)
-    productionTask = productionClient.currentTask(productionService)
+    stagingTask = stagingClient.currentTaskDefinition(stagingService)
+    productionTask = productionClient.currentTaskDefinition(productionService)
 
     for name, task in (
         ("Staging", stagingTask),
@@ -804,7 +811,7 @@ def environment(
 
         client.deployTaskEnvironment(updates)
     else:
-        environment = client.currentTask(client.service).environment
+        environment = client.currentTaskDefinition(client.service).environment
         click.echo(f"Environment variables for {cluster}:{service}:")
         for key, value in environment.items():
             click.echo(f"    {key} = {value!r}")

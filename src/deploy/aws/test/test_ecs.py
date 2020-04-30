@@ -80,7 +80,7 @@ from ..ecs import (
     ECSCluster,
     ECSService,
     ECSServiceClient,
-    ECSTask,
+    ECSTaskDefinition,
     NoChangesError,
     NoSuchServiceError,
     TaskDefinitionJSON,
@@ -154,7 +154,7 @@ class MockBoto3ECSClient(object):
                         },
                     ],
                     "essential": True,
-                    "environment": ECSTask._environmentAsJSON(
+                    "environment": ECSTaskDefinition._environmentAsJSON(
                         {"version": "0", "happiness": "true",}
                     ),
                     "mountPoints": [],
@@ -191,7 +191,7 @@ class MockBoto3ECSClient(object):
                         },
                     ],
                     "essential": True,
-                    "environment": ECSTask._environmentAsJSON(
+                    "environment": ECSTaskDefinition._environmentAsJSON(
                         {
                             "version": "0",
                             "happiness": "true",
@@ -315,7 +315,7 @@ class MockBoto3ECSClient(object):
 
     @classmethod
     def _currentEnvironment(cls, cluster: str, service: str) -> TaskEnvironment:
-        return ECSTask._environmentFromJSON(
+        return ECSTaskDefinition._environmentFromJSON(
             cls._currentContainerDefinition(cluster, service)["environment"]
         )
 
@@ -403,22 +403,22 @@ def testingBoto3ECS() -> Iterator[None]:
         MockBoto3ECSClient._clearTaskDefinitions()
 
 
-class ECSTaskTests(TestCase):
+class ECSTaskDefinitionTests(TestCase):
     """
-    Tests for :class:`ECSTask`
+    Tests for :class:`ECSTaskDefinition`
     """
 
-    def task(self) -> ECSTask:
+    def taskDefinition(self) -> ECSTaskDefinition:
         cluster = ECSCluster(name=MockBoto3ECSClient._sampleClusterStaging)
         service = ECSService(
             cluster=cluster, name=MockBoto3ECSClient._sampleServiceStaging,
         )
         client = ECSServiceClient(service=service)
-        return client.currentTask(service)
+        return client.currentTaskDefinition(service)
 
     def test_environmentFromJSON(self) -> None:
         self.assertEqual(
-            ECSTask._environmentFromJSON(
+            ECSTaskDefinition._environmentFromJSON(
                 [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"},]
             ),
             {"foo": "bar", "x": "1"},
@@ -426,46 +426,49 @@ class ECSTaskTests(TestCase):
 
     def test_environmentAsJSON(self) -> None:
         self.assertEqual(
-            ECSTask._environmentAsJSON({"foo": "bar", "x": "1"}),
+            ECSTaskDefinition._environmentAsJSON({"foo": "bar", "x": "1"}),
             [{"name": "foo", "value": "bar"}, {"name": "x", "value": "1"}],
         )
 
     def test_taskImageName(self) -> None:
         name = "xyzzy"
         self.assertEqual(
-            ECSTask._taskImageName({"containerDefinitions": [{"image": name}]}),
+            ECSTaskDefinition._taskImageName(
+                {"containerDefinitions": [{"image": name}]}
+            ),
             name,
         )
 
     @given(integers(min_value=2))
     def test_update_updated(self, tag: int) -> None:
         with testingBoto3ECS():
-            currentTask = self.task()
+            taskDefinition = self.taskDefinition()
 
-            repo, oldTag = currentTask.imageName.split(":")
+            repo, oldTag = taskDefinition.imageName.split(":")
             assume(int(oldTag) != tag)
             newImageName = f"{repo}:{tag}"
 
-            newTaskDefinition = currentTask.update(imageName=newImageName)
+            newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
             self.assertEqual(
-                ECSTask._taskImageName(newTaskDefinition), newImageName
+                ECSTaskDefinition._taskImageName(newTaskDefinition),
+                newImageName,
             )
 
     def test_update_none(self) -> None:
         with testingBoto3ECS():
-            currentTask = self.task()
+            taskDefinition = self.taskDefinition()
 
-            self.assertRaises(NoChangesError, currentTask.update)
+            self.assertRaises(NoChangesError, taskDefinition.update)
 
     def test_update_same(self) -> None:
         with testingBoto3ECS():
-            currentTask = self.task()
+            taskDefinition = self.taskDefinition()
 
             self.assertRaises(
                 NoChangesError,
-                currentTask.update,
-                imageName=currentTask.imageName,
+                taskDefinition.update,
+                imageName=taskDefinition.imageName,
             )
 
     @given(environment_updates(min_size=1))
@@ -473,15 +476,17 @@ class ECSTaskTests(TestCase):
         self, newEnvironment: TaskEnvironment
     ) -> None:
         with testingBoto3ECS():
-            currentTask = self.task()
+            taskDefinition = self.taskDefinition()
 
             # TRAVIS environment variable makes Travis-CI things happen which
             # we aren't testing for here.
             assume("TRAVIS" not in newEnvironment)
 
-            newTaskDefinition = currentTask.update(environment=newEnvironment)
+            newTaskDefinition = taskDefinition.update(
+                environment=newEnvironment
+            )
             updatedEnvironment = dict(
-                ECSTask._environmentFromJSON(
+                ECSTaskDefinition._environmentFromJSON(
                     newTaskDefinition["containerDefinitions"][0]["environment"]
                 )
             )
@@ -513,7 +518,7 @@ class ECSTaskTests(TestCase):
         commitMessage: str,
     ) -> None:
         with testingBoto3ECS():
-            currentTask = self.task()
+            taskDefinition = self.taskDefinition()
 
             ciEnvironment = {
                 "BUILD_NUMBER": str(buildNumber),
@@ -524,7 +529,7 @@ class ECSTaskTests(TestCase):
                 "REPOSITORY_ID": repository,
             }
 
-            expectedEnvironment = dict(currentTask.environment)
+            expectedEnvironment = dict(taskDefinition.environment)
             expectedEnvironment.update(
                 {(f"CI_{k}", v) for (k, v) in ciEnvironment.items()}
             )
@@ -533,11 +538,11 @@ class ECSTaskTests(TestCase):
             self.patch(ecs, "environ", ciEnvironment)
 
             # Make an unrelated change to avoid NoChangesError
-            newTaskDefinition = currentTask.update(
-                imageName=f"{currentTask.imageName}4027"
+            newTaskDefinition = taskDefinition.update(
+                imageName=f"{taskDefinition.imageName}4027"
             )
             updatedEnvironment = dict(
-                ECSTask._environmentFromJSON(
+                ECSTaskDefinition._environmentFromJSON(
                     newTaskDefinition["containerDefinitions"][0]["environment"]
                 )
             )
@@ -623,38 +628,40 @@ class ECSServiceClientTests(TestCase):
             self.assertTrue(taskDefinition.get("containerDefinitions"))
             self.assertIn("FARGATE", taskDefinition.get("compatibilities", []))
 
-    def test_currentTask(self) -> None:
+    def test_currentTaskDefinition(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
-            arn = currentTask.arn
+            taskDefinition = client.currentTaskDefinition(service)
+            arn = taskDefinition.arn
 
             assert arn is not None
 
-            self.assertEqual(currentTask.arn, client._lookupTaskARN(service))
+            self.assertEqual(arn, client._lookupTaskARN(service))
             self.assertEqual(
-                currentTask.json, client._lookupTaskDefinition(arn),
+                taskDefinition.json, client._lookupTaskDefinition(arn),
             )
 
-    def test_currentTask_cached(self) -> None:
+    def test_currentTaskDefinition_cached(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            self.assertIdentical(client.currentTask(service), currentTask)
+            self.assertIdentical(
+                client.currentTaskDefinition(service), taskDefinition
+            )
 
     def test_registerTaskDefinition(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            repo, tag = currentTask.imageName.split(":")
+            repo, tag = taskDefinition.imageName.split(":")
             newImageName = f"{repo}:{tag}1987"
 
-            newTaskDefinition = currentTask.update(imageName=newImageName)
+            newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
             arn = client.registerTaskDefinition(newTaskDefinition)
             registeredTaskDefinition = client._aws.describe_task_definition(
@@ -736,10 +743,10 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            newImageName = f"{currentTask.imageName}1934"
-            newTaskDefinition = currentTask.update(imageName=newImageName)
+            newImageName = f"{taskDefinition.imageName}1934"
+            newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
             arn = client.registerTaskDefinition(newTaskDefinition)
             client.deployTask(arn)
@@ -753,13 +760,13 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            newImageName = f"{currentTask.imageName}9347"
-            newTaskDefinition = currentTask.update(imageName=newImageName)
+            newImageName = f"{taskDefinition.imageName}9347"
+            newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
             client.deployTaskDefinition(newTaskDefinition)
-            newTask = client.currentTask(service)
+            newTask = client.currentTaskDefinition(service)
 
             self.assertEqual(newTask.imageName, newImageName)
 
@@ -767,12 +774,12 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            newImageName = f"{currentTask.imageName}1046"
+            newImageName = f"{taskDefinition.imageName}1046"
 
             client.deployImage(newImageName)
-            newTask = client.currentTask(service)
+            newTask = client.currentTaskDefinition(service)
 
             self.assertEqual(newTask.imageName, newImageName)
 
@@ -780,11 +787,11 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            expectedImageName = currentTask.imageName
+            expectedImageName = taskDefinition.imageName
             client.deployImage(expectedImageName)
-            self.assertEqual(currentTask.imageName, expectedImageName)
+            self.assertEqual(taskDefinition.imageName, expectedImageName)
 
     @given(environment_updates(min_size=1))
     def test_deployTaskEnvironment_updates(
@@ -850,15 +857,15 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
-            expectedImageName = currentTask.imageName
+            expectedImageName = taskDefinition.imageName
             newImageName = f"{expectedImageName}2957"
 
             client.deployImage(newImageName)
             client.rollback()
 
-            self.assertEqual(currentTask.imageName, expectedImageName)
+            self.assertEqual(taskDefinition.imageName, expectedImageName)
 
 
 @contextmanager
@@ -1039,15 +1046,17 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
             self.assertEqual(service.name, stagingServiceName)
 
             if ":" in ecrImageName:
-                self.assertEqual(currentTask.imageName, ecrImageName)
+                self.assertEqual(taskDefinition.imageName, ecrImageName)
             else:
-                self.assertTrue(currentTask.imageName.startswith(ecrImageName))
+                self.assertTrue(
+                    taskDefinition.imageName.startswith(ecrImageName)
+                )
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -1140,7 +1149,9 @@ class CommandLineTests(TestCase):
                 )
                 self.assertEqual(ecsClient.service.name, stagingServiceName)
 
-                currentImageName = ecsClient.currentTask(ecsService).imageName
+                currentImageName = ecsClient.currentTaskDefinition(
+                    ecsService
+                ).imageName
                 if ":" in ecrImageName:
                     self.assertEqual(currentImageName, ecrImageName)
                 else:
@@ -1300,11 +1311,11 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
             self.assertEqual(service.name, stagingServiceName)
-            self.assertEqual(currentTask.imageName, startingImageName)
+            self.assertEqual(taskDefinition.imageName, startingImageName)
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -1497,12 +1508,12 @@ class CommandLineTests(TestCase):
             self.assertEqual(len(clients), 1)
             client = clients[0]
             service = client.service
-            currentTask = client.currentTask(service)
+            taskDefinition = client.currentTaskDefinition(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
             self.assertEqual(service.name, stagingServiceName)
             self.assertEqual(
-                currentTask.imageName,
+                taskDefinition.imageName,
                 (
                     client._aws._defaultTaskDefinitions[-2][
                         "containerDefinitions"
@@ -1571,9 +1582,17 @@ class CommandLineTests(TestCase):
                 productionService.cluster.name, productionClusterName
             )
             self.assertEqual(productionService.name, productionServiceName)
+
+            stagingTaskDefinition = stagingClient.currentTaskDefinition(
+                stagingService
+            )
+            productionTaskDefinition = productionClient.currentTaskDefinition(
+                productionService
+            )
+
             self.assertEqual(
-                stagingClient.currentTask(stagingService).imageName,
-                productionClient.currentTask(productionService).imageName,
+                stagingTaskDefinition.imageName,
+                productionTaskDefinition.imageName,
             )
 
         self.assertEqual(result.exitCode, 0)
@@ -1773,7 +1792,7 @@ class CommandLineTests(TestCase):
         lists(
             sampled_from(
                 sorted(
-                    ECSTask._environmentFromJSON(
+                    ECSTaskDefinition._environmentFromJSON(
                         MockBoto3ECSClient._defaultTaskDefinitions[0][
                             "containerDefinitions"
                         ][0]["environment"]
