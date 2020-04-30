@@ -75,7 +75,6 @@ __all__ = (
     "ECSTaskDefinition",
     "NoChangesError",
     "NoSuchServiceError",
-    "TaskDefinitionJSON",
 )
 
 
@@ -150,7 +149,7 @@ class ECSTaskDefinition(object):
         self,
         imageName: Optional[str] = None,
         environment: Optional[TaskEnvironment] = None,
-    ) -> TaskDefinitionJSON:
+    ) -> "ECSTaskDefinition":
         """
         Update the task definition and return the updated task definition.
         """
@@ -212,7 +211,7 @@ class ECSTaskDefinition(object):
             "environment"
         ] = self._environmentAsJSON(newEnvironment)
 
-        return newJSON
+        return self.__class__(json=newJSON)
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
@@ -306,12 +305,12 @@ class ECSServiceClient(object):
 
         return cast(str, services[0]["taskDefinition"])
 
-    def _lookupTaskDefinition(self, arn: str) -> TaskDefinitionJSON:
+    def _lookupTaskDefinition(self, arn: str) -> ECSTaskDefinition:
         self.log.debug("Looking up task definition for {arn}...", arn=arn)
-        responseJSON = self._aws.describe_task_definition(taskDefinition=arn)
-        definitionJSON = responseJSON["taskDefinition"]
-        assert definitionJSON.get("taskDefinitionArn") == arn
-        return cast(TaskDefinitionJSON, definitionJSON)
+        response = self._aws.describe_task_definition(taskDefinition=arn)
+        definition = cast(TaskDefinitionJSON, response["taskDefinition"])
+        assert definition.get("taskDefinitionArn") == arn
+        return ECSTaskDefinition(json=definition)
 
     def currentTaskDefinition(self, service: ECSService) -> ECSTaskDefinition:
         """
@@ -319,17 +318,16 @@ class ECSServiceClient(object):
         """
         if service not in self._currentTasks:
             arn = self._lookupTaskARN(service)
-            json = self._lookupTaskDefinition(arn)
-            self._currentTasks[service] = ECSTaskDefinition(json=json)
+            self._currentTasks[service] = self._lookupTaskDefinition(arn)
 
         return self._currentTasks[service]
 
-    def registerTaskDefinition(self, taskDefinition: TaskDefinitionJSON) -> str:
+    def registerTaskDefinition(self, taskDefinition: ECSTaskDefinition) -> str:
         """
         Register a new task definition for the service.
         """
         self.log.debug("Registering new task definition...")
-        response = self._aws.register_task_definition(**taskDefinition)
+        response = self._aws.register_task_definition(**taskDefinition.json)
         newTaskARN = cast(str, response["taskDefinition"]["taskDefinitionArn"])
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
@@ -385,7 +383,7 @@ class ECSServiceClient(object):
             arn=arn,
         )
 
-    def deployTaskDefinition(self, taskDefinition: TaskDefinitionJSON) -> None:
+    def deployTaskDefinition(self, taskDefinition: ECSTaskDefinition) -> None:
         """
         Register a new task definition and deploy it to the service.
         """

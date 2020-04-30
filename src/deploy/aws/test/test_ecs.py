@@ -442,18 +442,15 @@ class ECSTaskDefinitionTests(TestCase):
     @given(integers(min_value=2))
     def test_update_updated(self, tag: int) -> None:
         with testingBoto3ECS():
-            taskDefinition = self.taskDefinition()
+            original = self.taskDefinition()
 
-            repo, oldTag = taskDefinition.imageName.split(":")
+            repo, oldTag = original.imageName.split(":")
             assume(int(oldTag) != tag)
             newImageName = f"{repo}:{tag}"
 
-            newTaskDefinition = taskDefinition.update(imageName=newImageName)
+            updated = original.update(imageName=newImageName)
 
-            self.assertEqual(
-                ECSTaskDefinition._taskImageName(newTaskDefinition),
-                newImageName,
-            )
+            self.assertEqual(updated.imageName, newImageName)
 
     def test_update_none(self) -> None:
         with testingBoto3ECS():
@@ -476,20 +473,14 @@ class ECSTaskDefinitionTests(TestCase):
         self, newEnvironment: TaskEnvironment
     ) -> None:
         with testingBoto3ECS():
-            taskDefinition = self.taskDefinition()
+            original = self.taskDefinition()
 
             # TRAVIS environment variable makes Travis-CI things happen which
             # we aren't testing for here.
             assume("TRAVIS" not in newEnvironment)
 
-            newTaskDefinition = taskDefinition.update(
-                environment=newEnvironment
-            )
-            updatedEnvironment = dict(
-                ECSTaskDefinition._environmentFromJSON(
-                    newTaskDefinition["containerDefinitions"][0]["environment"]
-                )
-            )
+            updated = original.update(environment=newEnvironment)
+            updatedEnvironment = dict(updated.environment)
             expectedEnvironment = dict(newEnvironment)
 
             # TASK_UPDATED is inserted during updates.
@@ -518,7 +509,7 @@ class ECSTaskDefinitionTests(TestCase):
         commitMessage: str,
     ) -> None:
         with testingBoto3ECS():
-            taskDefinition = self.taskDefinition()
+            original = self.taskDefinition()
 
             ciEnvironment = {
                 "BUILD_NUMBER": str(buildNumber),
@@ -529,7 +520,7 @@ class ECSTaskDefinitionTests(TestCase):
                 "REPOSITORY_ID": repository,
             }
 
-            expectedEnvironment = dict(taskDefinition.environment)
+            expectedEnvironment = dict(original.environment)
             expectedEnvironment.update(
                 {(f"CI_{k}", v) for (k, v) in ciEnvironment.items()}
             )
@@ -538,14 +529,8 @@ class ECSTaskDefinitionTests(TestCase):
             self.patch(ecs, "environ", ciEnvironment)
 
             # Make an unrelated change to avoid NoChangesError
-            newTaskDefinition = taskDefinition.update(
-                imageName=f"{taskDefinition.imageName}4027"
-            )
-            updatedEnvironment = dict(
-                ECSTaskDefinition._environmentFromJSON(
-                    newTaskDefinition["containerDefinitions"][0]["environment"]
-                )
-            )
+            updated = original.update(imageName=f"{original.imageName}4027")
+            updatedEnvironment = dict(updated.environment)
 
             # TASK_UPDATED is inserted during updates.
             self.assertIn("TASK_UPDATED", updatedEnvironment)
@@ -621,12 +606,13 @@ class ECSServiceClientTests(TestCase):
 
             arn = client._lookupTaskARN(service)
             taskDefinition = client._lookupTaskDefinition(arn)
+            json = taskDefinition.json
 
-            self.assertIsInstance(taskDefinition, dict)
-            self.assertTrue(taskDefinition.get("family"))
-            self.assertTrue(taskDefinition.get("revision"))
-            self.assertTrue(taskDefinition.get("containerDefinitions"))
-            self.assertIn("FARGATE", taskDefinition.get("compatibilities", []))
+            self.assertIsInstance(json, dict)
+            self.assertTrue(json.get("family"))
+            self.assertTrue(json.get("revision"))
+            self.assertTrue(json.get("containerDefinitions"))
+            self.assertIn("FARGATE", json.get("compatibilities", []))
 
     def test_currentTaskDefinition(self) -> None:
         with testingBoto3ECS():
@@ -638,9 +624,7 @@ class ECSServiceClientTests(TestCase):
             assert arn is not None
 
             self.assertEqual(arn, client._lookupTaskARN(service))
-            self.assertEqual(
-                taskDefinition.json, client._lookupTaskDefinition(arn),
-            )
+            self.assertEqual(taskDefinition, client._lookupTaskDefinition(arn))
 
     def test_currentTaskDefinition_cached(self) -> None:
         with testingBoto3ECS():
@@ -668,7 +652,7 @@ class ECSServiceClientTests(TestCase):
                 arn
             )["taskDefinition"]
 
-            expectedTaskDefinition = dict(newTaskDefinition)
+            expectedTaskDefinition = dict(newTaskDefinition.json)
             expectedTaskDefinition["taskDefinitionArn"] = arn
             expectedTaskDefinition["revision"] = int(arn.split(":")[-1])
             expectedTaskDefinition["status"] = "ACTIVE"
