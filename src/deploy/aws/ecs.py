@@ -88,31 +88,6 @@ TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ECSCluster(object):
-    """
-    ECS Cluster
-    """
-
-    name: str
-
-    def __str__(self) -> str:
-        return f"{self.name}"
-
-
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ECSService(object):
-    """
-    ECS Service
-    """
-
-    cluster: ECSCluster
-    name: str
-
-    def __str__(self) -> str:
-        return f"{self.cluster}:{self.name}"
-
-
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
 class NoSuchServiceError(Exception):
     """
@@ -254,6 +229,31 @@ class ECSTask(object):
         ] = self._environmentAsJSON(newEnvironment)
 
         return newJSON
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ECSCluster(object):
+    """
+    ECS Cluster
+    """
+
+    name: str
+
+    def __str__(self) -> str:
+        return f"{self.name}"
+
+
+@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+class ECSService(object):
+    """
+    ECS Service
+    """
+
+    cluster: ECSCluster
+    name: str
+
+    def __str__(self) -> str:
+        return f"{self.cluster}:{self.name}"
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
