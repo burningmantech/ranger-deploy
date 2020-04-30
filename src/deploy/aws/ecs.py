@@ -88,22 +88,6 @@ TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
-class NoSuchServiceError(Exception):
-    """
-    Service does not exist in the specified cluster.
-    """
-
-    service: ECSService
-
-
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
-class NoChangesError(Exception):
-    """
-    Changes requested without any updates.
-    """
-
-
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class ECSTask(object):
     """
@@ -254,6 +238,22 @@ class ECSService(object):
 
     def __str__(self) -> str:
         return f"{self.cluster}:{self.name}"
+
+
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
+class NoSuchServiceError(Exception):
+    """
+    Service does not exist in the specified cluster.
+    """
+
+    service: ECSService
+
+
+@attrs(auto_attribs=True, auto_exc=True, slots=True)
+class NoChangesError(Exception):
+    """
+    Changes requested without any updates.
+    """
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
