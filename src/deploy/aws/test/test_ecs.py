@@ -628,10 +628,13 @@ class ECSServiceClientTests(TestCase):
             client = self.stagingClient()
             service = client.service
             currentTask = client.currentTask(service)
+            arn = currentTask.arn
+
+            assert arn is not None
 
             self.assertEqual(currentTask.arn, client._lookupTaskARN(service))
             self.assertEqual(
-                currentTask.json, client._lookupTaskDefinition(currentTask.arn),
+                currentTask.json, client._lookupTaskDefinition(arn),
             )
 
     def test_currentTask_cached(self) -> None:

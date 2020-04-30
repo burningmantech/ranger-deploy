@@ -159,8 +159,14 @@ class ECSTask(object):
     # Instance attributes
     #
 
-    arn: str
     json: TaskDefinitionJSON
+
+    @property
+    def arn(self) -> Optional[str]:
+        """
+        Image name.
+        """
+        return cast(Optional[str], self.json.get("taskDefinitionArn"))
 
     @property
     def imageName(self) -> str:
@@ -301,8 +307,10 @@ class ECSServiceClient(object):
 
     def _lookupTaskDefinition(self, arn: str) -> TaskDefinitionJSON:
         self.log.debug("Looking up task definition for {arn}...", arn=arn)
-        taskDescription = self._aws.describe_task_definition(taskDefinition=arn)
-        return cast(TaskDefinitionJSON, taskDescription["taskDefinition"])
+        responseJSON = self._aws.describe_task_definition(taskDefinition=arn)
+        definitionJSON = responseJSON["taskDefinition"]
+        assert definitionJSON.get("taskDefinitionArn") == arn
+        return cast(TaskDefinitionJSON, definitionJSON)
 
     def currentTask(self, service: ECSService) -> ECSTask:
         """
@@ -311,7 +319,7 @@ class ECSServiceClient(object):
         if service not in self._currentTasks:
             arn = self._lookupTaskARN(service)
             json = self._lookupTaskDefinition(arn)
-            self._currentTasks[service] = ECSTask(arn=arn, json=json)
+            self._currentTasks[service] = ECSTask(json=json)
 
         return self._currentTasks[service]
 
