@@ -354,12 +354,14 @@ class ECSServiceClient(object):
             arn=arn,
         )
 
-    def deployTaskDefinition(self, taskDefinition: ECSTaskDefinition) -> None:
+    def deployTaskDefinition(
+        self, service: ECSService, taskDefinition: ECSTaskDefinition
+    ) -> None:
         """
         Register a new task definition and deploy it to the service.
         """
         arn = self.registerTaskDefinition(taskDefinition)
-        self.deployTaskWithARN(self.service, arn)
+        self.deployTaskWithARN(service, arn)
 
     def deployImage(self, imageName: str, trialRun: bool = False) -> None:
         """
@@ -381,7 +383,7 @@ class ECSServiceClient(object):
             image=imageName,
         )
         if not trialRun:
-            self.deployTaskDefinition(newTaskDefinition)
+            self.deployTaskDefinition(self.service, newTaskDefinition)
         self.log.info(
             "Deployed image {image} to service {service}.",
             service=self.service,
@@ -436,7 +438,7 @@ class ECSServiceClient(object):
             service=self.service,
             updates=updates,
         )
-        self.deployTaskDefinition(newTaskDefinition)
+        self.deployTaskDefinition(self.service, newTaskDefinition)
         self.log.info(
             "Deployed task environment to service {service}.",
             service=self.service,

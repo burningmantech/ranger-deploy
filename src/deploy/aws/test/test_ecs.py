@@ -691,7 +691,7 @@ class ECSServiceClientTests(TestCase):
             newImageName = f"{taskDefinition.imageName}9347"
             newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
-            client.deployTaskDefinition(newTaskDefinition)
+            client.deployTaskDefinition(service, newTaskDefinition)
             newTask = client.currentTaskDefinition(service)
 
             self.assertEqual(newTask.imageName, newImageName)
