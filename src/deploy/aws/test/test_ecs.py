@@ -413,7 +413,7 @@ class ECSTaskDefinitionTests(TestCase):
         service = ECSService(
             cluster=cluster, name=MockBoto3ECSClient._sampleServiceStaging,
         )
-        client = ECSServiceClient(service=service)
+        client = ECSServiceClient()
         return client.currentTaskDefinition(service)
 
     def test_environmentFromJSON(self) -> None:
@@ -555,15 +555,15 @@ class ECSServiceClientTests(TestCase):
             name=MockBoto3ECSClient._sampleServiceStaging,
         )
 
-    def stagingClient(self) -> ECSServiceClient:
-        return ECSServiceClient(service=self.stagingService())
+    def client(self) -> ECSServiceClient:
+        return ECSServiceClient()
 
     def test_aws(self) -> None:
         """
         :meth:`ECSServiceClient._aws` property returns an AWS client.
         """
         with testingBoto3ECS():
-            client = self.stagingClient()
+            client = self.client()
 
             self.assertIsInstance(client._aws, MockBoto3ECSClient)
 
@@ -573,8 +573,8 @@ class ECSServiceClientTests(TestCase):
         task.
         """
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             self.assertEqual(
                 client._lookupTaskARN(service),
@@ -592,7 +592,7 @@ class ECSServiceClientTests(TestCase):
             service = ECSService(
                 cluster=self.stagingCluster(), name=doesntExistServiceName
             )
-            client = ECSServiceClient(service=service)
+            client = self.client()
 
             e = self.assertRaises(
                 NoSuchServiceError, client._lookupTaskARN, service
@@ -601,8 +601,8 @@ class ECSServiceClientTests(TestCase):
 
     def test_lookupTaskDefinition(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             arn = client._lookupTaskARN(service)
             taskDefinition = client._lookupTaskDefinition(arn)
@@ -616,8 +616,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_currentTaskDefinition(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
             arn = taskDefinition.arn
 
@@ -628,8 +629,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_currentTaskDefinition_cached(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             self.assertIdentical(
@@ -638,8 +640,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_registerTaskDefinition(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             repo, tag = taskDefinition.imageName.split(":")
@@ -667,8 +670,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_deployTaskWithARN(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             newImageName = f"{taskDefinition.imageName}1934"
@@ -684,8 +688,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_deployTaskDefinition(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             newImageName = f"{taskDefinition.imageName}9347"
@@ -698,8 +703,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_deployImage_new(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             newImageName = f"{taskDefinition.imageName}1046"
@@ -711,8 +717,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_deployImage_same(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             expectedImageName = taskDefinition.imageName
@@ -724,8 +731,8 @@ class ECSServiceClientTests(TestCase):
         self, updates: TaskEnvironmentUpdates
     ) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             newEnvironment = client.updateTaskEnvironment(service, updates)
             expectedEnvironment = dict(
@@ -744,8 +751,8 @@ class ECSServiceClientTests(TestCase):
         with testingBoto3ECS():
             updates, removes = instructions
 
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             expectedEnvironment = dict(
                 client.currentTaskDefinition(service).environment
@@ -773,8 +780,8 @@ class ECSServiceClientTests(TestCase):
         self, updates: TaskEnvironmentUpdates
     ) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             expectedEnvironment = dict(
                 client._aws._currentEnvironment(
@@ -794,8 +801,8 @@ class ECSServiceClientTests(TestCase):
 
     def test_deployTaskEnvironment_none(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             expectedEnvironment = dict(
                 client._aws._currentEnvironment(
@@ -812,8 +819,8 @@ class ECSServiceClientTests(TestCase):
 
     def test_deployTaskEnvironment_same(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
 
             expectedEnvironment = dict(
                 client._aws._currentEnvironment(
@@ -830,8 +837,9 @@ class ECSServiceClientTests(TestCase):
 
     def test_rollback(self) -> None:
         with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
+            client = self.client()
+            service = self.stagingService()
+
             taskDefinition = client.currentTaskDefinition(service)
 
             expectedImageName = taskDefinition.imageName
@@ -844,7 +852,13 @@ class ECSServiceClientTests(TestCase):
 
 
 @contextmanager
-def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
+def testingECSServiceClient() -> Iterator[
+    Tuple[List[ECSServiceClient], List[ECSService]]
+]:
+    #
+    # Track instantiations of ECSServiceClient
+    #
+
     clients: List[ECSServiceClient] = []
 
     class RememberMeECSServiceClient(ECSServiceClient):
@@ -857,13 +871,29 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
         Type, RememberMeECSServiceClient
     )
 
+    #
+    # Track instantiations of ECSService
+    #
+
+    services: List[ECSService] = []
+
+    class RememberMeECSService(ECSService):
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            services.append(self)
+
+    Service = ecs.ECSService
+    ecs.ECSService = cast(Type, RememberMeECSService)  # type: ignore[misc]
+
     try:
         with testingBoto3ECS():
-            yield clients
+            yield clients, services
 
     finally:
-        ecs.ECSServiceClient = Client  # type: ignore[misc]
+        ecs.ECSService = Service  # type: ignore[misc]
+        services.clear()
 
+        ecs.ECSServiceClient = Client  # type: ignore[misc]
         clients.clear()
 
 
@@ -998,7 +1028,7 @@ class CommandLineTests(TestCase):
         ecrImageName: str,
         environment: Callable[[], ContextManager] = ciEnvironment,
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
 
@@ -1019,8 +1049,11 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 1)
+
             client = clients[0]
-            service = client.service
+            service = services[0]
+
             taskDefinition = client.currentTaskDefinition(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
@@ -1091,7 +1124,7 @@ class CommandLineTests(TestCase):
         ecrImageName: str,
     ) -> None:
         with testingECRServiceClient():
-            with testingECSServiceClient() as clients:
+            with testingECSServiceClient() as (clients, services):
                 # Add starting data set
                 self.initClusterAndService(
                     stagingClusterName, stagingServiceName
@@ -1116,13 +1149,13 @@ class CommandLineTests(TestCase):
                     )
 
                 self.assertEqual(len(clients), 1)
-                ecsClient = clients[0]
-                ecsService = ecsClient.service
+                self.assertEqual(len(services), 1)
 
-                self.assertEqual(
-                    ecsClient.service.cluster.name, stagingClusterName
-                )
-                self.assertEqual(ecsClient.service.name, stagingServiceName)
+                ecsClient = clients[0]
+                ecsService = services[0]
+
+                self.assertEqual(ecsService.cluster.name, stagingClusterName)
+                self.assertEqual(ecsService.name, stagingServiceName)
 
                 currentImageName = ecsClient.currentTaskDefinition(
                     ecsService
@@ -1258,7 +1291,7 @@ class CommandLineTests(TestCase):
         stagingServiceName: str,
         ecrImageName: str,
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
 
@@ -1284,8 +1317,11 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 1)
+
             client = clients[0]
-            service = client.service
+            service = services[0]
+
             taskDefinition = client.currentTaskDefinition(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
@@ -1302,7 +1338,7 @@ class CommandLineTests(TestCase):
     def test_staging_noSuchService(
         self, stagingClusterName: str, ecrImageName: str
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, "service")
 
@@ -1325,6 +1361,7 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 1)
 
         errorMessage = result.stderr.getvalue()
 
@@ -1347,7 +1384,7 @@ class CommandLineTests(TestCase):
         stagingServiceName: str,
         ecrImageName: str,
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
 
@@ -1368,6 +1405,7 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 0)
+            self.assertEqual(len(services), 0)
 
         self.assertEqual(result.exitCode, 2)
         self.assertEqual(result.echoOutput, [])
@@ -1386,7 +1424,7 @@ class CommandLineTests(TestCase):
         stagingServiceName: str,
         ecrImageName: str,
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
 
@@ -1407,6 +1445,7 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 0)
+            self.assertEqual(len(services), 0)
 
         self.assertEqual(result.exitCode, 2)
         self.assertEqual(result.echoOutput, [])
@@ -1425,7 +1464,7 @@ class CommandLineTests(TestCase):
         stagingServiceName: str,
         ecrImageName: str,
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
 
@@ -1446,6 +1485,7 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 0)
+            self.assertEqual(len(services), 0)
 
         self.assertEqual(result.exitCode, 2)
         self.assertEqual(result.echoOutput, [])
@@ -1463,7 +1503,7 @@ class CommandLineTests(TestCase):
     def test_rollback(
         self, stagingClusterName: str, stagingServiceName: str
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
 
@@ -1481,8 +1521,11 @@ class CommandLineTests(TestCase):
             )
 
             self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 1)
+
             client = clients[0]
-            service = client.service
+            service = services[0]
+
             taskDefinition = client.currentTaskDefinition(service)
 
             self.assertEqual(service.cluster.name, stagingClusterName)
@@ -1520,7 +1563,7 @@ class CommandLineTests(TestCase):
             != (productionClusterName, productionServiceName)
         )
 
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
             self.initClusterAndService(
@@ -1546,10 +1589,11 @@ class CommandLineTests(TestCase):
                 ],
             )
 
-            self.assertEqual(len(clients), 2)
-            stagingClient, productionClient = clients
-            stagingService = stagingClient.service
-            productionService = productionClient.service
+            self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 2)
+
+            ecsClient = clients[0]
+            stagingService, productionService = services
 
             self.assertEqual(stagingService.cluster.name, stagingClusterName)
             self.assertEqual(stagingService.name, stagingServiceName)
@@ -1558,10 +1602,10 @@ class CommandLineTests(TestCase):
             )
             self.assertEqual(productionService.name, productionServiceName)
 
-            stagingTaskDefinition = stagingClient.currentTaskDefinition(
+            stagingTaskDefinition = ecsClient.currentTaskDefinition(
                 stagingService
             )
-            productionTaskDefinition = productionClient.currentTaskDefinition(
+            productionTaskDefinition = ecsClient.currentTaskDefinition(
                 productionService
             )
 
@@ -1594,7 +1638,7 @@ class CommandLineTests(TestCase):
             != (productionClusterName, productionServiceName)
         )
 
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(stagingClusterName, stagingServiceName)
             self.initClusterAndService(
@@ -1620,10 +1664,10 @@ class CommandLineTests(TestCase):
                 ],
             )
 
-            self.assertEqual(len(clients), 2)
-            stagingClient, productionClient = clients
-            stagingService = stagingClient.service
-            productionService = productionClient.service
+            self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 2)
+
+            stagingService, productionService = services
 
             self.assertEqual(stagingService.cluster.name, stagingClusterName)
             self.assertEqual(stagingService.name, stagingServiceName)
@@ -1654,7 +1698,7 @@ class CommandLineTests(TestCase):
     @given(aws_resource_names(), aws_resource_names())
     @settings(max_examples=5)
     def test_environment_get(self, clusterName: str, serviceName: str) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(clusterName, serviceName)
 
@@ -1672,8 +1716,9 @@ class CommandLineTests(TestCase):
             )
 
             self.assertEqual(len(clients), 1)
-            client = clients[0]
-            service = client.service
+            self.assertEqual(len(services), 1)
+
+            service = services[0]
 
             self.assertEqual(service.cluster.name, clusterName)
             self.assertEqual(service.name, serviceName)
@@ -1711,7 +1756,7 @@ class CommandLineTests(TestCase):
     def test_environment_set(
         self, clusterName: str, serviceName: str, updates: List[Tuple[str, str]]
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(clusterName, serviceName)
 
@@ -1733,8 +1778,10 @@ class CommandLineTests(TestCase):
             )
 
             self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 1)
+
             client = clients[0]
-            service = client.service
+            service = services[0]
 
             self.assertEqual(service.cluster.name, clusterName)
             self.assertEqual(service.name, serviceName)
@@ -1783,7 +1830,7 @@ class CommandLineTests(TestCase):
     def test_environment_unset(
         self, clusterName: str, serviceName: str, removes: List[str]
     ) -> None:
-        with testingECSServiceClient() as clients:
+        with testingECSServiceClient() as (clients, services):
             # Add starting data set
             self.initClusterAndService(clusterName, serviceName)
 
@@ -1804,8 +1851,10 @@ class CommandLineTests(TestCase):
             )
 
             self.assertEqual(len(clients), 1)
+            self.assertEqual(len(services), 1)
+
             client = clients[0]
-            service = client.service
+            service = services[0]
 
             self.assertEqual(service.cluster.name, clusterName)
             self.assertEqual(service.name, serviceName)

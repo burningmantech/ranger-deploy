@@ -278,8 +278,6 @@ class ECSServiceClient(object):
     # Instance attributes
     #
 
-    service: ECSService
-
     _botoClient: List[Boto3ECSClient] = Factory(list)
     _currentTasks: Dict[ECSService, ECSTaskDefinition] = Factory(dict)
 
@@ -502,7 +500,7 @@ def ensureCI() -> None:
         raise UsageError("Deployment not allowed outside of CI environment")
 
 
-def clientFromCLI(cluster: Optional[str], service: str) -> ECSServiceClient:
+def serviceFromCLI(cluster: Optional[str], service: str) -> ECSService:
     if cluster is None:
         try:
             cluster, service = service.split(":")
@@ -516,9 +514,7 @@ def clientFromCLI(cluster: Optional[str], service: str) -> ECSServiceClient:
                 f"Invalid service (cluster re-specified): {service}"
             )
 
-    return ECSServiceClient(
-        service=ECSService(cluster=ECSCluster(name=cluster), name=service)
-    )
+    return ECSService(cluster=ECSCluster(name=cluster), name=service)
 
 
 def ecsOption(
@@ -648,11 +644,12 @@ def staging(
         ecrClient = ECRServiceClient()
         ecrClient.push(image_local, image_ecr, trialRun=trial_run)
 
-    stagingClient = clientFromCLI(staging_cluster, staging_service)
-    stagingService = stagingClient.service
+    ecsClient = ECSServiceClient()
+
+    stagingService = serviceFromCLI(staging_cluster, staging_service)
 
     try:
-        stagingClient.deployImage(stagingService, image_ecr, trialRun=trial_run)
+        ecsClient.deployImage(stagingService, image_ecr, trialRun=trial_run)
     except NoSuchServiceError as e:
         raise UsageError(f"Unknown service: {e.service}")
 
@@ -690,10 +687,11 @@ def rollback(staging_cluster: Optional[str], staging_service: str,) -> None:
     """
     Roll back the staging environment to the previous task definition.
     """
-    stagingClient = clientFromCLI(staging_cluster, staging_service)
-    stagingService = stagingClient.service
+    ecsClient = ECSServiceClient()
 
-    stagingClient.rollback(stagingService)
+    stagingService = serviceFromCLI(staging_cluster, staging_service)
+
+    ecsClient.rollback(stagingService)
 
 
 @main.command()
@@ -708,17 +706,14 @@ def production(
     """
     Deploy the image in the staging environment to the production environment.
     """
-    stagingClient = clientFromCLI(staging_cluster, staging_service)
-    productionClient = clientFromCLI(production_cluster, production_service)
+    ecsClient = ECSServiceClient()
 
-    stagingService = stagingClient.service
-    productionService = productionClient.service
+    stagingService = serviceFromCLI(staging_cluster, staging_service)
+    productionService = serviceFromCLI(production_cluster, production_service)
 
-    stagingImageName = stagingClient.currentTaskDefinition(
-        stagingService
-    ).imageName
+    stagingImageName = ecsClient.currentTaskDefinition(stagingService).imageName
 
-    productionClient.deployImage(productionService, stagingImageName)
+    ecsClient.deployImage(productionService, stagingImageName)
 
 
 @main.command()
@@ -733,14 +728,13 @@ def compare(
     """
     Compare the staging environment to the production environment.
     """
-    stagingClient = clientFromCLI(staging_cluster, staging_service)
-    productionClient = clientFromCLI(production_cluster, production_service)
+    ecsClient = ECSServiceClient()
 
-    stagingService = stagingClient.service
-    productionService = productionClient.service
+    stagingService = serviceFromCLI(staging_cluster, staging_service)
+    productionService = serviceFromCLI(production_cluster, production_service)
 
-    stagingTask = stagingClient.currentTaskDefinition(stagingService)
-    productionTask = productionClient.currentTaskDefinition(productionService)
+    stagingTask = ecsClient.currentTaskDefinition(stagingService)
+    productionTask = ecsClient.currentTaskDefinition(productionService)
 
     for name, task in (
         ("Staging", stagingTask),
@@ -797,8 +791,8 @@ def environment(
     If arguments are given, set environment variables with the given names to
     the given values.  If a value is not provided, remove the variable.
     """
-    ecsClient = clientFromCLI(cluster, service)
-    ecsService = ecsClient.service
+    ecsClient = ECSServiceClient()
+    ecsService = serviceFromCLI(cluster, service)
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
