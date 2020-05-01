@@ -333,38 +333,9 @@ class ECSServiceClient(object):
 
         return newTaskARN
 
-    # TODO: remove
-    def currentTaskEnvironment(self) -> TaskEnvironment:
+    def deployTaskWithARN(self, arn: str) -> None:
         """
-        Look up the environment variables used for the service's current task
-        definition.
-        """
-        return self.currentTaskDefinition(self.service).environment
-
-    def updateTaskEnvironment(
-        self, updates: TaskEnvironmentUpdates
-    ) -> TaskEnvironment:
-        """
-        Update the environment variables for the service's current task
-        definition.
-        Returns the updated task environment.
-        """
-        environment = dict(self.currentTaskDefinition(self.service).environment)
-
-        for key, value in updates.items():
-            if value is None:
-                try:
-                    del environment[key]
-                except KeyError:
-                    pass
-            else:
-                environment[key] = value
-
-        return environment
-
-    def deployTask(self, arn: str) -> None:
-        """
-        Deploy a new task to the service.
+        Deploy the task with the given ARN to the service.
         """
         self.log.debug(
             "Deploying task ARN {arn} to service {service}...",
@@ -388,7 +359,7 @@ class ECSServiceClient(object):
         Register a new task definition and deploy it to the service.
         """
         arn = self.registerTaskDefinition(taskDefinition)
-        self.deployTask(arn)
+        self.deployTaskWithARN(arn)
 
     def deployImage(self, imageName: str, trialRun: bool = False) -> None:
         """
@@ -416,6 +387,27 @@ class ECSServiceClient(object):
             service=self.service,
             image=imageName,
         )
+
+    def updateTaskEnvironment(
+        self, updates: TaskEnvironmentUpdates
+    ) -> TaskEnvironment:
+        """
+        Update the environment variables for the service's current task
+        definition.
+        Returns the updated task environment.
+        """
+        environment = dict(self.currentTaskDefinition(self.service).environment)
+
+        for key, value in updates.items():
+            if value is None:
+                try:
+                    del environment[key]
+                except KeyError:
+                    pass
+            else:
+                environment[key] = value
+
+        return environment
 
     def deployTaskEnvironment(self, updates: TaskEnvironmentUpdates) -> None:
         """
@@ -461,10 +453,10 @@ class ECSServiceClient(object):
         family = currentTaskDefinition["family"]
         response = self._aws.list_task_definitions(familyPrefix=family)
 
-        # Deploy second-to-last ARN
-        taskARN = response["taskDefinitionArns"][-2]
+        # Select the second-to-last task ARN
+        arn = response["taskDefinitionArns"][-2]
 
-        self.deployTask(taskARN)
+        self.deployTaskWithARN(arn)
 
 
 #

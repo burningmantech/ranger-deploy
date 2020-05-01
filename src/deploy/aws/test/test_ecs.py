@@ -665,65 +665,7 @@ class ECSServiceClientTests(TestCase):
 
             self.assertEqual(registeredTaskDefinition, expectedTaskDefinition)
 
-    def test_currentTaskEnvironment(self) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
-
-            self.assertEqual(
-                client.currentTaskEnvironment(),
-                client._aws._currentEnvironment(
-                    service.cluster.name, service.name
-                ),
-            )
-
-    @given(dictionaries(text(), text()))
-    def test_updateTaskEnvironment_set(
-        self, updates: TaskEnvironmentUpdates
-    ) -> None:
-        with testingBoto3ECS():
-            client = self.stagingClient()
-            service = client.service
-
-            newEnvironment = client.updateTaskEnvironment(updates)
-            expectedEnvironment = dict(
-                client._aws._currentEnvironment(
-                    service.cluster.name, service.name
-                )
-            )
-            expectedEnvironment.update(updates)
-
-            self.assertEqual(newEnvironment, expectedEnvironment)
-
-    @given(set_unset_envs())
-    def test_updateTaskEnvironment_unset(
-        self, instructions: Tuple[TaskEnvironmentUpdates, Set[str]]
-    ) -> None:
-        with testingBoto3ECS():
-            updates, removes = instructions
-
-            client = self.stagingClient()
-
-            expectedEnvironment = dict(client.currentTaskEnvironment())
-            for key, value in updates.items():  # pragma: no cover
-                if key in removes:
-                    if key in expectedEnvironment:
-                        del expectedEnvironment[key]
-                else:
-                    assert value is not None
-                    expectedEnvironment[key] = value
-
-            # Deploy the input updates and get back the result
-            client.deployTaskEnvironment(updates)
-            newEnvironment = client.updateTaskEnvironment(
-                {k: None for k in removes}
-            )
-
-            expectedEnvironment["TASK_UPDATED"] = newEnvironment["TASK_UPDATED"]
-
-            self.assertEqual(newEnvironment, expectedEnvironment)
-
-    def test_deployTask(self) -> None:
+    def test_deployTaskWithARN(self) -> None:
         with testingBoto3ECS():
             client = self.stagingClient()
             service = client.service
@@ -733,7 +675,7 @@ class ECSServiceClientTests(TestCase):
             newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
             arn = client.registerTaskDefinition(newTaskDefinition)
-            client.deployTask(arn)
+            client.deployTaskWithARN(arn)
 
             self.assertEqual(
                 client._aws._currentTaskARN(service.cluster.name, service.name),
@@ -776,6 +718,55 @@ class ECSServiceClientTests(TestCase):
             expectedImageName = taskDefinition.imageName
             client.deployImage(expectedImageName)
             self.assertEqual(taskDefinition.imageName, expectedImageName)
+
+    @given(dictionaries(text(), text()))
+    def test_updateTaskEnvironment_set(
+        self, updates: TaskEnvironmentUpdates
+    ) -> None:
+        with testingBoto3ECS():
+            client = self.stagingClient()
+            service = client.service
+
+            newEnvironment = client.updateTaskEnvironment(updates)
+            expectedEnvironment = dict(
+                client._aws._currentEnvironment(
+                    service.cluster.name, service.name
+                )
+            )
+            expectedEnvironment.update(updates)
+
+            self.assertEqual(newEnvironment, expectedEnvironment)
+
+    @given(set_unset_envs())
+    def test_updateTaskEnvironment_unset(
+        self, instructions: Tuple[TaskEnvironmentUpdates, Set[str]]
+    ) -> None:
+        with testingBoto3ECS():
+            updates, removes = instructions
+
+            client = self.stagingClient()
+            service = client.service
+
+            expectedEnvironment = dict(
+                client.currentTaskDefinition(service).environment
+            )
+            for key, value in updates.items():  # pragma: no cover
+                if key in removes:
+                    if key in expectedEnvironment:
+                        del expectedEnvironment[key]
+                else:
+                    assert value is not None
+                    expectedEnvironment[key] = value
+
+            # Deploy the input updates and get back the result
+            client.deployTaskEnvironment(updates)
+            newEnvironment = client.updateTaskEnvironment(
+                {k: None for k in removes}
+            )
+
+            expectedEnvironment["TASK_UPDATED"] = newEnvironment["TASK_UPDATED"]
+
+            self.assertEqual(newEnvironment, expectedEnvironment)
 
     @given(environment_updates(min_size=1))
     def test_deployTaskEnvironment_updates(
@@ -1748,7 +1739,9 @@ class CommandLineTests(TestCase):
             self.assertEqual(service.cluster.name, clusterName)
             self.assertEqual(service.name, serviceName)
 
-            resultEnvironment = client.currentTaskEnvironment()
+            resultEnvironment = client.currentTaskDefinition(
+                service
+            ).environment
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(
@@ -1817,7 +1810,9 @@ class CommandLineTests(TestCase):
             self.assertEqual(service.cluster.name, clusterName)
             self.assertEqual(service.name, serviceName)
 
-            resultEnvironment = client.currentTaskEnvironment()
+            resultEnvironment = client.currentTaskDefinition(
+                service
+            ).environment
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(
