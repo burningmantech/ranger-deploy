@@ -727,7 +727,7 @@ class ECSServiceClientTests(TestCase):
             client = self.stagingClient()
             service = client.service
 
-            newEnvironment = client.updateTaskEnvironment(updates)
+            newEnvironment = client.updateTaskEnvironment(service, updates)
             expectedEnvironment = dict(
                 client._aws._currentEnvironment(
                     service.cluster.name, service.name
@@ -759,9 +759,9 @@ class ECSServiceClientTests(TestCase):
                     expectedEnvironment[key] = value
 
             # Deploy the input updates and get back the result
-            client.deployTaskEnvironment(updates)
+            client.deployTaskEnvironment(service, updates)
             newEnvironment = client.updateTaskEnvironment(
-                {k: None for k in removes}
+                service, {k: None for k in removes}
             )
 
             expectedEnvironment["TASK_UPDATED"] = newEnvironment["TASK_UPDATED"]
@@ -783,7 +783,7 @@ class ECSServiceClientTests(TestCase):
             )
             expectedEnvironment.update(updates)
 
-            client.deployTaskEnvironment(updates)
+            client.deployTaskEnvironment(service, updates)
             newEnvironment = client._aws._currentEnvironment(
                 service.cluster.name, service.name
             )
@@ -803,7 +803,7 @@ class ECSServiceClientTests(TestCase):
                 )
             )
 
-            client.deployTaskEnvironment({})
+            client.deployTaskEnvironment(service, {})
             newEnvironment = client._aws._currentEnvironment(
                 service.cluster.name, service.name
             )
@@ -821,7 +821,7 @@ class ECSServiceClientTests(TestCase):
                 )
             )
 
-            client.deployTaskEnvironment(expectedEnvironment)
+            client.deployTaskEnvironment(service, expectedEnvironment)
             newEnvironment = client._aws._currentEnvironment(
                 service.cluster.name, service.name
             )
@@ -838,7 +838,7 @@ class ECSServiceClientTests(TestCase):
             newImageName = f"{expectedImageName}2957"
 
             client.deployImage(service, newImageName)
-            client.rollback()
+            client.rollback(service)
 
             self.assertEqual(taskDefinition.imageName, expectedImageName)
 

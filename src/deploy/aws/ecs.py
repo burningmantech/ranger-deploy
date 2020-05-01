@@ -393,14 +393,14 @@ class ECSServiceClient(object):
         )
 
     def updateTaskEnvironment(
-        self, updates: TaskEnvironmentUpdates
+        self, service: ECSService, updates: TaskEnvironmentUpdates
     ) -> TaskEnvironment:
         """
         Update the environment variables for the service's current task
         definition.
         Returns the updated task environment.
         """
-        environment = dict(self.currentTaskDefinition(self.service).environment)
+        environment = dict(self.currentTaskDefinition(service).environment)
 
         for key, value in updates.items():
             if value is None:
@@ -413,7 +413,9 @@ class ECSServiceClient(object):
 
         return environment
 
-    def deployTaskEnvironment(self, updates: TaskEnvironmentUpdates) -> None:
+    def deployTaskEnvironment(
+        self, service: ECSService, updates: TaskEnvironmentUpdates
+    ) -> None:
         """
         Deploy a modifications to the environment variables used by the
         service.
@@ -421,9 +423,9 @@ class ECSServiceClient(object):
         if not updates:
             return
 
-        newTaskEnvironment = self.updateTaskEnvironment(updates)
+        newTaskEnvironment = self.updateTaskEnvironment(service, updates)
 
-        currentTaskDefinition = self.currentTaskDefinition(self.service)
+        currentTaskDefinition = self.currentTaskDefinition(service)
 
         try:
             newTaskDefinition = currentTaskDefinition.update(
@@ -437,22 +439,22 @@ class ECSServiceClient(object):
 
         self.log.debug(
             "Deploying task environment to service {service}...",
-            service=self.service,
+            service=service,
             updates=updates,
         )
-        self.deployTaskDefinition(self.service, newTaskDefinition)
+        self.deployTaskDefinition(service, newTaskDefinition)
         self.log.info(
             "Deployed task environment to service {service}.",
-            service=self.service,
+            service=service,
             updates=updates,
         )
 
-    def rollback(self) -> None:
+    def rollback(self, service: ECSService) -> None:
         """
         Deploy the most recently deployed task definition prior to the one
         currently used by service.
         """
-        currentTaskDefinition = self.currentTaskDefinition(self.service).json
+        currentTaskDefinition = self.currentTaskDefinition(service).json
 
         family = currentTaskDefinition["family"]
         response = self._aws.list_task_definitions(familyPrefix=family)
@@ -460,7 +462,7 @@ class ECSServiceClient(object):
         # Select the second-to-last task ARN
         arn = response["taskDefinitionArns"][-2]
 
-        self.deployTaskWithARN(self.service, arn)
+        self.deployTaskWithARN(service, arn)
 
 
 #
@@ -689,7 +691,9 @@ def rollback(staging_cluster: Optional[str], staging_service: str,) -> None:
     Roll back the staging environment to the previous task definition.
     """
     stagingClient = clientFromCLI(staging_cluster, staging_service)
-    stagingClient.rollback()
+    stagingService = stagingClient.service
+
+    stagingClient.rollback(stagingService)
 
 
 @main.command()
@@ -793,7 +797,8 @@ def environment(
     If arguments are given, set environment variables with the given names to
     the given values.  If a value is not provided, remove the variable.
     """
-    client = clientFromCLI(cluster, service)
+    ecsClient = clientFromCLI(cluster, service)
+    ecsService = ecsClient.service
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
@@ -806,9 +811,9 @@ def environment(
                 updates[arg] = None
                 click.echo(f"    Removing {arg}.")
 
-        client.deployTaskEnvironment(updates)
+        ecsClient.deployTaskEnvironment(ecsService, updates)
     else:
-        environment = client.currentTaskDefinition(client.service).environment
+        environment = ecsClient.currentTaskDefinition(ecsService).environment
         click.echo(f"Environment variables for {cluster}:{service}:")
         for key, value in environment.items():
             click.echo(f"    {key} = {value!r}")
