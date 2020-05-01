@@ -675,7 +675,7 @@ class ECSServiceClientTests(TestCase):
             newTaskDefinition = taskDefinition.update(imageName=newImageName)
 
             arn = client.registerTaskDefinition(newTaskDefinition)
-            client.deployTaskWithARN(arn)
+            client.deployTaskWithARN(service, arn)
 
             self.assertEqual(
                 client._aws._currentTaskARN(service.cluster.name, service.name),

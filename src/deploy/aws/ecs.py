@@ -324,7 +324,7 @@ class ECSServiceClient(object):
 
     def registerTaskDefinition(self, taskDefinition: ECSTaskDefinition) -> str:
         """
-        Register a new task definition for the service.
+        Register a new task definition.
         """
         self.log.debug("Registering new task definition...")
         response = self._aws.register_task_definition(**taskDefinition.json)
@@ -333,24 +333,24 @@ class ECSServiceClient(object):
 
         return newTaskARN
 
-    def deployTaskWithARN(self, arn: str) -> None:
+    def deployTaskWithARN(self, service: ECSService, arn: str) -> None:
         """
         Deploy the task with the given ARN to the service.
         """
         self.log.debug(
             "Deploying task ARN {arn} to service {service}...",
-            service=self.service,
+            service=service,
             arn=arn,
         )
-        del self._currentTasks[self.service]
+        del self._currentTasks[service]
         self._aws.update_service(
-            cluster=self.service.cluster.name,
-            service=self.service.name,
+            cluster=service.cluster.name,
+            service=service.name,
             taskDefinition=arn,
         )
         self.log.info(
             "Deployed task ARN {arn} to service {service}.",
-            service=self.service,
+            service=service,
             arn=arn,
         )
 
@@ -359,7 +359,7 @@ class ECSServiceClient(object):
         Register a new task definition and deploy it to the service.
         """
         arn = self.registerTaskDefinition(taskDefinition)
-        self.deployTaskWithARN(arn)
+        self.deployTaskWithARN(self.service, arn)
 
     def deployImage(self, imageName: str, trialRun: bool = False) -> None:
         """
@@ -456,7 +456,7 @@ class ECSServiceClient(object):
         # Select the second-to-last task ARN
         arn = response["taskDefinitionArns"][-2]
 
-        self.deployTaskWithARN(arn)
+        self.deployTaskWithARN(self.service, arn)
 
 
 #
