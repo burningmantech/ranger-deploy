@@ -541,6 +541,28 @@ class ECSTaskDefinitionTests(TestCase):
             self.assertEqual(updatedEnvironment, expectedEnvironment)
 
 
+class ECSServiceTests(TestCase):
+    """
+    Tests for :class:`ECSService`
+    """
+
+    @given(aws_resource_names(), aws_resource_names())
+    def test_fromDescriptor(self, clusterName: str, serviceName: str) -> None:
+        service = ECSService.fromDescriptor(f"{clusterName}:{serviceName}")
+
+        self.assertEqual(service.cluster.name, clusterName)
+        self.assertEqual(service.name, serviceName)
+
+    @given(aws_resource_names(), aws_resource_names())
+    def test_fromDescriptor_noColon(
+        self, clusterName: str, serviceName: str
+    ) -> None:
+        descriptor = f"{clusterName}{serviceName}"
+
+        e = self.assertRaises(ValueError, ECSService.fromDescriptor, descriptor)
+        self.assertEqual(str(e), f"Invalid service descriptor: {descriptor}")
+
+
 class ECSServiceClientTests(TestCase):
     """
     Tests for :class:`ECSServiceClient`

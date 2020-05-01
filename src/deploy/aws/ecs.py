@@ -232,6 +232,27 @@ class ECSService(object):
     ECS Service
     """
 
+    #
+    # Class attributes
+    #
+
+    @classmethod
+    def fromDescriptor(cls, descriptor: str) -> "ECSService":
+        """
+        Return an ECSService created from a descriptor consisting of a cluster
+        name and service name, separated by a colon (eg. "cluster:service").
+        """
+        try:
+            clusterName, serviceName = descriptor.split(":")
+        except ValueError:
+            raise ValueError(f"Invalid service descriptor: {descriptor}")
+
+        return cls(cluster=ECSCluster(name=clusterName), name=serviceName)
+
+    #
+    # Instance attributes
+    #
+
     cluster: ECSCluster
     name: str
 
@@ -500,12 +521,12 @@ def ensureCI() -> None:
         raise UsageError("Deployment not allowed outside of CI environment")
 
 
-def serviceFromCLI(cluster: Optional[str], service: str) -> ECSService:
+def serviceFromArguments(cluster: Optional[str], service: str) -> ECSService:
     if cluster is None:
         try:
-            cluster, service = service.split(":")
-        except ValueError:
-            raise UsageError(f"Invalid service: {service}")
+            return ECSService.fromDescriptor(service)
+        except ValueError as e:
+            raise UsageError(str(e))
     else:
         log.warn("Cluster argument is deprecated")
 
@@ -514,7 +535,7 @@ def serviceFromCLI(cluster: Optional[str], service: str) -> ECSService:
                 f"Invalid service (cluster re-specified): {service}"
             )
 
-    return ECSService(cluster=ECSCluster(name=cluster), name=service)
+        return ECSService(cluster=ECSCluster(name=cluster), name=service)
 
 
 def ecsOption(
@@ -646,7 +667,7 @@ def staging(
 
     ecsClient = ECSServiceClient()
 
-    stagingService = serviceFromCLI(staging_cluster, staging_service)
+    stagingService = serviceFromArguments(staging_cluster, staging_service)
 
     try:
         ecsClient.deployImage(stagingService, image_ecr, trialRun=trial_run)
@@ -689,7 +710,7 @@ def rollback(staging_cluster: Optional[str], staging_service: str,) -> None:
     """
     ecsClient = ECSServiceClient()
 
-    stagingService = serviceFromCLI(staging_cluster, staging_service)
+    stagingService = serviceFromArguments(staging_cluster, staging_service)
 
     ecsClient.rollback(stagingService)
 
@@ -708,8 +729,10 @@ def production(
     """
     ecsClient = ECSServiceClient()
 
-    stagingService = serviceFromCLI(staging_cluster, staging_service)
-    productionService = serviceFromCLI(production_cluster, production_service)
+    stagingService = serviceFromArguments(staging_cluster, staging_service)
+    productionService = serviceFromArguments(
+        production_cluster, production_service
+    )
 
     stagingImageName = ecsClient.currentTaskDefinition(stagingService).imageName
 
@@ -730,8 +753,10 @@ def compare(
     """
     ecsClient = ECSServiceClient()
 
-    stagingService = serviceFromCLI(staging_cluster, staging_service)
-    productionService = serviceFromCLI(production_cluster, production_service)
+    stagingService = serviceFromArguments(staging_cluster, staging_service)
+    productionService = serviceFromArguments(
+        production_cluster, production_service
+    )
 
     stagingTask = ecsClient.currentTaskDefinition(stagingService)
     productionTask = ecsClient.currentTaskDefinition(productionService)
@@ -792,7 +817,7 @@ def environment(
     the given values.  If a value is not provided, remove the variable.
     """
     ecsClient = ECSServiceClient()
-    ecsService = serviceFromCLI(cluster, service)
+    ecsService = serviceFromArguments(cluster, service)
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
         updates: Dict[str, Optional[str]] = {}
