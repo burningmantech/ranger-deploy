@@ -363,11 +363,13 @@ class ECSServiceClient(object):
         arn = self.registerTaskDefinition(taskDefinition)
         self.deployTaskWithARN(service, arn)
 
-    def deployImage(self, imageName: str, trialRun: bool = False) -> None:
+    def deployImage(
+        self, service: ECSService, imageName: str, trialRun: bool = False
+    ) -> None:
         """
         Deploy a Docker Image to the service.
         """
-        currentTaskDefinition = self.currentTaskDefinition(self.service)
+        currentTaskDefinition = self.currentTaskDefinition(service)
 
         try:
             newTaskDefinition = currentTaskDefinition.update(
@@ -379,14 +381,14 @@ class ECSServiceClient(object):
 
         self.log.debug(
             "Deploying image {image} to service {service}...",
-            service=self.service,
+            service=service,
             image=imageName,
         )
         if not trialRun:
-            self.deployTaskDefinition(self.service, newTaskDefinition)
+            self.deployTaskDefinition(service, newTaskDefinition)
         self.log.info(
             "Deployed image {image} to service {service}.",
-            service=self.service,
+            service=service,
             image=imageName,
         )
 
@@ -645,9 +647,10 @@ def staging(
         ecrClient.push(image_local, image_ecr, trialRun=trial_run)
 
     stagingClient = clientFromCLI(staging_cluster, staging_service)
+    stagingService = stagingClient.service
 
     try:
-        stagingClient.deployImage(image_ecr, trialRun=trial_run)
+        stagingClient.deployImage(stagingService, image_ecr, trialRun=trial_run)
     except NoSuchServiceError as e:
         raise UsageError(f"Unknown service: {e.service}")
 
@@ -705,11 +708,13 @@ def production(
     productionClient = clientFromCLI(production_cluster, production_service)
 
     stagingService = stagingClient.service
+    productionService = productionClient.service
+
     stagingImageName = stagingClient.currentTaskDefinition(
         stagingService
     ).imageName
 
-    productionClient.deployImage(stagingImageName)
+    productionClient.deployImage(productionService, stagingImageName)
 
 
 @main.command()

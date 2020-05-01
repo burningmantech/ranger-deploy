@@ -704,7 +704,7 @@ class ECSServiceClientTests(TestCase):
 
             newImageName = f"{taskDefinition.imageName}1046"
 
-            client.deployImage(newImageName)
+            client.deployImage(service, newImageName)
             newTask = client.currentTaskDefinition(service)
 
             self.assertEqual(newTask.imageName, newImageName)
@@ -716,7 +716,7 @@ class ECSServiceClientTests(TestCase):
             taskDefinition = client.currentTaskDefinition(service)
 
             expectedImageName = taskDefinition.imageName
-            client.deployImage(expectedImageName)
+            client.deployImage(service, expectedImageName)
             self.assertEqual(taskDefinition.imageName, expectedImageName)
 
     @given(dictionaries(text(), text()))
@@ -837,7 +837,7 @@ class ECSServiceClientTests(TestCase):
             expectedImageName = taskDefinition.imageName
             newImageName = f"{expectedImageName}2957"
 
-            client.deployImage(newImageName)
+            client.deployImage(service, newImageName)
             client.rollback()
 
             self.assertEqual(taskDefinition.imageName, expectedImageName)
