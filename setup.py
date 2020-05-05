@@ -117,12 +117,12 @@ install_requirements = [
     # • it should improve interoperability with AWS services
 
     # Direct dependencies
-    "arrow==0.15.5",
+    "arrow==0.15.6",
     "attrs==19.3.0",
     "boto3>=1.13,<1.14",
     "Click==7.1.2",
     "docker==4.2.0",  # [tls]
-    "GitPython==3.1.1",
+    "GitPython==3.1.2",
     "Twisted==20.3.0",
 
     # Indirect dependencies
