@@ -657,6 +657,7 @@ def staging(
         ensureCI()
 
     if ":" not in image_ecr:
+        # We got an image name without a tag... use the Git commit hash.
         repo = Repo()
         commitID = repo.head.object.hexsha
         image_ecr = f"{image_ecr}:{commitID[:7]}"
