@@ -86,6 +86,8 @@ from ..ecs import (
     TaskDefinitionJSON,
     TaskEnvironment,
     TaskEnvironmentUpdates,
+    UsageError,
+    serviceFromArguments,
 )
 
 
@@ -1026,6 +1028,61 @@ def testingSMTPNotifier() -> Iterator[None]:
             SMTPNotifier
         )
         MockSMTPNotifier._notifyStagingCalls.clear()
+
+
+class CommandLineSupportTests(TestCase):
+    """
+    Tests for the :class:`ECSServiceClient` command line support functions.
+    """
+
+    @given(aws_resource_names(), aws_resource_names())
+    def test_serviceFromArguments(
+        self, clusterName: str, serviceName: str
+    ) -> None:
+        """
+        Given cluster and service in the service argument,
+        serviceFromArguments() returns a correct ECSService.
+        """
+        self.assertEqual(
+            serviceFromArguments(None, f"{clusterName}:{serviceName}"),
+            ECSService(cluster=ECSCluster(name=clusterName), name=serviceName),
+        )
+
+    @given(aws_resource_names(), aws_resource_names(), aws_resource_names())
+    def test_serviceFromArguments_duplicateCluster(
+        self, clusterName: str, serviceName: str, otherClusterName: str
+    ) -> None:
+        """
+        Given cluster and service in the service argument and a cluster
+        argument serviceFromArguments() raises UsageError.
+        """
+        self.assertRaises(
+            UsageError,
+            serviceFromArguments,
+            otherClusterName,
+            f"{clusterName}:{serviceName}",
+        )
+
+    def test_serviceFromArguments_bogus(self) -> None:
+        """
+        Given an invalid service argument, serviceFromArguments() raises
+        UsageError.
+        """
+        self.assertRaises(UsageError, serviceFromArguments, None, "::")
+
+    @given(aws_resource_names(), aws_resource_names())
+    def test_serviceFromArguments_separate(
+        self, clusterName: str, serviceName: str
+    ) -> None:
+        """
+        Given separate cluster and service arguments, serviceFromArguments()
+        returns a correct ECSService.
+        (This is the original argument syntax, now deprecated.)
+        """
+        self.assertEqual(
+            serviceFromArguments(clusterName, serviceName),
+            ECSService(cluster=ECSCluster(name=clusterName), name=serviceName),
+        )
 
 
 class CommandLineTests(TestCase):
