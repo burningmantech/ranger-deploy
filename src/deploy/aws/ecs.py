@@ -555,7 +555,7 @@ def ecsOption(
         help=help,
         type=str,
         metavar="<name>",
-        prompt=True,
+        prompt=required,
         required=required,
     )
 
