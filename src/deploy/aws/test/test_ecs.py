@@ -1118,10 +1118,8 @@ class CommandLineTests(TestCase):
                     [
                         "deploy_aws_ecs",
                         "staging",
-                        "--staging-cluster",
-                        stagingClusterName,
                         "--staging-service",
-                        stagingServiceName,
+                        f"{stagingClusterName}:{stagingServiceName}",
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1216,10 +1214,8 @@ class CommandLineTests(TestCase):
                         [
                             "deploy_aws_ecs",
                             "staging",
-                            "--staging-cluster",
-                            stagingClusterName,
                             "--staging-service",
-                            stagingServiceName,
+                            f"{stagingClusterName}:{stagingServiceName}",
                             "--image-ecr",
                             ecrImageName,
                             "--image-local",
@@ -1299,10 +1295,8 @@ class CommandLineTests(TestCase):
         args = [
             "deploy_aws_ecs",
             "staging",
-            "--staging-cluster",
-            stagingClusterName,
             "--staging-service",
-            stagingServiceName,
+            f"{stagingClusterName}:{stagingServiceName}",
             "--image-ecr",
             ecrImageName,
             "--project-name",
@@ -1385,10 +1379,8 @@ class CommandLineTests(TestCase):
                     [
                         "deploy_aws_ecs",
                         "staging",
-                        "--staging-cluster",
-                        stagingClusterName,
                         "--staging-service",
-                        stagingServiceName,
+                        f"{stagingClusterName}:{stagingServiceName}",
                         "--image-ecr",
                         ecrImageName,
                         "--trial-run",
@@ -1430,10 +1422,8 @@ class CommandLineTests(TestCase):
                     [
                         "deploy_aws_ecs",
                         "staging",
-                        "--staging-cluster",
-                        stagingClusterName,
                         "--staging-service",
-                        doesntExistServiceName,
+                        f"{stagingClusterName}:{doesntExistServiceName}",
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1474,10 +1464,8 @@ class CommandLineTests(TestCase):
                     [
                         "deploy_aws_ecs",
                         "staging",
-                        "--staging-cluster",
-                        stagingClusterName,
                         "--staging-service",
-                        stagingServiceName,
+                        f"{stagingClusterName}:{stagingServiceName}",
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1514,10 +1502,8 @@ class CommandLineTests(TestCase):
                     [
                         "deploy_aws_ecs",
                         "staging",
-                        "--staging-cluster",
-                        stagingClusterName,
                         "--staging-service",
-                        stagingServiceName,
+                        f"{stagingClusterName}:{stagingServiceName}",
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1554,10 +1540,8 @@ class CommandLineTests(TestCase):
                     [
                         "deploy_aws_ecs",
                         "staging",
-                        "--staging-cluster",
-                        stagingClusterName,
                         "--staging-service",
-                        stagingServiceName,
+                        f"{stagingClusterName}:{stagingServiceName}",
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1592,10 +1576,8 @@ class CommandLineTests(TestCase):
                 [
                     "deploy_aws_ecs",
                     "rollback",
-                    "--staging-cluster",
-                    stagingClusterName,
                     "--staging-service",
-                    stagingServiceName,
+                    f"{stagingClusterName}:{stagingServiceName}",
                 ],
             )
 
@@ -1657,14 +1639,10 @@ class CommandLineTests(TestCase):
                 [
                     "deploy_aws_ecs",
                     "production",
-                    "--staging-cluster",
-                    stagingClusterName,
                     "--staging-service",
-                    stagingServiceName,
-                    "--production-cluster",
-                    productionClusterName,
+                    f"{stagingClusterName}:{stagingServiceName}",
                     "--production-service",
-                    productionServiceName,
+                    f"{productionClusterName}:{productionServiceName}",
                 ],
             )
 
@@ -1732,14 +1710,10 @@ class CommandLineTests(TestCase):
                 [
                     "deploy_aws_ecs",
                     "compare",
-                    "--staging-cluster",
-                    stagingClusterName,
                     "--staging-service",
-                    stagingServiceName,
-                    "--production-cluster",
-                    productionClusterName,
+                    f"{stagingClusterName}:{stagingServiceName}",
                     "--production-service",
-                    productionServiceName,
+                    f"{productionClusterName}:{productionServiceName}",
                 ],
             )
 
@@ -1787,10 +1761,8 @@ class CommandLineTests(TestCase):
                 [
                     "deploy_aws_ecs",
                     "environment",
-                    "--cluster",
-                    clusterName,
                     "--service",
-                    serviceName,
+                    f"{clusterName}:{serviceName}",
                 ],
             )
 
@@ -1847,10 +1819,8 @@ class CommandLineTests(TestCase):
                 [
                     "deploy_aws_ecs",
                     "environment",
-                    "--cluster",
-                    clusterName,
                     "--service",
-                    serviceName,
+                    f"{clusterName}:{serviceName}",
                     # a letter
                     *[f"x{k}={v}" for k, v in updates],
                 ],
@@ -1921,10 +1891,8 @@ class CommandLineTests(TestCase):
                 [
                     "deploy_aws_ecs",
                     "environment",
-                    "--cluster",
-                    clusterName,
                     "--service",
-                    serviceName,
+                    f"{clusterName}:{serviceName}",
                     *[f"x{k}" for k in removes],
                 ],
             )
