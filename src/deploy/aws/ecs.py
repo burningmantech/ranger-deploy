@@ -820,7 +820,7 @@ def environment(
     ecsClient = ECSServiceClient()
     ecsService = serviceFromArguments(cluster, service)
     if arguments:
-        click.echo(f"Changing environment variables for {cluster}:{service}:")
+        click.echo(f"Changing environment variables for {service}:")
         updates: Dict[str, Optional[str]] = {}
         for arg in arguments:
             if "=" in arg:
@@ -834,7 +834,7 @@ def environment(
         ecsClient.deployTaskEnvironment(ecsService, updates)
     else:
         environment = ecsClient.currentTaskDefinition(ecsService).environment
-        click.echo(f"Environment variables for {cluster}:{service}:")
+        click.echo(f"Environment variables for {service}:")
         for key, value in environment.items():
             click.echo(f"    {key} = {value!r}")
 
