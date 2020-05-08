@@ -237,17 +237,26 @@ class ECSService(object):
     #
 
     @classmethod
+    def fromNames(cls, clusterName: str, serviceName: str) -> "ECSService":
+        """
+        Create and return an ECSService created from a cluster name and service
+        name.
+        """
+        return cls(cluster=ECSCluster(name=clusterName), name=serviceName)
+
+    @classmethod
     def fromDescriptor(cls, descriptor: str) -> "ECSService":
         """
-        Return an ECSService created from a descriptor consisting of a cluster
-        name and service name, separated by a colon (eg. "cluster:service").
+        Create and return an ECSService created from a string descriptor
+        consisting of a cluster name and service name separated by a colon
+        (eg. "cluster:service").
         """
         try:
             clusterName, serviceName = descriptor.split(":")
         except ValueError:
             raise ValueError(f"Invalid service descriptor: {descriptor}")
 
-        return cls(cluster=ECSCluster(name=clusterName), name=serviceName)
+        return cls.fromNames(clusterName, serviceName)
 
     #
     # Instance attributes
@@ -257,6 +266,13 @@ class ECSService(object):
     name: str
 
     def __str__(self) -> str:
+        return self.descriptor()
+
+    def descriptor(self) -> str:
+        """
+        Return a string descriptor for the service, consisting of a cluster
+        name and service name separated by a colon (eg. "cluster:service").
+        """
         return f"{self.cluster}:{self.name}"
 
 

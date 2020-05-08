@@ -549,6 +549,13 @@ class ECSServiceTests(TestCase):
     """
 
     @given(aws_resource_names(), aws_resource_names())
+    def test_fromNames(self, clusterName: str, serviceName: str) -> None:
+        service = ECSService.fromNames(clusterName, serviceName)
+
+        self.assertEqual(service.cluster.name, clusterName)
+        self.assertEqual(service.name, serviceName)
+
+    @given(aws_resource_names(), aws_resource_names())
     def test_fromDescriptor(self, clusterName: str, serviceName: str) -> None:
         service = ECSService.fromDescriptor(f"{clusterName}:{serviceName}")
 
@@ -563,6 +570,16 @@ class ECSServiceTests(TestCase):
 
         e = self.assertRaises(ValueError, ECSService.fromDescriptor, descriptor)
         self.assertEqual(str(e), f"Invalid service descriptor: {descriptor}")
+
+    @given(aws_resource_names(), aws_resource_names())
+    def test_str(self, clusterName: str, serviceName: str) -> None:
+        service = ECSService.fromNames(clusterName, serviceName)
+        self.assertEqual(str(service), f"{clusterName}:{serviceName}")
+
+    @given(aws_resource_names(), aws_resource_names())
+    def test_descriptor(self, clusterName: str, serviceName: str) -> None:
+        service = ECSService.fromNames(clusterName, serviceName)
+        self.assertEqual(service.descriptor(), f"{clusterName}:{serviceName}")
 
 
 class ECSServiceClientTests(TestCase):
