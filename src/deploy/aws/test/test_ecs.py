@@ -87,7 +87,7 @@ from ..ecs import (
     TaskEnvironment,
     TaskEnvironmentUpdates,
     UsageError,
-    serviceFromArguments,
+    serviceFromNames,
 )
 
 
@@ -1053,52 +1053,66 @@ class CommandLineSupportTests(TestCase):
     """
 
     @given(aws_resource_names(), aws_resource_names())
-    def test_serviceFromArguments(
-        self, clusterName: str, serviceName: str
-    ) -> None:
+    def test_serviceFromNames(self, clusterName: str, serviceName: str) -> None:
         """
-        Given cluster and service in the service argument,
-        serviceFromArguments() returns a correct ECSService.
+        Given cluster and service in the service argument, serviceFromNames()
+        returns a correct ECSService.
         """
         self.assertEqual(
-            serviceFromArguments(None, f"{clusterName}:{serviceName}"),
+            serviceFromNames(None, f"{clusterName}:{serviceName}"),
             ECSService(cluster=ECSCluster(name=clusterName), name=serviceName),
         )
 
     @given(aws_resource_names(), aws_resource_names(), aws_resource_names())
-    def test_serviceFromArguments_duplicateCluster(
+    def test_serviceFromNames_duplicateCluster(
         self, clusterName: str, serviceName: str, otherClusterName: str
     ) -> None:
         """
         Given cluster and service in the service argument and a cluster
-        argument serviceFromArguments() raises UsageError.
+        argument serviceFromNames() raises UsageError.
         """
         self.assertRaises(
             UsageError,
-            serviceFromArguments,
+            serviceFromNames,
             otherClusterName,
             f"{clusterName}:{serviceName}",
         )
 
-    def test_serviceFromArguments_bogus(self) -> None:
+    def test_serviceFromNames_bogus(self) -> None:
         """
-        Given an invalid service argument, serviceFromArguments() raises
-        UsageError.
+        Given an invalid service argument, serviceFromNames() raises UsageError.
         """
-        self.assertRaises(UsageError, serviceFromArguments, None, "::")
+        self.assertRaises(UsageError, serviceFromNames, None, "::")
 
     @given(aws_resource_names(), aws_resource_names())
-    def test_serviceFromArguments_separate(
+    def test_serviceFromNames_separate(
         self, clusterName: str, serviceName: str
     ) -> None:
         """
-        Given separate cluster and service arguments, serviceFromArguments()
+        Given separate cluster and service arguments, serviceFromNames()
         returns a correct ECSService.
         (This is the original argument syntax, now deprecated.)
         """
         self.assertEqual(
-            serviceFromArguments(clusterName, serviceName),
+            serviceFromNames(clusterName, serviceName),
             ECSService(cluster=ECSCluster(name=clusterName), name=serviceName),
+        )
+
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=2)
+    )
+    def test_serviceFromNames_multiple(
+        self, serviceNames: Sequence[Tuple[str, str]]
+    ) -> None:
+        """
+        Given a service argument with multiple service descriptors,
+        serviceFromNames() raises UsageError.
+        """
+        self.assertRaises(
+            UsageError,
+            serviceFromNames,
+            None,
+            ",".join(f"{n[0]}:{n[1]}" for n in serviceNames),
         )
 
 
@@ -1115,18 +1129,32 @@ class CommandLineTests(TestCase):
         MockBoto3ECSClient._addDefaultTaskDefinitions()
         if cluster not in MockBoto3ECSClient._services:
             MockBoto3ECSClient._addCluster(cluster)
-        MockBoto3ECSClient._addService(cluster, service, taskARN)
+        try:
+            MockBoto3ECSClient._addService(cluster, service, taskARN)
+        except AssertionError as e:  # pragma: no cover
+            assert "already exists in cluster" in str(e)
+
+    def initService(self, service: ECSService) -> None:
+        self.initClusterAndService(service.cluster.name, service.name)
+
+    def initServices(
+        self, names: Sequence[Tuple[str, str]]
+    ) -> Sequence[ECSService]:
+        services = []
+        for clusterName, serviceName in names:
+            stagingService = ECSService.fromNames(clusterName, serviceName)
+            self.initService(stagingService)
+            services.append(stagingService)
+        return services
 
     def _test_staging(
         self,
-        stagingClusterName: str,
-        stagingServiceName: str,
+        stagingServiceNames: Sequence[Tuple[str, str]],
         ecrImageName: str,
         environment: Callable[[], ContextManager] = ciEnvironment,
     ) -> None:
         with testingECSServiceClient() as (clients, services):
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
+            stagingServices = self.initServices(stagingServiceNames)
 
             # Run "staging" subcommand
             with environment():
@@ -1136,93 +1164,81 @@ class CommandLineTests(TestCase):
                         "deploy_aws_ecs",
                         "staging",
                         "--staging-service",
-                        f"{stagingClusterName}:{stagingServiceName}",
+                        ",".join(s.descriptor() for s in stagingServices),
                         "--image-ecr",
                         ecrImageName,
                     ],
                 )
 
             self.assertEqual(len(clients), 1)
-            self.assertEqual(len(services), 1)
+            self.assertEqual(len(services), len(stagingServices))
 
             client = clients[0]
-            service = services[0]
 
-            taskDefinition = client.currentTaskDefinition(service)
-
-            self.assertEqual(service.cluster.name, stagingClusterName)
-            self.assertEqual(service.name, stagingServiceName)
-
-            if ":" in ecrImageName:
-                self.assertEqual(taskDefinition.imageName, ecrImageName)
-            else:
-                self.assertTrue(
-                    taskDefinition.imageName.startswith(ecrImageName)
+            for service, stagingService in zip(services, stagingServices):
+                self.assertEqual(
+                    service.cluster.name, stagingService.cluster.name
                 )
+                self.assertEqual(service.name, stagingService.name)
 
-        self.assertEqual(result.exitCode, 0)
+                taskDefinition = client.currentTaskDefinition(service)
+                if ":" in ecrImageName:
+                    self.assertEqual(taskDefinition.imageName, ecrImageName)
+                else:
+                    self.assertTrue(
+                        taskDefinition.imageName.startswith(ecrImageName + ":")
+                    )
+
+        self.assertEqual(result.exitCode, 0, result.stderr.getvalue())
         self.assertEqual(result.echoOutput, [])
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
 
-    @given(aws_resource_names(), aws_resource_names(), image_names())
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_names(),
+    )
     @settings(max_examples=5)
     def test_staging_ci(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
     ) -> None:
         self._test_staging(
-            stagingClusterName,
-            stagingServiceName,
-            ecrImageName,
-            environment=ciEnvironment,
+            stagingServiceNames, ecrImageName, environment=ciEnvironment
         )
-
-    @given(aws_resource_names(), aws_resource_names(), image_names())
-    @settings(max_examples=5)
-    def test_staging_travis(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
-    ) -> None:
-        self._test_staging(
-            stagingClusterName,
-            stagingServiceName,
-            ecrImageName,
-            environment=travisEnvironment,
-        )
-
-    @given(aws_resource_names(), aws_resource_names(), image_repository_names())
-    @settings(max_examples=5)
-    def test_staging_noECRImageTag(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
-    ) -> None:
-        self._test_staging(stagingClusterName, stagingServiceName, ecrImageName)
 
     @given(
-        aws_resource_names(),
-        aws_resource_names(),
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_names(),
+    )
+    @settings(max_examples=5)
+    def test_staging_travis(
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
+    ) -> None:
+        self._test_staging(
+            stagingServiceNames, ecrImageName, environment=travisEnvironment
+        )
+
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_repository_names(),
+    )
+    @settings(max_examples=5)
+    def test_staging_noECRImageTag(
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
+    ) -> None:
+        self._test_staging(stagingServiceNames, ecrImageName)
+
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
         one_of(image_names(), image_repository_names()),
     )
     @settings(max_examples=50)
     def test_staging_push(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
     ) -> None:
         with testingECRServiceClient():
             with testingECSServiceClient() as (clients, services):
-                # Add starting data set
-                self.initClusterAndService(
-                    stagingClusterName, stagingServiceName
-                )
+                stagingServices = self.initServices(stagingServiceNames)
 
                 # Run "staging" subcommand
                 with travisEnvironment():
@@ -1232,7 +1248,7 @@ class CommandLineTests(TestCase):
                             "deploy_aws_ecs",
                             "staging",
                             "--staging-service",
-                            f"{stagingClusterName}:{stagingServiceName}",
+                            ",".join(s.descriptor() for s in stagingServices),
                             "--image-ecr",
                             ecrImageName,
                             "--image-local",
@@ -1241,24 +1257,28 @@ class CommandLineTests(TestCase):
                     )
 
                 self.assertEqual(len(clients), 1)
-                self.assertEqual(len(services), 1)
+                self.assertEqual(len(services), len(stagingServices))
 
                 ecsClient = clients[0]
-                ecsService = services[0]
 
-                self.assertEqual(ecsService.cluster.name, stagingClusterName)
-                self.assertEqual(ecsService.name, stagingServiceName)
-
-                currentImageName = ecsClient.currentTaskDefinition(
-                    ecsService
-                ).imageName
-                if ":" in ecrImageName:
-                    self.assertEqual(currentImageName, ecrImageName)
-                else:
-                    self.assertTrue(
-                        currentImageName.startswith(f"{ecrImageName}:")
+                for ecsService, stagingService in zip(
+                    services, stagingServices
+                ):
+                    self.assertEqual(
+                        ecsService.cluster.name, stagingService.cluster.name
                     )
-                    ecrImageName = currentImageName
+                    self.assertEqual(ecsService.name, stagingService.name)
+
+                    currentImageName = ecsClient.currentTaskDefinition(
+                        ecsService
+                    ).imageName
+                    if ":" in ecrImageName:
+                        self.assertEqual(currentImageName, ecrImageName)
+                    else:
+                        self.assertTrue(
+                            currentImageName.startswith(f"{ecrImageName}:")
+                        )
+                        ecrImageName = currentImageName
 
                 # ECR tag should exist both locally and in ECR
                 ecrClient = ECRServiceClient()
@@ -1273,8 +1293,7 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stderr.getvalue(), "")
 
     @given(
-        aws_resource_names(),  # stagingClusterName
-        aws_resource_names(),  # stagingServiceName
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
         one_of(image_names(), image_repository_names()),  # ecrImageName
         ascii_text(min_size=1),  # smtpHost
         port_numbers(),  # smtpPort
@@ -1292,8 +1311,7 @@ class CommandLineTests(TestCase):
     )
     def test_staging_notify(
         self,
-        stagingClusterName: str,
-        stagingServiceName: str,
+        stagingServiceNames: Sequence[Tuple[str, str]],
         ecrImageName: str,
         smtpHost: str,
         smtpPort: int,
@@ -1309,45 +1327,44 @@ class CommandLineTests(TestCase):
         commitMessage: str,
         trialRun: bool,
     ) -> None:
-        args = [
-            "deploy_aws_ecs",
-            "staging",
-            "--staging-service",
-            f"{stagingClusterName}:{stagingServiceName}",
-            "--image-ecr",
-            ecrImageName,
-            "--project-name",
-            project,
-            "--repository-id",
-            repository,
-            "--build-number",
-            buildNumber,
-            "--build-url",
-            buildURL,
-            "--commit-id",
-            commitID,
-            "--commit-message",
-            commitMessage,
-            "--smtp-host",
-            smtpHost,
-            "--smtp-port",
-            str(smtpPort),
-            "--smtp-user",
-            smtpUser,
-            "--smtp-password",
-            smtpPassword,
-            "--email-sender",
-            senderAddress,
-            "--email-recipient",
-            recipientAddress,
-        ]
-
-        if trialRun:
-            args.append("--trial-run")
-
         with testingECSServiceClient():
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
+            stagingServices = self.initServices(stagingServiceNames)
+
+            args = [
+                "deploy_aws_ecs",
+                "staging",
+                "--staging-service",
+                ",".join(s.descriptor() for s in stagingServices),
+                "--image-ecr",
+                ecrImageName,
+                "--project-name",
+                project,
+                "--repository-id",
+                repository,
+                "--build-number",
+                buildNumber,
+                "--build-url",
+                buildURL,
+                "--commit-id",
+                commitID,
+                "--commit-message",
+                commitMessage,
+                "--smtp-host",
+                smtpHost,
+                "--smtp-port",
+                str(smtpPort),
+                "--smtp-user",
+                smtpUser,
+                "--smtp-password",
+                smtpPassword,
+                "--email-sender",
+                senderAddress,
+                "--email-recipient",
+                recipientAddress,
+            ]
+
+            if trialRun:
+                args.append("--trial-run")
 
             # Run "staging" subcommand
             with travisEnvironment(), testingSMTPNotifier():
@@ -1373,21 +1390,16 @@ class CommandLineTests(TestCase):
         self.assertEqual(result.stdout.getvalue(), "")
         self.assertEqual(result.stderr.getvalue(), "")
 
-    @given(aws_resource_names(), aws_resource_names(), image_names())
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_names(),
+    )
     @settings(max_examples=5)
     def test_staging_trial(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as (clients, services):
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
-
-            startingImageName = MockBoto3ECSClient._currentImageName(
-                cluster=stagingClusterName, service=stagingServiceName
-            )
+            stagingServices = self.initServices(stagingServiceNames)
 
             # Run "staging" subcommand
             with travisEnvironment():
@@ -1397,7 +1409,7 @@ class CommandLineTests(TestCase):
                         "deploy_aws_ecs",
                         "staging",
                         "--staging-service",
-                        f"{stagingClusterName}:{stagingServiceName}",
+                        ",".join(s.descriptor() for s in stagingServices),
                         "--image-ecr",
                         ecrImageName,
                         "--trial-run",
@@ -1405,16 +1417,23 @@ class CommandLineTests(TestCase):
                 )
 
             self.assertEqual(len(clients), 1)
-            self.assertEqual(len(services), 1)
+            self.assertEqual(len(services), len(stagingServices))
 
             client = clients[0]
-            service = services[0]
 
-            taskDefinition = client.currentTaskDefinition(service)
+            for service, stagingService in zip(services, stagingServices):
+                self.assertEqual(
+                    service.cluster.name, stagingService.cluster.name
+                )
+                self.assertEqual(service.name, stagingService.name)
 
-            self.assertEqual(service.cluster.name, stagingClusterName)
-            self.assertEqual(service.name, stagingServiceName)
-            self.assertEqual(taskDefinition.imageName, startingImageName)
+                startingImageName = MockBoto3ECSClient._currentImageName(
+                    cluster=stagingService.cluster.name,
+                    service=stagingService.name,
+                )
+                taskDefinition = client.currentTaskDefinition(service)
+
+                self.assertEqual(taskDefinition.imageName, startingImageName)
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
@@ -1462,17 +1481,16 @@ class CommandLineTests(TestCase):
             errorMessage,
         )
 
-    @given(aws_resource_names(), aws_resource_names(), image_names())
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_names(),
+    )
     @settings(max_examples=5)
     def test_staging_notCI(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
     ) -> None:
         with testingECSServiceClient() as (clients, services):
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
+            stagingServices = self.initServices(stagingServiceNames)
 
             # Run "staging" subcommand
             with notCIEnvironment():
@@ -1482,7 +1500,7 @@ class CommandLineTests(TestCase):
                         "deploy_aws_ecs",
                         "staging",
                         "--staging-service",
-                        f"{stagingClusterName}:{stagingServiceName}",
+                        ",".join(s.descriptor() for s in stagingServices),
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1500,17 +1518,16 @@ class CommandLineTests(TestCase):
             )
         )
 
-    @given(aws_resource_names(), aws_resource_names(), image_names())
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_names(),
+    )
     @settings(max_examples=5)
     def test_staging_travis_notPR(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
     ) -> None:
         with testingECSServiceClient() as (clients, services):
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
+            stagingServices = self.initServices(stagingServiceNames)
 
             # Run "staging" subcommand
             with travisEnvironment(omit="pr"):
@@ -1520,7 +1537,7 @@ class CommandLineTests(TestCase):
                         "deploy_aws_ecs",
                         "staging",
                         "--staging-service",
-                        f"{stagingClusterName}:{stagingServiceName}",
+                        ",".join(s.descriptor() for s in stagingServices),
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1538,17 +1555,16 @@ class CommandLineTests(TestCase):
             )
         )
 
-    @given(aws_resource_names(), aws_resource_names(), image_names())
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1),
+        image_names(),
+    )
     @settings(max_examples=5)
     def test_staging_travis_notBranch(
-        self,
-        stagingClusterName: str,
-        stagingServiceName: str,
-        ecrImageName: str,
+        self, stagingServiceNames: Sequence[Tuple[str, str]], ecrImageName: str
     ) -> None:
         with testingECSServiceClient() as (clients, services):
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
+            stagingServices = self.initServices(stagingServiceNames)
 
             # Run "staging" subcommand
             with travisEnvironment(omit="branch"):
@@ -1558,7 +1574,7 @@ class CommandLineTests(TestCase):
                         "deploy_aws_ecs",
                         "staging",
                         "--staging-service",
-                        f"{stagingClusterName}:{stagingServiceName}",
+                        ",".join(s.descriptor() for s in stagingServices),
                         "--image-ecr",
                         ecrImageName,
                     ],
@@ -1578,14 +1594,15 @@ class CommandLineTests(TestCase):
             )
         )
 
-    @given(aws_resource_names(), aws_resource_names())
+    @given(
+        lists(tuples(aws_resource_names(), aws_resource_names()), min_size=1)
+    )
     @settings(max_examples=5)
     def test_rollback(
-        self, stagingClusterName: str, stagingServiceName: str
+        self, stagingServiceNames: Sequence[Tuple[str, str]]
     ) -> None:
         with testingECSServiceClient() as (clients, services):
-            # Add starting data set
-            self.initClusterAndService(stagingClusterName, stagingServiceName)
+            stagingServices = self.initServices(stagingServiceNames)
 
             # Run "rollback" subcommand
             result = clickTestRun(
@@ -1594,28 +1611,30 @@ class CommandLineTests(TestCase):
                     "deploy_aws_ecs",
                     "rollback",
                     "--staging-service",
-                    f"{stagingClusterName}:{stagingServiceName}",
+                    ",".join(s.descriptor() for s in stagingServices),
                 ],
             )
 
             self.assertEqual(len(clients), 1)
-            self.assertEqual(len(services), 1)
+            self.assertEqual(len(services), len(stagingServices))
 
             client = clients[0]
-            service = services[0]
 
-            taskDefinition = client.currentTaskDefinition(service)
+            for service, stagingService in zip(services, stagingServices):
+                taskDefinition = client.currentTaskDefinition(service)
 
-            self.assertEqual(service.cluster.name, stagingClusterName)
-            self.assertEqual(service.name, stagingServiceName)
-            self.assertEqual(
-                taskDefinition.imageName,
-                (
-                    client._aws._defaultTaskDefinitions[-2][
-                        "containerDefinitions"
-                    ][0]["image"]
-                ),
-            )
+                self.assertEqual(
+                    service.cluster.name, stagingService.cluster.name
+                )
+                self.assertEqual(service.name, stagingService.name)
+                self.assertEqual(
+                    taskDefinition.imageName,
+                    (
+                        client._aws._defaultTaskDefinitions[-2][
+                            "containerDefinitions"
+                        ][0]["image"]
+                    ),
+                )
 
         self.assertEqual(result.exitCode, 0)
         self.assertEqual(result.echoOutput, [])
