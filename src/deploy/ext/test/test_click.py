@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Dict
 
 from hypothesis import given, note
-from hypothesis.strategies import characters, dictionaries, text
+from hypothesis.strategies import SearchStrategy, characters, dictionaries, text
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
@@ -43,35 +43,42 @@ configBlacklistCategories = (
 )
 
 
+def profileNames() -> SearchStrategy:
+    return text(
+        min_size=1,
+        alphabet=characters(
+            blacklist_categories=configBlacklistCategories + ("Zs",),  # Spaces
+            blacklist_characters="]",
+        ),
+    )
+
+
+def configKeys() -> SearchStrategy:
+    return text(
+        min_size=1,
+        alphabet=characters(
+            blacklist_categories=configBlacklistCategories,
+            blacklist_characters="=",
+        ),
+    )
+
+
+def configValues() -> SearchStrategy:
+    return text(
+        alphabet=characters(blacklist_categories=configBlacklistCategories)
+    )
+
+
+def configDicts() -> SearchStrategy:
+    return dictionaries(configKeys(), configValues())
+
+
 class ReadConfigTests(TestCase):
     """
     Tests for :func:`readConfig`
     """
 
-    @given(
-        text(  # profile
-            min_size=1,
-            alphabet=characters(
-                blacklist_categories=configBlacklistCategories
-                + ("Zs",),  # Spaces
-                blacklist_characters="]",
-            ),
-        ),
-        dictionaries(  # config keys
-            text(
-                min_size=1,
-                alphabet=characters(
-                    blacklist_categories=configBlacklistCategories,
-                    blacklist_characters="=",
-                ),
-            ),
-            text(  # config values
-                alphabet=characters(
-                    blacklist_categories=configBlacklistCategories
-                ),
-            ),
-        ),
-    )
+    @given(profileNames(), configDicts())
     def test_readConfig(self, profile: str, configDict: Dict[str, str]) -> None:
         # Normalize the config dict so that we ensure keys and valid and that
         # we can can compare this dict with the result:
