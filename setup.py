@@ -117,12 +117,12 @@ install_requirements = [
     # • it should improve interoperability with AWS services
 
     # Direct dependencies
-    "arrow==0.15.5",
+    "arrow==0.15.6",
     "attrs==19.3.0",
     "boto3>=1.13,<1.14",
     "Click==7.1.2",
     "docker==4.2.0",  # [tls]
-    "GitPython==3.1.1",
+    "GitPython==3.1.2",
     "Twisted==20.3.0",
 
     # Indirect dependencies
@@ -136,7 +136,7 @@ install_requirements = [
     "hyperlink==19.0.0",
     "idna==2.9",
     "incremental==17.5.0",
-    "jmespath==0.9.5",
+    "jmespath==0.10.0",
     "PyHamcrest==2.0.2",
     "python-dateutil==2.8.1",
     "requests==2.23.0",
