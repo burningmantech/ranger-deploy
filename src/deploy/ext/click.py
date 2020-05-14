@@ -30,6 +30,7 @@ from click import option
 
 __all__ = (
     "ClickTestResult",
+    "ConfigDict",
     "clickTestRun",
     "composedOptions",
     "profileOption",
@@ -145,10 +146,13 @@ def clickTestRun(
     return result
 
 
+ConfigDict = Dict[str, Optional[str]]
+
+
 def readConfig(
     profile: Optional[str] = defaultConfigProfile,
     path: Path = defaultConfigPath,
-) -> Dict[str, Optional[str]]:
+) -> ConfigDict:
     """
     Read configuration from the given path using the given profile.
     """

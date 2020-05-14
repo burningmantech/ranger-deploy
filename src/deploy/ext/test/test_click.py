@@ -19,14 +19,20 @@ Tests for :mod:`deploy.ext.click`
 """
 
 from pathlib import Path
-from typing import Dict
+from typing import Callable
 
-from hypothesis import given, note
-from hypothesis.strategies import SearchStrategy, characters, dictionaries, text
+from hypothesis import assume, given, note
+from hypothesis.strategies import (
+    SearchStrategy,
+    characters,
+    composite,
+    dictionaries,
+    text,
+)
 
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
-from ..click import readConfig
+from ..click import ConfigDict, readConfig
 
 
 __all__ = ()
@@ -43,8 +49,8 @@ configBlacklistCategories = (
 )
 
 
-def profileNames() -> SearchStrategy:
-    return text(
+def profileNames(allowDefault: bool = True) -> SearchStrategy:
+    strategy = text(
         min_size=1,
         alphabet=characters(
             blacklist_categories=configBlacklistCategories + ("Zs",),  # Spaces
@@ -52,25 +58,69 @@ def profileNames() -> SearchStrategy:
         ),
     )
 
+    if not allowDefault:
+        strategy = strategy.filter(lambda s: s != "default")
 
-def configKeys() -> SearchStrategy:
-    return text(
-        min_size=1,
-        alphabet=characters(
-            blacklist_categories=configBlacklistCategories,
-            blacklist_characters="=",
-        ),
+    return strategy
+
+
+@composite
+def configKeys(draw: Callable) -> str:
+    key: str = draw(
+        text(
+            min_size=1,
+            alphabet=characters(
+                blacklist_categories=configBlacklistCategories,
+                blacklist_characters="=",
+            ),
+        )
+    )
+    key = key.strip().lstrip("#")
+    assume(key)
+    return key
+
+
+@composite
+def configValues(draw: Callable) -> str:
+    value: str = draw(
+        text(
+            alphabet=characters(blacklist_categories=configBlacklistCategories)
+        )
     )
 
+    # No variable interpolation
+    value = value.replace("$", "")
 
-def configValues() -> SearchStrategy:
-    return text(
-        alphabet=characters(blacklist_categories=configBlacklistCategories)
-    )
+    # No leading or trailing whitespace
+    value = value.strip()
+
+    # Don't start with comment or =
+    if value:
+        assume(value[0] not in "#=")
+
+    return value
 
 
-def configDicts() -> SearchStrategy:
-    return dictionaries(configKeys(), configValues())
+@composite
+def configDicts(draw: Callable) -> ConfigDict:
+    configDict = draw(dictionaries(configKeys(), configValues()))
+
+    # Normalize the config dict so that we ensure keys are valid and that
+    # we can can compare this dict with the result:
+    #  * Keys are lowercased.
+    #  * Values are prefixed with "x" if they start with a comment character
+    #  ("#") or an equal sign ("=")
+    #  * "$" is removed from values so that we don't trigger interpolation.
+
+    return {key.lower(): value for key, value in configDict.items()}
+
+
+def textFromConfig(profile: str, configDict: ConfigDict) -> str:
+    configLines = [f"[{profile}]\n"]
+    for key, value in configDict.items():
+        configLines.append(f"{key} = {value}\n")
+
+    return "".join(configLines)
 
 
 class ReadConfigTests(TestCase):
@@ -78,61 +128,72 @@ class ReadConfigTests(TestCase):
     Tests for :func:`readConfig`
     """
 
-    @given(profileNames(), configDicts())
-    def test_readConfig(self, profile: str, configDict: Dict[str, str]) -> None:
-        # Normalize the config dict so that we ensure keys and valid and that
-        # we can can compare this dict with the result:
-        #  * Keys and values are stripped of leading and trailing whitespace.
-        #  * Keys are lowercased.
-        #  * Keys are prefixed with "x" to ensure that they are not empty and
-        #    don't start with a comment character.
-        #  * Leading "="s are removed from values.
-        #  * "$" is removed from values so that we don't trigger interpolation.
-        configDict = {
-            f"x{k.lower().strip()}": v.replace("$", "").strip().lstrip("=")
-            for k, v in configDict.items()
-        }
-
-        configLines = [f"[{profile}]\n"]
-        for key, value in configDict.items():
-            configLines.append(f"{key} = {value}\n")
-
-        configText = "\n".join(configLines) + "\n"
-
-        note(configText)
-
+    def writeConfig(self, configText: str) -> Path:
         configFilePath = Path(self.mktemp())
         with configFilePath.open("w") as configFile:
             configFile.write(configText)
+        return configFilePath
+
+    @given(profileNames(), configDicts())
+    def test_readConfig(self, profile: str, configDict: ConfigDict) -> None:
+        """
+        Configuration text is properly parsed into a config dict.
+        """
+        configText = textFromConfig(profile, configDict)
+
+        note(configText)
+
+        configFilePath = self.writeConfig(textFromConfig(profile, configDict))
 
         resultConfig = readConfig(profile=profile, path=configFilePath)
 
         self.assertEqual(resultConfig, configDict)
 
-    def test_readConfig_noProfile(self) -> None:
-        configText = ""
+    @given(profileNames(allowDefault=False))
+    def test_readConfig_noProfile(self, profile: str) -> None:
+        """
+        If the selected profile doesn't exist, we get an empty configuration.
+        """
+        configFilePath = self.writeConfig("")
 
-        configFilePath = Path(self.mktemp())
-        with configFilePath.open("w") as configFile:
-            configFile.write(configText)
+        self.assertEqual(readConfig(profile=profile, path=configFilePath), {})
 
-        self.assertEqual(readConfig(profile="foo", path=configFilePath), {})
+    @given(configDicts())
+    def test_readConfig_default(self, configDict: ConfigDict) -> None:
+        """
+        When no profile is selected, the default profile provides the
+        configuration.
+        """
+        configText = textFromConfig("default", configDict)
 
-    def test_readConfig_default(self) -> None:
-        configText = "[default]\nfoo = bar\n"
+        configFilePath = self.writeConfig(configText)
 
-        configFilePath = Path(self.mktemp())
-        with configFilePath.open("w") as configFile:
-            configFile.write(configText)
+        self.assertEqual(readConfig(path=configFilePath), configDict)
 
-        self.assertEqual(readConfig(path=configFilePath), {"foo": "bar"})
+    def test_readConfig_default_mix(self) -> None:
+        """
+        Values from the default profile properly mix into the selected profile.
+        """
+        configText = (
+            "[default]\n"
+            "foo = FOO\n"
+            "bar = BAR_1\n"
+            "[two]\n"
+            "bar = BAR_2\n"
+            "baz = BAZ\n"
+        )
+
+        configFilePath = self.writeConfig(configText)
+
+        self.assertEqual(
+            readConfig(profile="two", path=configFilePath),
+            {"foo": "FOO", "bar": "BAR_2", "baz": "BAZ"},
+        )
 
     def test_readConfig_none(self) -> None:
         configText = "[default]\nfoo = bar\n"
 
-        configFilePath = Path(self.mktemp())
-        with configFilePath.open("w") as configFile:
-            configFile.write(configText)
+        configFilePath = self.writeConfig(configText)
 
         self.assertEqual(
             readConfig(profile=None, path=configFilePath), {"foo": "bar"}
