@@ -141,7 +141,7 @@ install_requirements = [
     "python-dateutil==2.8.1",
     "requests==2.23.0",
     "s3transfer==0.3.3",
-    "six==1.14.0",
+    "six==1.15.0",
     "smmap2==3.0.1",
     "urllib3==1.25.9",
     "websocket-client==0.57.0",
