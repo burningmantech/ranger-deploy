@@ -117,7 +117,7 @@ install_requirements = [
     # • it should improve interoperability with AWS services
 
     # Direct dependencies
-    "arrow==0.15.6",
+    "arrow==0.15.7",
     "attrs==19.3.0",
     "boto3>=1.14,<1.15",
     "Click==7.1.2",
