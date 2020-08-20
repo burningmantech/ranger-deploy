@@ -118,7 +118,7 @@ install_requirements = [
 
     # Direct dependencies
     "arrow==0.15.8",
-    "attrs==19.3.0",
+    "attrs==20.1.0",
     "boto3>=1.14,<1.15",
     "Click==7.1.2",
     "docker==4.3.0",  # [tls]
