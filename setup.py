@@ -143,7 +143,7 @@ install_requirements = [
     "s3transfer==0.3.3",
     "six==1.15.0",
     "smmap2==3.0.1",
-    "urllib3==1.25.10",
+    "urllib3==1.25.11",
     "websocket-client==0.57.0",
     "zope.interface==5.1.2",
 ]
