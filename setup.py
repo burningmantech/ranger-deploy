@@ -118,7 +118,7 @@ install_requirements = [
 
     # Direct dependencies
     "arrow==0.17.0",
-    "attrs==20.2.0",
+    "attrs==20.3.0",
     "boto3>=1.16,<1.17",
     "Click==7.1.2",
     "docker==4.3.1",  # [tls]
@@ -145,7 +145,7 @@ install_requirements = [
     "smmap2==3.0.1",
     "urllib3==1.25.11",
     "websocket-client==0.57.0",
-    "zope.interface==5.1.2",
+    "zope.interface==5.2.0",
 ]
 
 extras_requirements = {}
