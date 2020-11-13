@@ -128,7 +128,7 @@ install_requirements = [
     # Indirect dependencies
     "Automat==20.2.0",
     "botocore>=1.19,<1.20",
-    "certifi==2020.6.20",
+    "certifi==2020.11.8",
     "chardet==3.0.4",
     "constantly==15.1.0",
     "docutils==0.16",
@@ -139,11 +139,11 @@ install_requirements = [
     "jmespath==0.10.0",
     "PyHamcrest==2.0.2",
     "python-dateutil==2.8.1",
-    "requests==2.24.0",
+    "requests==2.25.0",
     "s3transfer==0.3.3",
     "six==1.15.0",
     "smmap2==3.0.1",
-    "urllib3==1.25.11",
+    "urllib3==1.26.2",
     "websocket-client==0.57.0",
     "zope.interface==5.2.0",
 ]
