@@ -121,7 +121,7 @@ install_requirements = [
     "attrs==20.3.0",
     "boto3>=1.16,<1.17",
     "Click==7.1.2",
-    "docker==4.3.1",  # [tls]
+    "docker==4.4.0",  # [tls]
     "GitPython==3.1.11",
     "Twisted==20.3.0",
 
