@@ -129,7 +129,7 @@ install_requirements = [
     "Automat==20.2.0",
     "botocore>=1.19,<1.20",
     "certifi==2020.12.5",
-    "chardet==3.0.4",
+    "chardet==4.0.0",
     "constantly==15.1.0",
     "docutils==0.16",
     "gitdb2==4.0.2",
