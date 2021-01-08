@@ -133,7 +133,7 @@ install_requirements = [
     "constantly==15.1.0",
     "docutils==0.16",
     "gitdb2==4.0.2",
-    "hyperlink==20.0.1",
+    "hyperlink==21.0.0",
     "idna==3.1",
     "incremental==17.5.0",
     "jmespath==0.10.0",
