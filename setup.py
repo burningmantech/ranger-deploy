@@ -122,7 +122,7 @@ install_requirements = [
     "boto3>=1.17,<1.18",
     "Click==7.1.2",
     "docker==4.4.4",  # [tls]
-    "GitPython==3.1.13",
+    "GitPython==3.1.14",
     "Twisted==20.3.0",
 
     # Indirect dependencies
