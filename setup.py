@@ -123,7 +123,7 @@ install_requirements = [
     "Click==7.1.2",
     "docker==4.4.4",  # [tls]
     "GitPython==3.1.14",
-    "Twisted==20.3.0",
+    "Twisted==21.2.0",
 
     # Indirect dependencies
     "Automat==20.2.0",
