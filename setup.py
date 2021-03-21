@@ -145,7 +145,7 @@ install_requirements = [
     "smmap2==3.0.1",
     "urllib3==1.26.4",
     "websocket-client==0.58.0",
-    "zope.interface==5.2.0",
+    "zope.interface==5.3.0",
 ]
 
 extras_requirements = {}
