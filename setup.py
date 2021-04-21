@@ -117,35 +117,33 @@ install_requirements = [
     # • it should improve interoperability with AWS services
 
     # Direct dependencies
-    "arrow==0.15.6",
-    "attrs==19.3.0",
-    "boto3>=1.13,<1.14",
-    "Click==7.1.2",
-    "docker==4.2.0",  # [tls]
+    "arrow==1.0.3",
+    "attrs==20.3.0",
+    "boto3==1.17.54",
+    "click==7.1.2",
+    "docker==5.0.0",  # [tls]
     "GitPython==3.1.2",
-    "Twisted==20.3.0",
+    "Twisted==21.2.0",
 
     # Indirect dependencies
     "Automat==20.2.0",
-    "botocore>=1.16,<1.17",
-    "certifi==2020.4.5.1",
-    "chardet==3.0.4",
+    "botocore==1.20.54",
+    "certifi==2020.12.5",
+    "chardet==4.0.0",
     "constantly==15.1.0",
-    "docutils==0.16",
-    "gitdb2==4.0.2",
-    "hyperlink==19.0.0",
-    "idna==2.9",
-    "incremental==17.5.0",
+    "gitdb==4.0.7",
+    "hyperlink==21.0.0",
+    "idna==2.10",
+    "incremental==21.3.0",
     "jmespath==0.10.0",
-    "PyHamcrest==2.0.2",
     "python-dateutil==2.8.1",
-    "requests==2.23.0",
-    "s3transfer==0.3.3",
-    "six==1.14.0",
-    "smmap2==3.0.1",
-    "urllib3==1.25.9",
-    "websocket-client==0.57.0",
-    "zope.interface==5.1.0",
+    "requests==2.25.1",
+    "s3transfer==0.4.0",
+    "six==1.15.0",
+    "smmap==4.0.0",
+    "urllib3==1.26.4",
+    "websocket-client==0.58.0",
+    "zope.interface==5.4.0",
 ]
 
 extras_requirements = {}
