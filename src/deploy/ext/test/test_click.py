@@ -71,11 +71,11 @@ def configKeys(draw: Callable) -> str:
             min_size=1,
             alphabet=characters(
                 blacklist_categories=configBlacklistCategories,
-                blacklist_characters="=",
+                blacklist_characters="=#[]",
             ),
         )
     )
-    key = key.strip().lstrip("#")
+    key = key.strip()
     assume(key)
     return key
 

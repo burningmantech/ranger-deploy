@@ -856,7 +856,7 @@ def environment(
     cluster: Optional[str], service: str, arguments: Sequence[str]
 ) -> None:
     """
-    Show or modify environment variables.
+    Show or modify environment variables for a service.
 
     If no arguments are given, prints all environment variable name/value
     pairs.
