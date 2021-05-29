@@ -134,7 +134,7 @@ install_requirements = [
     "docutils==0.17.1",
     "gitdb2==4.0.2",
     "hyperlink==21.0.0",
-    "idna==3.1",
+    "idna==3.2",
     "incremental==21.3.0",
     "jmespath==0.10.0",
     "PyHamcrest==2.0.2",
