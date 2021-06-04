@@ -20,8 +20,8 @@
 Setuptools configuration
 """
 
-from sys import path
 from pathlib import Path
+from sys import path
 from typing import Dict, List
 
 from setuptools import find_packages, setup
