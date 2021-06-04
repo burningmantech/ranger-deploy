@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from datetime import timedelta as TimeDelta
 from hashlib import sha256
 from json import JSONDecodeError
-from ssl import Options as SSLOptions  # type: ignore[attr-defined]
+from ssl import Options as SSLOptions
 from typing import (
     Any,
     ClassVar,
@@ -277,7 +277,7 @@ class MockDockerClient:
     # Instance attributes
     #
 
-    _sslVersion: SSLOptions
+    _sslVersion: Optional[SSLOptions]
     _generateErrors = False
 
     images: MockImagesAPI = Factory(MockImagesAPI, takes_self=True)

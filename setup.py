@@ -20,12 +20,13 @@
 Setuptools configuration
 """
 
-import sys
+from sys import path
 from pathlib import Path
+from typing import Dict, List
 
 from setuptools import find_packages, setup
 
-sys.path.insert(0, "src")
+path.insert(0, "src")
 
 from deploy import __version__ as version_string  # noqa: E402
 
@@ -39,10 +40,7 @@ name = "ranger-deploy"
 description = "Deployment tools for Ranger services"
 
 readme_path = Path(__file__).parent / "README.rst"
-try:
-    long_description = readme_path.open().read()
-except OSError:
-    long_description = None
+long_description = readme_path.open().read()
 
 url = "https://github.com/burningmantech/ranger-deploy"
 
@@ -71,7 +69,7 @@ classifiers = [
 # Entry points
 #
 
-entry_points = {
+entry_points: Dict[str, List[str]] = {
     "console_scripts": [],
 }
 
@@ -104,7 +102,7 @@ package_data = dict(
 
 python_requirements = ">=3.6"
 
-setup_requirements = []
+setup_requirements: List[str] = []
 
 install_requirements = [
     # We are not pinning patch version for Boto because:
@@ -142,14 +140,14 @@ install_requirements = [
     "zope.interface==5.4.0",
 ]
 
-extras_requirements = {}
+extras_requirements: Dict[str, List[str]] = {}
 
 
 #
 # Set up Extension modules that need to be built
 #
 
-extensions = []
+extensions: List[str] = []
 
 
 #
@@ -157,7 +155,7 @@ extensions = []
 #
 
 
-def main():
+def main() -> None:
     """
     Run :func:`setup`.
     """

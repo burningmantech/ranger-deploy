@@ -91,7 +91,7 @@ class ClickTestResult:
     stdout: StringIO = Factory(StringIO)
     stderr: StringIO = Factory(StringIO)
 
-    beginLoggingToCalls: Sequence[Tuple[Sequence[str], Mapping[str, str]]] = ()
+    beginLoggingToCalls: Sequence[Any] = ()
 
 
 def clickTestRun(
