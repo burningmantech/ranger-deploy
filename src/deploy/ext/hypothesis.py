@@ -51,7 +51,9 @@ def host_names() -> SearchStrategy:
     A strategy which generates host names.
     """
     return text(
-        min_size=1, max_size=256, alphabet=ascii_letters + digits + "._-",
+        min_size=1,
+        max_size=256,
+        alphabet=ascii_letters + digits + "._-",
     )
 
 

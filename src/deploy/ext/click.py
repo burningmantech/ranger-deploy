@@ -76,7 +76,7 @@ class Internal(Enum):
 
 
 @attrs(auto_attribs=True, slots=True, kw_only=True)
-class ClickTestResult(object):
+class ClickTestResult:
     """
     Captured results after testing a click command.
     """

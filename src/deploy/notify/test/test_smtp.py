@@ -49,7 +49,7 @@ __all__ = ()
 
 
 @attrs(auto_attribs=True)
-class MockSMTPServer(object):
+class MockSMTPServer:
     _logins: List[Tuple[str, str]] = Factory(list)
     _messages: List[Tuple[str, str, Message]] = Factory(list)
 
@@ -64,7 +64,7 @@ class MockSMTPServer(object):
 
 
 @attrs(auto_attribs=True)
-class MockSMTPSSL(object):
+class MockSMTPSSL:
     _instances: ClassVar[List["MockSMTPSSL"]] = []
 
     host: str

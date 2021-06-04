@@ -35,7 +35,8 @@ def startLogging(file: TextIO = sys.stdout) -> None:
     )
 
     globalLogBeginner.beginLoggingTo(
-        [filteringObserver], redirectStandardIO=False,
+        [filteringObserver],
+        redirectStandardIO=False,
     )
 
 

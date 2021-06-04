@@ -104,7 +104,7 @@ class NoChangesError(Exception):
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ECSServiceClient(object):
+class ECSServiceClient:
     """
     Elastic Container Service Client
     """
@@ -617,7 +617,10 @@ def staging(
 
 @main.command()
 @stagingEnvironmentOptions
-def rollback(staging_cluster: str, staging_service: str,) -> None:
+def rollback(
+    staging_cluster: str,
+    staging_service: str,
+) -> None:
     """
     Roll back the staging environment to the previous task definition.
     """

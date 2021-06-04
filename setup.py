@@ -21,17 +21,13 @@ Setuptools configuration
 """
 
 import sys
+from pathlib import Path
 
-if sys.version_info < (3, 6, 0):
-    sys.stderr.write("ERROR: Python 3.6 or later is required.\n")
-    exit(1)
-
-from pathlib import Path  # noqa
-from setuptools import setup, find_packages  # noqa
+from setuptools import find_packages, setup
 
 sys.path.insert(0, "src")
 
-from deploy import __version__ as version_string  # noqa
+from deploy import __version__ as version_string  # noqa: E402
 
 
 #
@@ -45,7 +41,7 @@ description = "Deployment tools for Ranger services"
 readme_path = Path(__file__).parent / "README.rst"
 try:
     long_description = readme_path.open().read()
-except IOError:
+except OSError:
     long_description = None
 
 url = "https://github.com/burningmantech/ranger-deploy"
@@ -80,9 +76,9 @@ entry_points = {
 }
 
 script_entry_points = {
-    "aws_ecr":     ("deploy.aws.ecr",     "ECRServiceClient.main"),
-    "aws_ecs":     ("deploy.aws.ecs",     "ECSServiceClient.main"),
-    "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"    ),
+    "aws_ecr": ("deploy.aws.ecr", "ECRServiceClient.main"),
+    "aws_ecs": ("deploy.aws.ecs", "ECSServiceClient.main"),
+    "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"),
 }
 
 for tool, (module, function) in script_entry_points.items():
@@ -115,7 +111,6 @@ install_requirements = [
     # • it changes very frequently
     # • it is reliably compatible
     # • it should improve interoperability with AWS services
-
     # Direct dependencies
     "arrow==1.1.0",
     "attrs==21.2.0",
@@ -124,7 +119,6 @@ install_requirements = [
     "docker==5.0.0",  # [tls]
     "GitPython==3.1.17",
     "Twisted==21.2.0",
-
     # Indirect dependencies
     "Automat==20.2.0",
     "botocore>=1.20,<1.21",
@@ -161,6 +155,7 @@ extensions = []
 #
 # Run setup
 #
+
 
 def main():
     """
