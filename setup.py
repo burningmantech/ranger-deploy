@@ -116,7 +116,7 @@ install_requirements = [
     "Click==8.0.1",
     "docker==5.0.0",  # [tls]
     "GitPython==3.1.17",
-    "Twisted==21.2.0",
+    #"Twisted",  # See dependency_links below
     # Indirect dependencies
     "Automat==20.2.0",
     "botocore>=1.20,<1.21",
@@ -181,6 +181,10 @@ def main() -> None:
         setup_requires=setup_requirements,
         install_requires=install_requirements,
         extras_require=extras_requirements,
+        # Use a pinned version for newer type hints
+        dependency_links=[
+            "https://github.com/twisted/Twisted/tarball/f1d82accda4953aae8049545bce8763f8aab75fb.zip#egg=Twisted"
+        ],
     )
 
 

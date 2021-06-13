@@ -467,14 +467,17 @@ def ecsOption(optionName: str, environment: Optional[str] = None) -> Callable:
         flag = f"--{environment}-{optionName}"
         help = f"ECS {optionName} for the {environment} environment"
 
-    return commandOption(
-        flag,
-        envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
-        help=help,
-        type=str,
-        metavar="<name>",
-        prompt=True,
-        required=True,
+    return cast(
+        Callable,
+        commandOption(
+            flag,
+            envvar=f"AWS_ECS_{optionName.upper()}_{environment.upper()}",
+            help=help,
+            type=str,
+            metavar="<name>",
+            prompt=True,
+            required=True,
+        ),
     )
 
 

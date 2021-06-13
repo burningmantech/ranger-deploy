@@ -115,7 +115,7 @@ def rfc3339TextAsDate(rfc3339: str) -> Date:
 
     :return: An :class:`Date` corresponding to :obj:`rfc3339`.
     """
-    return cast(Date, DateTimeParser().parse_iso(rfc3339).date())
+    return DateTimeParser().parse_iso(rfc3339).date()
 
 
 def dateTimeAsRFC3339Text(dateTime: DateTime) -> str:
@@ -138,7 +138,7 @@ def rfc3339TextAsDateTime(rfc3339: str) -> DateTime:
 
     :return: A :class:`DateTime` corresponding to :obj:`rfc3339`.
     """
-    return cast(DateTime, DateTimeParser().parse_iso(rfc3339))
+    return DateTimeParser().parse_iso(rfc3339)
 
 
 jsonTrue = jsonTextFromObject(True)
