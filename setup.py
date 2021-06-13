@@ -116,7 +116,7 @@ install_requirements = [
     "Click==8.0.1",
     "docker==5.0.0",  # [tls]
     "GitPython==3.1.17",
-    #"Twisted",  # See dependency_links below
+    # "Twisted",  # See dependency_links below
     # Indirect dependencies
     "Automat==20.2.0",
     "botocore>=1.20,<1.21",
@@ -136,7 +136,7 @@ install_requirements = [
     "six==1.16.0",
     "smmap2==3.0.1",
     "urllib3==1.26.5",
-    "websocket-client==1.0.1",
+    "websocket-client==1.1.0",
     "zope.interface==5.4.0",
 ]
 
@@ -181,9 +181,13 @@ def main() -> None:
         setup_requires=setup_requirements,
         install_requires=install_requirements,
         extras_require=extras_requirements,
-        # Use a pinned version for newer type hints
         dependency_links=[
-            "https://github.com/twisted/Twisted/tarball/f1d82accda4953aae8049545bce8763f8aab75fb.zip#egg=Twisted"
+            (
+                # Use a pinned version of Twisted for newer type hints
+                "https://github.com/twisted/Twisted/tarball/"
+                "f1d82accda4953aae8049545bce8763f8aab75fb"
+                ".zip#egg=Twisted"
+            )
         ],
     )
 

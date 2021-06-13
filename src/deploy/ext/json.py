@@ -11,7 +11,7 @@ from json import (
     load,
     loads,
 )
-from typing import Any, BinaryIO, Optional, cast
+from typing import Any, BinaryIO, Optional
 
 from arrow.parser import DateTimeParser
 
