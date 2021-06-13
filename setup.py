@@ -116,7 +116,7 @@ install_requirements = [
     "Click==8.0.1",
     "docker==5.0.0",  # [tls]
     "GitPython==3.1.17",
-    # "Twisted",  # See dependency_links below
+    "Twisted",  # See dependency_links below
     # Indirect dependencies
     "Automat==20.2.0",
     "botocore>=1.20,<1.21",
