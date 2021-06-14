@@ -211,7 +211,9 @@ jobs:
           python-path: .tox/${{ steps.tox_env.outputs.value }}/*/python
 
       - name: Run unit tests
-        run: tox -e ${{ steps.tox_env.outputs.value }};
+        run: |
+          tox -e ${{ steps.tox_env.outputs.value }};
+          ls -al . .tox
 
       - name: Upload Trial log artifact
         if: failure()
