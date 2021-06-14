@@ -1,8 +1,10 @@
+"""
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""
 
 # -- Path setup --------------------------------------------------------------
 
@@ -10,15 +12,16 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+from os import environ
 from os.path import abspath, join
+from pprint import pprint
 from sys import path
+from typing import List
+
 path.insert(0, abspath(join("..", "src")))
 
-from os import environ
-from pprint import pprint
 pprint(environ)
-import sys
-pprint(sys.path)
+pprint(path)
 
 # -- Project information -----------------------------------------------------
 
@@ -55,7 +58,7 @@ templates_path = ["templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns: List[str] = []
 
 
 # -- Options for HTML output -------------------------------------------------

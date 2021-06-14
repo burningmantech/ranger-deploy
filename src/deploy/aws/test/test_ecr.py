@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from datetime import timedelta as TimeDelta
 from hashlib import sha256
 from json import JSONDecodeError
-from ssl import Options as SSLOptions  # type: ignore[attr-defined]
+from ssl import Options as SSLOptions
 from typing import (
     Any,
     ClassVar,
@@ -68,7 +68,7 @@ __all__ = ()
 
 
 @attrs(auto_attribs=True)
-class MockBoto3ECRClient(object):
+class MockBoto3ECRClient:
     """
     Mock Boto3 client.
     """
@@ -102,7 +102,7 @@ class MockBoto3ECRClient(object):
     ) -> Dict[str, List[Dict[str, Any]]]:
         assert not registryIds
 
-        token = b64encode("AWS:see-kreht".encode("utf-8"))
+        token = b64encode(b"AWS:see-kreht")
         expiration = utcNow() + TimeDelta(hours=12)
         proxyEndpoint = f"https://{self._defaultRepositoryID}.ecr.aws"
 
@@ -118,7 +118,7 @@ class MockBoto3ECRClient(object):
 
 
 @attrs(auto_attribs=True)
-class MockImage(object):
+class MockImage:
     id: str
     tags: List[str]
 
@@ -131,7 +131,7 @@ class MockImage(object):
 
 
 @attrs(auto_attribs=True)
-class MockImagesAPI(object):
+class MockImagesAPI:
     _fakeNewsError = "This error is fake news."
 
     _parent: "MockDockerClient"
@@ -230,7 +230,7 @@ def sha256Hash(text: str) -> str:
 
 
 @attrs(auto_attribs=True)
-class MockDockerClient(object):
+class MockDockerClient:
     """
     Mock Docker client.
     """
@@ -277,7 +277,7 @@ class MockDockerClient(object):
     # Instance attributes
     #
 
-    _sslVersion: SSLOptions
+    _sslVersion: Optional[SSLOptions]
     _generateErrors = False
 
     images: MockImagesAPI = Factory(MockImagesAPI, takes_self=True)
@@ -507,7 +507,8 @@ class ECRServiceClientTests(TestCase):
                 "While handling push response line: {line}",
             )
             self.assertEqual(
-                failureEvent["line"], f'{{"errorDetail":"{fakeNewsError}"}}',
+                failureEvent["line"],
+                f'{{"errorDetail":"{fakeNewsError}"}}',
             )
 
             handler: DockerPushResponseHandler = failureEvent["log_source"]
@@ -758,7 +759,9 @@ class DockerPushResponseHandlerTests(TestCase):
                 json={
                     "id": imageID,
                     "status": "Pushing",
-                    "progressDetail": {"current": currentProgress,},
+                    "progressDetail": {
+                        "current": currentProgress,
+                    },
                 },
             )
 

@@ -94,7 +94,10 @@ def environment_updates(
     return cast(
         Mapping[str, str],
         dictionaries(
-            text(min_size=1), text(), min_size=min_size, max_size=max_size,
+            text(min_size=1),
+            text(),
+            min_size=min_size,
+            max_size=max_size,
         ),
     )
 
@@ -107,7 +110,7 @@ def set_unset_envs(draw: Callable) -> Tuple[Dict[str, str], Set[str]]:
 
 
 @attrs(auto_attribs=True)
-class MockBoto3ECSClient(object):
+class MockBoto3ECSClient:
     """
     Mock Boto3 client.
     """
@@ -151,7 +154,10 @@ class MockBoto3ECSClient(object):
                     ],
                     "essential": True,
                     "environment": ECSServiceClient._environmentAsJSON(
-                        {"version": "0", "happiness": "true",}
+                        {
+                            "version": "0",
+                            "happiness": "true",
+                        }
                     ),
                     "mountPoints": [],
                     "volumesFrom": [],
@@ -980,17 +986,13 @@ class MockSMTPNotifier(SMTPNotifier):
 @contextmanager
 def testingSMTPNotifier() -> Iterator[None]:
     SMTPNotifier = deploy.notify.smtp.SMTPNotifier
-    deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc]
-        MockSMTPNotifier
-    )
+    deploy.notify.smtp.SMTPNotifier = MockSMTPNotifier  # type: ignore[misc]
 
     try:
         yield None
 
     finally:
-        deploy.notify.smtp.SMTPNotifier = (  # type: ignore[misc]
-            SMTPNotifier
-        )
+        deploy.notify.smtp.SMTPNotifier = SMTPNotifier  # type: ignore[misc]
         MockSMTPNotifier._notifyStagingCalls.clear()
 
 
@@ -1056,7 +1058,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_ci(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         self._test_staging(
             stagingCluster,
@@ -1067,7 +1072,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_travis(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         self._test_staging(
             stagingCluster,
@@ -1078,7 +1086,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_repository_names())
     def test_staging_noECRImageTag(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         self._test_staging(stagingCluster, stagingService, ecrImageName)
 
@@ -1245,7 +1256,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_trial(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1323,7 +1337,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_notCI(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1358,7 +1375,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_travis_notPR(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1393,7 +1413,10 @@ class CommandLineTests(TestCase):
 
     @given(text(min_size=1), text(min_size=1), image_names())
     def test_staging_travis_notBranch(
-        self, stagingCluster: str, stagingService: str, ecrImageName: str,
+        self,
+        stagingCluster: str,
+        stagingService: str,
+        ecrImageName: str,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1638,7 +1661,8 @@ class CommandLineTests(TestCase):
             tuples(
                 text(  # updates/keys
                     alphabet=characters(
-                        blacklist_categories=("Cs",), blacklist_characters="=",
+                        blacklist_categories=("Cs",),
+                        blacklist_characters="=",
                     ),
                 ),
                 text(),  # updates/values

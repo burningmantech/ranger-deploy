@@ -96,7 +96,8 @@ class JSONEncodingTests(TestCase):
         This indirectly tests :class:`..json.Encoder`.
         """
         self.assertEqual(
-            jsonTextFromObject(iter(items)), jsonTextFromObject(items),
+            jsonTextFromObject(iter(items)),
+            jsonTextFromObject(items),
         )
 
     @given(dictionaries(text(), json()))
@@ -232,7 +233,7 @@ class JSONDecodingTests(TestCase):
         self.assertRaises(
             JSONDecodeError,
             objectFromJSONBytesIO,
-            BytesIO("foo}".encode("ascii")),
+            BytesIO(b"foo}"),
         )
 
 

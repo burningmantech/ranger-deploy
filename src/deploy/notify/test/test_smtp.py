@@ -49,7 +49,7 @@ __all__ = ()
 
 
 @attrs(auto_attribs=True)
-class MockSMTPServer(object):
+class MockSMTPServer:
     _logins: List[Tuple[str, str]] = Factory(list)
     _messages: List[Tuple[str, str, Message]] = Factory(list)
 
@@ -64,7 +64,7 @@ class MockSMTPServer(object):
 
 
 @attrs(auto_attribs=True)
-class MockSMTPSSL(object):
+class MockSMTPSSL:
     _instances: ClassVar[List["MockSMTPSSL"]] = []
 
     host: str
@@ -399,13 +399,13 @@ class CommandLineTests(TestCase):
         errors = result.stderr.getvalue()
 
         # Note "Invalid value" line below sometimes generates different quotes
-        expectedErrors_start = "Usage: notify_smtp staging [OPTIONS]\n\n"
+        expectedErrors_start = "Usage: notify_smtp staging [OPTIONS]\n"
         expectedErrors_end = (
             "Invalid repository ID: some-org/some-project/garbage\n"
         )
         expectedErrors = (
             expectedErrors_start
-            + 'Error: Invalid value for "--repository-id": '
+            + "Error: Invalid value for '--repository-id': "
             + expectedErrors_end
         )
 
