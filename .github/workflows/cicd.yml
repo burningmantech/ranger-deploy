@@ -223,6 +223,7 @@ jobs:
       # Use the latest supported Python version for combining coverage to
       # prevent parsing errors in older versions when looking at modern code.
       - uses: "actions/setup-python@v2"
+        if: steps.tox_env.outputs.has_coverage
         with:
           python-version: "3.9"
 
@@ -230,6 +231,7 @@ jobs:
         uses: "codecov/codecov-action@v1"
         if: steps.tox_env.outputs.has_coverage
         with:
+          files: .tox/coverage.${{ steps.tox_env.outputs.value }}
           env_vars: GITHUB_REF,GITHUB_COMMIT,GITHUB_USER,GITHUB_WORKFLOW
           fail_ci_if_error: true
         env:
