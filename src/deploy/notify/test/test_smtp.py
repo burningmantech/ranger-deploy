@@ -399,13 +399,13 @@ class CommandLineTests(TestCase):
         errors = result.stderr.getvalue()
 
         # Note "Invalid value" line below sometimes generates different quotes
-        expectedErrors_start = "Usage: notify_smtp staging [OPTIONS]\n\n"
+        expectedErrors_start = "Usage: notify_smtp staging [OPTIONS]\n"
         expectedErrors_end = (
             "Invalid repository ID: some-org/some-project/garbage\n"
         )
         expectedErrors = (
             expectedErrors_start
-            + 'Error: Invalid value for "--repository-id": '
+            + "Error: Invalid value for '--repository-id': "
             + expectedErrors_end
         )
 
