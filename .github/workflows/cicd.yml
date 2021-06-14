@@ -164,7 +164,7 @@ jobs:
         optional: [false]
         include:
           - os: "ubuntu-latest"
-            python-version: "3.10-beta"
+            python-version: "3.10.0-beta.2"
             optional: true
 
     steps:
