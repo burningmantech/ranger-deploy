@@ -54,7 +54,7 @@ __all__ = ("SMTPNotifier",)
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class SMTPNotifier(object):
+class SMTPNotifier:
     """
     SMTP Notifier
     """

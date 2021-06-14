@@ -20,18 +20,15 @@
 Setuptools configuration
 """
 
-import sys
+from pathlib import Path
+from sys import path
+from typing import Dict, List
 
-if sys.version_info < (3, 6, 0):
-    sys.stderr.write("ERROR: Python 3.6 or later is required.\n")
-    exit(1)
+from setuptools import find_packages, setup
 
-from pathlib import Path  # noqa
-from setuptools import setup, find_packages  # noqa
+path.insert(0, "src")
 
-sys.path.insert(0, "src")
-
-from deploy import __version__ as version_string  # noqa
+from deploy import __version__ as version_string  # noqa: E402
 
 
 #
@@ -43,10 +40,7 @@ name = "ranger-deploy"
 description = "Deployment tools for Ranger services"
 
 readme_path = Path(__file__).parent / "README.rst"
-try:
-    long_description = readme_path.open().read()
-except IOError:
-    long_description = None
+long_description = readme_path.open().read()
 
 url = "https://github.com/burningmantech/ranger-deploy"
 
@@ -75,14 +69,14 @@ classifiers = [
 # Entry points
 #
 
-entry_points = {
+entry_points: Dict[str, List[str]] = {
     "console_scripts": [],
 }
 
 script_entry_points = {
-    "aws_ecr":     ("deploy.aws.ecr",     "ECRServiceClient.main"),
-    "aws_ecs":     ("deploy.aws.ecs",     "ECSServiceClient.main"),
-    "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"    ),
+    "aws_ecr": ("deploy.aws.ecr", "ECRServiceClient.main"),
+    "aws_ecs": ("deploy.aws.ecs", "ECSServiceClient.main"),
+    "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"),
 }
 
 for tool, (module, function) in script_entry_points.items():
@@ -108,61 +102,59 @@ package_data = dict(
 
 python_requirements = ">=3.6"
 
-setup_requirements = []
+setup_requirements: List[str] = []
 
 install_requirements = [
     # We are not pinning patch version for Boto because:
     # • it changes very frequently
     # • it is reliably compatible
     # • it should improve interoperability with AWS services
-
     # Direct dependencies
-    "arrow==0.15.6",
-    "attrs==19.3.0",
-    "boto3>=1.13,<1.14",
-    "Click==7.1.2",
-    "docker==4.2.0",  # [tls]
-    "GitPython==3.1.2",
-    "Twisted==20.3.0",
-
+    "arrow==1.1.0",
+    "attrs==21.2.0",
+    "boto3>=1.17,<1.18",
+    "click==8.0.1",
+    "docker==5.0.0",
+    "GitPython==3.1.17",
+    "Twisted==19.10.0",  # rq.filter: <20
     # Indirect dependencies
     "Automat==20.2.0",
-    "botocore>=1.16,<1.17",
-    "certifi==2020.4.5.1",
-    "chardet==3.0.4",
+    "botocore==1.20.93",
+    "certifi==2021.5.30",
+    "chardet==4.0.0",
     "constantly==15.1.0",
-    "docutils==0.16",
-    "gitdb2==4.0.2",
-    "hyperlink==19.0.0",
-    "idna==2.9",
-    "incremental==17.5.0",
+    "gitdb==4.0.7",
+    "hyperlink==21.0.0",
+    "idna==2.10",  # rq.filter: <3.0
+    "incremental==21.3.0",
     "jmespath==0.10.0",
     "PyHamcrest==2.0.2",
     "python-dateutil==2.8.1",
-    "requests==2.23.0",
-    "s3transfer==0.3.3",
-    "six==1.14.0",
-    "smmap2==3.0.1",
-    "urllib3==1.25.9",
-    "websocket-client==0.57.0",
-    "zope.interface==5.1.0",
+    "requests==2.25.1",
+    "s3transfer==0.4.2",
+    "six==1.16.0",
+    "smmap==4.0.0",
+    "urllib3==1.26.5",
+    "websocket-client==1.1.0",
+    "zope.interface==5.4.0",
 ]
 
-extras_requirements = {}
+extras_requirements: Dict[str, List[str]] = {}
 
 
 #
 # Set up Extension modules that need to be built
 #
 
-extensions = []
+extensions: List[str] = []
 
 
 #
 # Run setup
 #
 
-def main():
+
+def main() -> None:
     """
     Run :func:`setup`.
     """

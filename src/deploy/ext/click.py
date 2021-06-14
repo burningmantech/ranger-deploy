@@ -76,7 +76,7 @@ class Internal(Enum):
 
 
 @attrs(auto_attribs=True, slots=True, kw_only=True)
-class ClickTestResult(object):
+class ClickTestResult:
     """
     Captured results after testing a click command.
     """
@@ -91,7 +91,7 @@ class ClickTestResult(object):
     stdout: StringIO = Factory(StringIO)
     stderr: StringIO = Factory(StringIO)
 
-    beginLoggingToCalls: Sequence[Tuple[Sequence[str], Mapping[str, str]]] = ()
+    beginLoggingToCalls: Sequence[Any] = ()
 
 
 def clickTestRun(

@@ -1,7 +1,11 @@
-include *.toml
-include *.txt
-include *.yml
+include .flake8
+include .pre-commit-config.yaml
 include bin/deploy_aws_ecs
+include codecov.yml
+include COPYRIGHT.txt
 include docs/*.rst
 include docs/conf.py
+include LICENSE.txt
+include myproject.toml
+include mypy.ini
 include tox.ini

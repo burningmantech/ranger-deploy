@@ -91,7 +91,7 @@ class InvalidImageNameError(Exception):
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ECRAuthorizationToken(object):
+class ECRAuthorizationToken:
     """
     EC2 Container Registry Authorization Token
     """
@@ -113,7 +113,7 @@ class ECRAuthorizationToken(object):
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ECRServiceClient(object):
+class ECRServiceClient:
     """
     EC2 Container Registry Client
     """
@@ -166,7 +166,9 @@ class ECRServiceClient(object):
     def _docker(self) -> DockerClient:
         if not self._dockerClient:
             self._dockerClient.append(
-                dockerClientFromEnvironment(ssl_version=self._tlsVersion,)
+                dockerClientFromEnvironment(
+                    ssl_version=self._tlsVersion,
+                )
             )
         return self._dockerClient[0]
 
@@ -292,7 +294,7 @@ class ImagePushState(IntEnum):
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ImagePushStatus(object):
+class ImagePushStatus:
     state: ImagePushState = ImagePushState.start
 
     currentProgress: int = 0
@@ -300,14 +302,14 @@ class ImagePushStatus(object):
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class ImagePushResult(object):
+class ImagePushResult:
     tag: str
     digest: str
     size: int
 
 
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
-class DockerPushResponseHandler(object):
+class DockerPushResponseHandler:
     log = Logger()
 
     _repoStatusPrefix = "The push refers to a repository ["
@@ -464,7 +466,10 @@ class DockerPushResponseHandler(object):
                 )
                 self._error(str(e))
 
-    def handleResponse(self, response: Union[bytes, Iterable[bytes]],) -> None:
+    def handleResponse(
+        self,
+        response: Union[bytes, Iterable[bytes]],
+    ) -> None:
         if isinstance(response, bytes):
             self._handlePayload(response)
             return
@@ -491,7 +496,11 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 
         ctx.default_map = {
             command: commonDefaults
-            for command in ("authorization", "list", "tag",)
+            for command in (
+                "authorization",
+                "list",
+                "tag",
+            )
         }
 
     startLogging()

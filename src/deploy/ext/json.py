@@ -11,7 +11,7 @@ from json import (
     load,
     loads,
 )
-from typing import Any, BinaryIO, Optional, cast
+from typing import Any, BinaryIO, Optional
 
 from arrow.parser import DateTimeParser
 
@@ -82,7 +82,9 @@ def objectFromJSONText(text: str) -> Any:
         return loads(text)
     except JSONDecodeError as e:
         raise JSONDecodeError(
-            msg=f"{e.msg} in {text!r}", doc=e.doc, pos=e.pos,
+            msg=f"{e.msg} in {text!r}",
+            doc=e.doc,
+            pos=e.pos,
         )
 
 
@@ -113,7 +115,7 @@ def rfc3339TextAsDate(rfc3339: str) -> Date:
 
     :return: An :class:`Date` corresponding to :obj:`rfc3339`.
     """
-    return cast(Date, DateTimeParser().parse_iso(rfc3339).date())
+    return DateTimeParser().parse_iso(rfc3339).date()
 
 
 def dateTimeAsRFC3339Text(dateTime: DateTime) -> str:
@@ -136,7 +138,7 @@ def rfc3339TextAsDateTime(rfc3339: str) -> DateTime:
 
     :return: A :class:`DateTime` corresponding to :obj:`rfc3339`.
     """
-    return cast(DateTime, DateTimeParser().parse_iso(rfc3339))
+    return DateTimeParser().parse_iso(rfc3339)
 
 
 jsonTrue = jsonTextFromObject(True)
