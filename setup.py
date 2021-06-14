@@ -113,18 +113,17 @@ install_requirements = [
     "arrow==1.1.0",
     "attrs==21.2.0",
     "boto3>=1.17,<1.18",
-    "Click==8.0.1",
-    "docker==5.0.0",  # [tls]
+    "click==8.0.1",
+    "docker==5.0.0",
     "GitPython==3.1.17",
-    "Twisted",  # See dependency_links below
+    "Twisted==19.10.0",  # rq.filter: <20
     # Indirect dependencies
     "Automat==20.2.0",
-    "botocore>=1.20,<1.21",
+    "botocore==1.20.93",
     "certifi==2021.5.30",
     "chardet==4.0.0",
     "constantly==15.1.0",
-    "docutils==0.17.1",
-    "gitdb2==4.0.2",
+    "gitdb==4.0.7",
     "hyperlink==21.0.0",
     "idna==2.10",  # rq.filter: <3.0
     "incremental==21.3.0",
@@ -134,7 +133,7 @@ install_requirements = [
     "requests==2.25.1",
     "s3transfer==0.4.2",
     "six==1.16.0",
-    "smmap2==3.0.1",
+    "smmap==4.0.0",
     "urllib3==1.26.5",
     "websocket-client==1.1.0",
     "zope.interface==5.4.0",
@@ -181,14 +180,6 @@ def main() -> None:
         setup_requires=setup_requirements,
         install_requires=install_requirements,
         extras_require=extras_requirements,
-        dependency_links=[
-            (
-                # Use a pinned version of Twisted for newer type hints
-                "https://github.com/twisted/Twisted/tarball/"
-                "f1d82accda4953aae8049545bce8763f8aab75fb"
-                ".zip#egg=Twisted"
-            )
-        ],
     )
 
 
