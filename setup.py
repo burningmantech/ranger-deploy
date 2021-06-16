@@ -119,7 +119,7 @@ install_requirements = [
     "Twisted==21.2.0",  # rq.filter: >=19.10,<20.0
     # Indirect dependencies
     "Automat==20.2.0",
-    "botocore==1.20.95",
+    "botocore==1.20.96",
     "certifi==2021.5.30",
     "chardet==4.0.0",
     "constantly==15.1.0",
