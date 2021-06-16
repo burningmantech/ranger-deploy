@@ -116,16 +116,16 @@ install_requirements = [
     "click==8.0.1",
     "docker==5.0.0",
     "GitPython==3.1.17",
-    "Twisted==19.10.0",  # rq.filter: <20
+    "Twisted==19.10.0",  # rq.filter: >=19.10,<20.0
     # Indirect dependencies
     "Automat==20.2.0",
-    "botocore==1.20.93",
+    "botocore==1.20.95",
     "certifi==2021.5.30",
     "chardet==4.0.0",
     "constantly==15.1.0",
     "gitdb==4.0.7",
     "hyperlink==21.0.0",
-    "idna==2.10",  # rq.filter: <3.0
+    "idna==2.10",  # rq.filter: >=2.10,<3.0
     "incremental==21.3.0",
     "jmespath==0.10.0",
     "PyHamcrest==2.0.2",
