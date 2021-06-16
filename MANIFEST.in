@@ -9,4 +9,5 @@ include docs/conf.py
 include LICENSE.txt
 include myproject.toml
 include mypy.ini
+include requirements/requirements*.txt
 include tox.ini

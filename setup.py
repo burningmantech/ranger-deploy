@@ -39,7 +39,9 @@ name = "ranger-deploy"
 
 description = "Deployment tools for Ranger services"
 
-readme_path = Path(__file__).parent / "README.rst"
+project_root = Path(__file__).parent
+
+readme_path = project_root / "README.rst"
 long_description = readme_path.open().read()
 
 url = "https://github.com/burningmantech/ranger-deploy"
@@ -104,39 +106,14 @@ python_requirements = ">=3.6"
 
 setup_requirements: List[str] = []
 
+# Use a requirements.txt file for ease with Dependabot and/or Requires.io
+requirements_path = project_root / "requirements" / "requirements.txt"
 install_requirements = [
-    # We are not pinning patch version for Boto because:
-    # • it changes very frequently
-    # • it is reliably compatible
-    # • it should improve interoperability with AWS services
-    # Direct dependencies
-    "arrow==1.1.0",
-    "attrs==21.2.0",
-    "boto3>=1.17,<1.18",
-    "click==8.0.1",
-    "docker==5.0.0",
-    "GitPython==3.1.17",
-    "Twisted==19.10.0",  # rq.filter: >=19.10,<20.0
-    # Indirect dependencies
-    "Automat==20.2.0",
-    "botocore==1.20.95",
-    "certifi==2021.5.30",
-    "chardet==4.0.0",
-    "constantly==15.1.0",
-    "gitdb==4.0.7",
-    "hyperlink==21.0.0",
-    "idna==2.10",  # rq.filter: >=2.10,<3.0
-    "incremental==21.3.0",
-    "jmespath==0.10.0",
-    "PyHamcrest==2.0.2",
-    "python-dateutil==2.8.1",
-    "requests==2.25.1",
-    "s3transfer==0.4.2",
-    "six==1.16.0",
-    "smmap==4.0.0",
-    "urllib3==1.26.5",
-    "websocket-client==1.1.0",
-    "zope.interface==5.4.0",
+    requirement
+    for requirement in (
+        line.split("#", 1)[0].strip() for line in requirements_path.open()
+    )
+    if requirement
 ]
 
 extras_requirements: Dict[str, List[str]] = {}
