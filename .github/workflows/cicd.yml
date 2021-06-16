@@ -215,7 +215,7 @@ jobs:
 
       - name: Upload Trial log artifact
         if: failure()
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2.2.3
         with:
           name: trial
           path: .tox/${{ steps.tox_env.outputs.value }}/log/trial.log
@@ -231,7 +231,7 @@ jobs:
         uses: "codecov/codecov-action@v1"
         if: steps.tox_env.outputs.has_coverage
         with:
-          files: .tox/coverage.${{ steps.tox_env.outputs.value }}
+          files: .tox/coverage.xml
           env_vars: GITHUB_REF,GITHUB_COMMIT,GITHUB_USER,GITHUB_WORKFLOW
           fail_ci_if_error: true
         env:
