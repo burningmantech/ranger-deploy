@@ -10,7 +10,7 @@ boto3>=1.17,<1.18
 click==8.0.1
 docker==5.0.0
 GitPython==3.1.17
-Twisted==19.10.0  # rq.filter: <20.0
+Twisted==20.3.0  # rq.filter: <20.0
 
 # Indirect dependencies
 Automat==20.2.0
