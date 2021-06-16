@@ -1,0 +1,16 @@
+[run]
+branch = True
+parallel = True
+source = deploy
+
+[paths]
+source=
+   src/deploy
+   .tox/*/lib/python*/site-packages/deploy
+   .tox/*/Lib/site-packages/deploy
+   .tox/pypy*/site-packages/deploy
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
