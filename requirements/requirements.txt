@@ -10,7 +10,7 @@ boto3>=1.17,<1.18
 click==8.0.1
 docker==5.0.0
 GitPython==3.1.17
-Twisted==20.3.0  # rq.filter: <20.0
+Twisted==20.3.0
 
 # Indirect dependencies
 Automat==20.2.0
@@ -20,7 +20,7 @@ chardet==4.0.0
 constantly==15.1.0
 gitdb==4.0.7
 hyperlink==21.0.0
-idna==2.10  # rq.filter: <3
+idna==2.10
 incremental==21.3.0
 jmespath==0.10.0
 PyHamcrest==2.0.2

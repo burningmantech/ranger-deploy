@@ -1,3 +1,5 @@
+# https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically
+
 version: 2
 
 updates:
@@ -16,3 +18,5 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    labels:
+      - "Task"
