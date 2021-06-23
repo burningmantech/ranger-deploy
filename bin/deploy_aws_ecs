@@ -44,8 +44,8 @@ fi;
 
 echo "Installing dependencies...";
 deploy_url=git+https://github.com/burningmantech/ranger-deploy;
-"${python}" -m pip install --disable-pip-version-check --quiet \
-    "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
+"${python}" -m pip install --disable-pip-version-check --quiet --upgrade \
+    pip "${deploy_url}@${DEPLOY_TOOLS_VERSION:=master}#egg=ranger-deploy";
 
 if [ "${TRAVIS:-false}" = "true" ]; then
     export  REPOSITORY_ID="${TRAVIS_REPO_SLUG}";
