@@ -174,9 +174,17 @@ class ECSServiceClient:
                 cluster=self.cluster,
                 service=self.service,
             )
-            serviceDescription = self._aws.describe_services(
-                cluster=self.cluster, services=[self.service]
-            )
+            try:
+                serviceDescription = self._aws.describe_services(
+                    cluster=self.cluster, services=[self.service]
+                )
+            except Exception:
+                self.log.failure(
+                    "Unable to look up service description for "
+                    "{cluster}:{service}",
+                    cluster=self.cluster,
+                    service=self.service,
+                )
             services = serviceDescription["services"]
             if not services:
                 raise NoSuchServiceError(self.service)
@@ -193,9 +201,15 @@ class ECSServiceClient:
             self.log.debug(
                 "Looking up task definition for {arn}...", arn=currentTaskARN
             )
-            currentTaskDescription = self._aws.describe_task_definition(
-                taskDefinition=currentTaskARN
-            )
+            try:
+                currentTaskDescription = self._aws.describe_task_definition(
+                    taskDefinition=currentTaskARN
+                )
+            except Exception:
+                self.log.failure(
+                    "Unable to look up task definition for {arn}",
+                    arn=currentTaskARN,
+                )
             self._currentTask["definition"] = currentTaskDescription[
                 "taskDefinition"
             ]
@@ -281,7 +295,13 @@ class ECSServiceClient:
         Register a new task definition for the service.
         """
         self.log.debug("Registering new task definition...")
-        response = self._aws.register_task_definition(**taskDefinition)
+        try:
+            response = self._aws.register_task_definition(**taskDefinition)
+        except Exception:
+            self.log.failure(
+                "Unable to register task definition: {taskDefinition}",
+                taskDefinition=taskDefinition,
+            )
         newTaskARN = cast(str, response["taskDefinition"]["taskDefinitionArn"])
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
@@ -329,9 +349,18 @@ class ECSServiceClient:
             arn=arn,
         )
         self._currentTask.clear()
-        self._aws.update_service(
-            cluster=self.cluster, service=self.service, taskDefinition=arn
-        )
+        try:
+            self._aws.update_service(
+                cluster=self.cluster, service=self.service, taskDefinition=arn
+            )
+        except Exception:
+            self.log.failure(
+                "Unable to deploy task ARN {arn} to service "
+                "{cluster}:{service}",
+                cluster=self.cluster,
+                service=self.service,
+                arn=arn,
+            )
         self.log.info(
             "Deployed task ARN {arn} to service {cluster}:{service}.",
             cluster=self.cluster,
@@ -413,7 +442,14 @@ class ECSServiceClient:
         currentTaskDefinition = self.currentTaskDefinition()
 
         family = currentTaskDefinition["family"]
-        response = self._aws.list_task_definitions(familyPrefix=family)
+        try:
+            response = self._aws.list_task_definitions(familyPrefix=family)
+        except Exception:
+            self.log.failure(
+                "Unable to list task definitions for task family with "
+                "prefix {prefix}",
+                prefix=family,
+            )
 
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]
@@ -430,27 +466,7 @@ def ensureCI() -> None:
     """
     Make sure we are in a CI environment.
     """
-    if environ.get("TRAVIS", "false").lower() == "true":
-        if environ.get("TRAVIS_PULL_REQUEST") != "false":
-            log.critical("Attempted deployment from pull request")
-            raise UsageError("Deployment not allowed from pull request")
-
-        branch = environ.get("TRAVIS_BRANCH")
-        deploymentBranch = environ.get("DEPLOY_FROM_CI_BRANCH", "master")
-
-        if branch != deploymentBranch:
-            log.critical(
-                "Attempted deployment from non-{deploymentBranch} "
-                "branch {branch}",
-                deploymentBranch=deploymentBranch,
-                branch=branch,
-            )
-            raise UsageError(
-                f"Deployment not allowed from branch {branch!r} "
-                f"(must be {deploymentBranch!r})"
-            )
-
-    elif environ.get("CI", "false").lower() == "true":
+    if environ.get("CI", "false").lower() == "true":
         pass
 
     else:
