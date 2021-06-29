@@ -26,7 +26,6 @@ from typing import (
     Any,
     Callable,
     ClassVar,
-    ContextManager,
     Dict,
     Iterator,
     List,
@@ -934,28 +933,6 @@ def ciEnvironment() -> Iterator[None]:
         chdir(wd)
 
 
-@contextmanager
-def travisEnvironment(omit: str = "") -> Iterator[None]:
-    env = environ.copy()
-
-    environ["TRAVIS"] = "true"
-    if omit != "pr":
-        environ["TRAVIS_PULL_REQUEST"] = "false"
-    if omit != "branch":
-        environ["TRAVIS_BRANCH"] = "master"
-
-    wd = getcwd()
-    chdir(ciWorkingDirectory(env))
-
-    try:
-        yield
-
-    finally:
-        environ.clear()
-        environ.update(env)
-        chdir(wd)
-
-
 @attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
 class MockSMTPNotifier(SMTPNotifier):
     _notifyStagingCalls: ClassVar[List[Mapping[str, Any]]] = []
@@ -1016,14 +993,13 @@ class CommandLineTests(TestCase):
         stagingCluster: str,
         stagingService: str,
         ecrImageName: str,
-        environment: Callable[[], ContextManager] = ciEnvironment,
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            with environment():
+            with ciEnvironment():
                 result = clickTestRun(
                     ECSServiceClient.main,
                     [
@@ -1067,21 +1043,6 @@ class CommandLineTests(TestCase):
             stagingCluster,
             stagingService,
             ecrImageName,
-            environment=ciEnvironment,
-        )
-
-    @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_travis(
-        self,
-        stagingCluster: str,
-        stagingService: str,
-        ecrImageName: str,
-    ) -> None:
-        self._test_staging(
-            stagingCluster,
-            stagingService,
-            ecrImageName,
-            environment=travisEnvironment,
         )
 
     @given(text(min_size=1), text(min_size=1), image_repository_names())
@@ -1107,7 +1068,7 @@ class CommandLineTests(TestCase):
                 self.initClusterAndService(stagingCluster, stagingService)
 
                 # Run "staging" subcommand
-                with travisEnvironment():
+                with ciEnvironment():
                     result = clickTestRun(
                         ECSServiceClient.main,
                         [
@@ -1231,7 +1192,7 @@ class CommandLineTests(TestCase):
             self.initClusterAndService(stagingCluster, stagingService)
 
             # Run "staging" subcommand
-            with travisEnvironment(), testingSMTPNotifier():
+            with ciEnvironment(), testingSMTPNotifier():
                 result = clickTestRun(ECSServiceClient.main, args)
 
                 self.assertEqual(
@@ -1270,7 +1231,7 @@ class CommandLineTests(TestCase):
             )
 
             # Run "staging" subcommand
-            with travisEnvironment():
+            with ciEnvironment():
                 result = clickTestRun(
                     ECSServiceClient.main,
                     [
@@ -1309,7 +1270,7 @@ class CommandLineTests(TestCase):
             doesntExistService = "xyzzy"
 
             # Run "staging" subcommand
-            with travisEnvironment():
+            with ciEnvironment():
                 result = clickTestRun(
                     ECSServiceClient.main,
                     [
@@ -1370,84 +1331,6 @@ class CommandLineTests(TestCase):
         self.assertTrue(
             result.stderr.getvalue().endswith(
                 "\n\nError: Deployment not allowed outside of CI environment\n"
-            )
-        )
-
-    @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_travis_notPR(
-        self,
-        stagingCluster: str,
-        stagingService: str,
-        ecrImageName: str,
-    ) -> None:
-        with testingECSServiceClient() as clients:
-            # Add starting data set
-            self.initClusterAndService(stagingCluster, stagingService)
-
-            # Run "staging" subcommand
-            with travisEnvironment(omit="pr"):
-                result = clickTestRun(
-                    ECSServiceClient.main,
-                    [
-                        "deploy_aws_ecs",
-                        "staging",
-                        "--staging-cluster",
-                        stagingCluster,
-                        "--staging-service",
-                        stagingService,
-                        "--image-ecr",
-                        ecrImageName,
-                    ],
-                )
-
-            self.assertEqual(len(clients), 0)
-
-        self.assertEqual(result.exitCode, 2)
-        self.assertEqual(result.echoOutput, [])
-        self.assertEqual(result.stdout.getvalue(), "")
-        self.assertTrue(
-            result.stderr.getvalue().endswith(
-                "\n\nError: Deployment not allowed from pull request\n"
-            )
-        )
-
-    @given(text(min_size=1), text(min_size=1), image_names())
-    def test_staging_travis_notBranch(
-        self,
-        stagingCluster: str,
-        stagingService: str,
-        ecrImageName: str,
-    ) -> None:
-        with testingECSServiceClient() as clients:
-            # Add starting data set
-            self.initClusterAndService(stagingCluster, stagingService)
-
-            # Run "staging" subcommand
-            with travisEnvironment(omit="branch"):
-                result = clickTestRun(
-                    ECSServiceClient.main,
-                    [
-                        "deploy_aws_ecs",
-                        "staging",
-                        "--staging-cluster",
-                        stagingCluster,
-                        "--staging-service",
-                        stagingService,
-                        "--image-ecr",
-                        ecrImageName,
-                    ],
-                )
-
-            self.assertEqual(len(clients), 0)
-
-        self.assertEqual(result.exitCode, 2)
-        self.assertEqual(result.echoOutput, [])
-        self.assertEqual(result.stdout.getvalue(), "")
-        self.assertTrue(
-            result.stderr.getvalue().endswith(
-                "\n\n"
-                "Error: Deployment not allowed from branch None "
-                "(must be 'master')\n"
             )
         )
 
