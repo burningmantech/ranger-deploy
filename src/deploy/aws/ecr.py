@@ -192,7 +192,8 @@ class ECRServiceClient:
             try:
                 response = self._aws.get_authorization_token()
             except Exception:
-                self.log.failure("Unable to obtain authorization token")
+                self.log.critical("Unable to obtain authorization token")
+                raise
             assert len(response["authorizationData"]) == 1
 
             data = response["authorizationData"][0]

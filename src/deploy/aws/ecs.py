@@ -179,12 +179,13 @@ class ECSServiceClient:
                     cluster=self.cluster, services=[self.service]
                 )
             except Exception:
-                self.log.failure(
+                self.log.critical(
                     "Unable to look up service description for "
                     "{cluster}:{service}",
                     cluster=self.cluster,
                     service=self.service,
                 )
+                raise
             services = serviceDescription["services"]
             if not services:
                 raise NoSuchServiceError(self.service)
@@ -206,10 +207,11 @@ class ECSServiceClient:
                     taskDefinition=currentTaskARN
                 )
             except Exception:
-                self.log.failure(
+                self.log.critical(
                     "Unable to look up task definition for {arn}",
                     arn=currentTaskARN,
                 )
+                raise
             self._currentTask["definition"] = currentTaskDescription[
                 "taskDefinition"
             ]
@@ -300,10 +302,11 @@ class ECSServiceClient:
         try:
             response = self._aws.register_task_definition(**taskDefinition)
         except Exception:
-            self.log.failure(
+            self.log.critical(
                 "Unable to register task definition: {taskDefinition}",
                 taskDefinition=taskDefinition,
             )
+            raise
         newTaskARN = cast(str, response["taskDefinition"]["taskDefinitionArn"])
         self.log.info("Registered task definition: {arn}", arn=newTaskARN)
 
@@ -356,13 +359,14 @@ class ECSServiceClient:
                 cluster=self.cluster, service=self.service, taskDefinition=arn
             )
         except Exception:
-            self.log.failure(
+            self.log.critical(
                 "Unable to deploy task ARN {arn} to service "
                 "{cluster}:{service}",
                 cluster=self.cluster,
                 service=self.service,
                 arn=arn,
             )
+            raise
         self.log.info(
             "Deployed task ARN {arn} to service {cluster}:{service}.",
             cluster=self.cluster,
@@ -447,11 +451,12 @@ class ECSServiceClient:
         try:
             response = self._aws.list_task_definitions(familyPrefix=family)
         except Exception:
-            self.log.failure(
+            self.log.critical(
                 "Unable to list task definitions for task family with "
                 "prefix {prefix}",
                 prefix=family,
             )
+            raise
 
         # Deploy second-to-last ARN
         taskARN = response["taskDefinitionArns"][-2]
