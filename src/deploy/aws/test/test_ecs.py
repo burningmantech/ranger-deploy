@@ -1577,7 +1577,7 @@ class CommandLineTests(TestCase):
                     "--service",
                     service,
                     # a letter
-                    *[f"x{k}={v}" for k, v in updates],
+                    *(f"x{k}={v}" for k, v in updates),
                 ],
             )
 
@@ -1638,7 +1638,7 @@ class CommandLineTests(TestCase):
                     cluster,
                     "--service",
                     service,
-                    *[f"x{k}" for k in removes],
+                    *(f"x{k}" for k in removes),
                 ],
             )
 
