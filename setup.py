@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 ##
 # See the file COPYRIGHT for copyright information.
@@ -57,6 +57,7 @@ platforms = ["all"]
 packages = find_packages(where="src")
 
 classifiers = [
+    "Framework :: Twisted",
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -74,19 +75,12 @@ classifiers = [
 #
 
 entry_points: Dict[str, List[str]] = {
-    "console_scripts": [],
+    "console_scripts": [
+        "deploy_aws_ecr = deploy.aws.ecr:ECRServiceClient.main"
+        "deploy_aws_ecs = deploy.aws.ecs:ECSServiceClient.main"
+        "deploy_notify_smtp = deploy.notify.smtp:SMTPNotifier.main"
+    ],
 }
-
-script_entry_points = {
-    "aws_ecr": ("deploy.aws.ecr", "ECRServiceClient.main"),
-    "aws_ecs": ("deploy.aws.ecs", "ECSServiceClient.main"),
-    "notify_smtp": ("deploy.notify.smtp", "SMTPNotifier.main"),
-}
-
-for tool, (module, function) in script_entry_points.items():
-    entry_points["console_scripts"].append(
-        f"deploy_{tool} = {module}:{function}"
-    )
 
 
 #

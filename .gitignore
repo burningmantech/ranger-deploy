@@ -1,6 +1,9 @@
 /.hypothesis
-/.mypy_cache
 /.tox
+/build/
+/cached/
+/data/
+/dist/
 /htmlcov/
 /htmldocs/
 /src/*.egg-info/
