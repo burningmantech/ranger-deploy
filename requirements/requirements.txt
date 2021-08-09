@@ -14,7 +14,7 @@ Twisted==21.7.0
 
 # Indirect dependencies
 Automat==20.2.0
-botocore==1.20.106
+botocore==1.21.17
 certifi==2021.5.30
 chardet==4.0.0
 constantly==15.1.0
@@ -26,7 +26,7 @@ jmespath==0.10.0
 PyHamcrest==2.0.2
 python-dateutil==2.8.2
 requests==2.26.0
-s3transfer==0.4.2
+s3transfer==0.5.0
 six==1.16.0
 smmap==4.0.0
 urllib3==1.26.6
