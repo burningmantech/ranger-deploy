@@ -138,8 +138,6 @@ class MockBoto3ECSClient:
             "taskDefinitionArn": f"{_defaultARNNamespace}:0",
             "family": "service-fg",
             "revision": 1,
-            "registeredAt": 1234,
-            "registeredBy": "?",
             "containerDefinitions": [
                 {
                     "name": "service-container",
@@ -180,8 +178,6 @@ class MockBoto3ECSClient:
             "taskDefinitionArn": f"{_defaultARNNamespace}:1",
             "family": "service-fg",
             "revision": 1,
-            "registeredAt": 1234,
-            "registeredBy": "?",
             "containerDefinitions": [
                 {
                     "name": "service-container",
