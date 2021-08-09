@@ -76,9 +76,9 @@ classifiers = [
 
 entry_points: Dict[str, List[str]] = {
     "console_scripts": [
-        "deploy_aws_ecr = deploy.aws.ecr:ECRServiceClient.main"
-        "deploy_aws_ecs = deploy.aws.ecs:ECSServiceClient.main"
-        "deploy_notify_smtp = deploy.notify.smtp:SMTPNotifier.main"
+        "deploy_aws_ecr = deploy.aws.ecr:ECRServiceClient.main",
+        "deploy_aws_ecs = deploy.aws.ecs:ECSServiceClient.main",
+        "deploy_notify_smtp = deploy.notify.smtp:SMTPNotifier.main",
     ],
 }
 
