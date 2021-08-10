@@ -241,12 +241,22 @@ class ECSServiceClient:
 
         # Copy, then remove keys that may not be re-submitted.
         currentTaskDefinition = dict(currentTaskDefinition)
-        del currentTaskDefinition["revision"]
-        del currentTaskDefinition["status"]
-        del currentTaskDefinition["taskDefinitionArn"]
+        extraFields: Tuple[str, ...] = (
+            "revision",
+            "registeredAt",
+            "registeredBy",
+            "status",
+            "taskDefinitionArn",
+        )
         if "FARGATE" in currentTaskDefinition["compatibilities"]:
-            del currentTaskDefinition["compatibilities"]
-            del currentTaskDefinition["requiresAttributes"]
+            extraFields += (
+                "compatibilities",
+                "requiresAttributes",
+            )
+
+        for field in extraFields:
+            if field in currentTaskDefinition:
+                del currentTaskDefinition[field]
 
         # Deep copy the current task definition for editing.
         newTaskDefinition = deepcopy(currentTaskDefinition)
