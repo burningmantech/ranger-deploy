@@ -242,6 +242,8 @@ class ECSServiceClient:
         # Copy, then remove keys that may not be re-submitted.
         currentTaskDefinition = dict(currentTaskDefinition)
         del currentTaskDefinition["revision"]
+        del currentTaskDefinition["registeredAt"]
+        del currentTaskDefinition["registeredBy"]
         del currentTaskDefinition["status"]
         del currentTaskDefinition["taskDefinitionArn"]
         if "FARGATE" in currentTaskDefinition["compatibilities"]:
