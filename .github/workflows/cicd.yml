@@ -229,7 +229,7 @@ jobs:
           python-version: "3.9"
 
       - name: "Upload coverage to Codecov"
-        uses: "codecov/codecov-action@v2.0.3"
+        uses: "codecov/codecov-action@v2.1.0"
         if: steps.tox_env.outputs.has_coverage
         with:
           files: .tox/coverage.xml
