@@ -10,7 +10,7 @@ boto3>=1.17,<1.19
 click==8.0.3
 docker==5.0.3
 GitPython==3.1.18
-Twisted==21.7.0
+Twisted==22.1.0
 
 # Indirect dependencies
 Automat==20.2.0
