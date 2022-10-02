@@ -19,6 +19,7 @@ Tests for :mod:`deploy.ext.click`
 """
 
 from pathlib import Path
+from string import whitespace
 from typing import Dict
 
 from hypothesis import given, note
@@ -82,7 +83,9 @@ class ReadConfigTests(TestCase):
         #  * Leading "="s are removed from values.
         #  * "$" is removed from values so that we don't trigger interpolation.
         configDict = {
-            f"x{k.lower().strip()}": v.replace("$", "").strip().lstrip("=")
+            f"x{k.lower().strip()}": (
+                v.replace("$", "").lstrip(whitespace + "=").rstrip()
+            )
             for k, v in configDict.items()
         }
 
