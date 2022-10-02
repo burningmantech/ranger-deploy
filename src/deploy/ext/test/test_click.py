@@ -19,7 +19,8 @@ Tests for :mod:`deploy.ext.click`
 """
 
 from pathlib import Path
-from string import whitespace
+from re import findall
+from sys import maxunicode
 from typing import Dict
 
 from hypothesis import given, note
@@ -31,6 +32,11 @@ from ..click import readConfig
 
 
 __all__ = ()
+
+
+unicodeWhitespace = "".join(
+    findall(r"\s", "".join(chr(c) for c in range(maxunicode + 1)))
+)
 
 
 configBlacklistCategories = (
@@ -84,7 +90,7 @@ class ReadConfigTests(TestCase):
         #  * "$" is removed from values so that we don't trigger interpolation.
         configDict = {
             f"x{k.lower().strip()}": (
-                v.replace("$", "").lstrip(whitespace + "=").rstrip()
+                v.replace("$", "").lstrip(unicodeWhitespace + "=").rstrip()
             )
             for k, v in configDict.items()
         }
