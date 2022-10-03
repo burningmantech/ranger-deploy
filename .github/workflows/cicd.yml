@@ -162,7 +162,7 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.7", "3.8", "3.9", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
-        coverage: [""]
+        coverage: ["test"]
         optional: [false]
         include:
           # Run Python 3.10 with coverage
@@ -174,7 +174,7 @@ jobs:
           - os: "ubuntu-latest"
             python-version: "3.11.0-rc.2"
             optional: true
-            coverage: ""
+            coverage: "test"
 
     steps:
 
