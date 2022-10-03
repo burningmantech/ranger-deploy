@@ -1,6 +1,4 @@
-# Docs:
-# https://help.github.com/en/actions/automating-your-workflow-with-github-actions
-
+# Docs: https://docs.github.com/en/actions
 
 
 name: CI/CD
@@ -29,15 +27,15 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
 
       - name: Set up Tox environment
         run: |
-          pip install tox;
-          tox -e lint --notest;
+          pip install tox
+          tox -e lint --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -45,7 +43,7 @@ jobs:
           python-path: .tox/lint/*/python
 
       - name: Run Linters
-        run: tox -e lint;
+        run: tox -e lint
 
 
   mypy:
@@ -63,15 +61,15 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
 
       - name: Set up Tox environment
         run: |
-          pip install tox;
-          tox -e mypy --notest;
+          pip install tox
+          tox -e mypy --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -79,7 +77,7 @@ jobs:
           python-path: .tox/mypy/*/python
 
       - name: Run Mypy
-        run: tox -e mypy;
+        run: tox -e mypy
 
 
   docs:
@@ -97,15 +95,15 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
 
       - name: Set up Tox environment
         run: |
-          pip install tox;
-          tox -e docs --notest;
+          pip install tox
+          tox -e docs --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -113,7 +111,7 @@ jobs:
           python-path: .tox/docs/*/python
 
       - name: Build documentation
-        run: tox -e docs;
+        run: tox -e docs
 
 
   packaging:
@@ -130,15 +128,15 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
 
       - name: Set up Tox environment
         run: |
-          pip install tox;
-          tox -e packaging --notest;
+          pip install tox
+          tox -e packaging --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -146,7 +144,7 @@ jobs:
           python-path: .tox/packaging/*/python
 
       - name: Check packaging
-        run: tox -e packaging;
+        run: tox -e packaging
 
 
   unit:
@@ -162,19 +160,19 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.7", "3.8", "3.9", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
-        coverage: [""]
+        tox-prefix: ["test"]
         optional: [false]
         include:
-          # Run Python 3.10 with coverage
+          # Test Python 3.10 with coverage
           - os: "ubuntu-latest"
             python-version: "3.10"
             optional: false
-            coverage: "coverage-"
-          # Run Python 3.11 but allow it to fail
+            tox-prefix: "coverage"
+          # Test Python 3.11 but allow it to fail
           - os: "ubuntu-latest"
             python-version: "3.11.0-rc.2"
             optional: true
-            coverage: ""
+            tox-prefix: "test"
 
     steps:
 
@@ -198,13 +196,12 @@ jobs:
           py = "${{ matrix.python-version }}"
           py = "".join(py.split(".")[:2])   # Combine major/minor, toss rest
           py = py.replace("pypy-", "py")     # For Pypy: have a litte less py
-          print(f"::set-output name=value::${{ matrix.coverage }}py{py}")
-          print(f"::set-output name=has_coverage::${{ matrix.coverage }}")
+          print(f"::set-output name=value::${{ matrix.tox-prefix }}-py{py}")
 
       - name: Set up Tox environment
         run: |
-          pip install tox;
-          tox -e ${{ steps.tox_env.outputs.value }} --notest;
+          pip install tox
+          tox -e ${{ steps.tox_env.outputs.value }} --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -212,7 +209,7 @@ jobs:
           python-path: .tox/${{ steps.tox_env.outputs.value }}/*/python
 
       - name: Run unit tests
-        run: tox -e ${{ steps.tox_env.outputs.value }};
+        run: tox -e ${{ steps.tox_env.outputs.value }}
 
       - name: Upload Trial log artifact
         if: failure()
@@ -224,13 +221,13 @@ jobs:
       # Use the latest supported Python version for combining coverage to
       # prevent parsing errors in older versions when looking at modern code.
       - uses: "actions/setup-python@v4"
-        if: steps.tox_env.outputs.has_coverage
+        if: ${{ matrix.tox-prefix == 'coverage' }}
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: "Upload coverage to Codecov"
         uses: "codecov/codecov-action@v3.1.1"
-        if: steps.tox_env.outputs.has_coverage
+        if: ${{ matrix.tox-prefix == 'coverage' }}
         with:
           files: .tox/coverage.xml
           env_vars: GITHUB_REF,GITHUB_COMMIT,GITHUB_USER,GITHUB_WORKFLOW
