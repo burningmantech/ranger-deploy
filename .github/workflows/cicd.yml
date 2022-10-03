@@ -197,7 +197,7 @@ jobs:
         run: |
           py = "${{ matrix.python-version }}"
           py = "".join(py.split(".")[:2])   # Combine major/minor, toss rest
-          py = py.replace("pypy", "py")     # For Pypy: have a litte less py
+          py = py.replace("pypy-", "py")     # For Pypy: have a litte less py
           print(f"::set-output name=value::${{ matrix.coverage }}py{py}")
           print(f"::set-output name=has_coverage::${{ matrix.coverage }}")
 
