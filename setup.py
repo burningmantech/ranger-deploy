@@ -99,11 +99,11 @@ package_data = dict(
 # Dependencies
 #
 
-python_requirements = ">=3.7"
-
-setup_requirements: List[str] = []
 
 def read_requirements(path: Path) -> List[str]:
+    """
+    Parse requirements file.
+    """
     return [
         requirement
         for requirement in (
@@ -112,11 +112,15 @@ def read_requirements(path: Path) -> List[str]:
         if requirement
     ]
 
+
+python_requirements = ">=3.7"
+
+setup_requirements: List[str] = []
+
 requirements_dir = project_root / "requirements"
-install_requirements = (
-    read_requirements(requirements_dir / "requirements-direct.txt") +
-    read_requirements(requirements_dir / "requirements-indirect.txt")
-)
+install_requirements = read_requirements(
+    requirements_dir / "requirements-direct.txt"
+) + read_requirements(requirements_dir / "requirements-indirect.txt")
 
 extras_requirements: Dict[str, List[str]] = {}
 
