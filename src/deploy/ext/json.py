@@ -2,15 +2,12 @@
 Extensions to :mod:`json`
 """
 
-from datetime import date as Date, datetime as DateTime
+from datetime import date as Date
+from datetime import datetime as DateTime
 from io import TextIOWrapper
-from json import (
-    JSONDecodeError,
-    JSONEncoder as BaseJSONEncoder,
-    dumps,
-    load,
-    loads,
-)
+from json import JSONDecodeError
+from json import JSONEncoder as BaseJSONEncoder
+from json import dumps, load, loads
 from typing import Any, BinaryIO, Optional
 
 from arrow.parser import DateTimeParser
@@ -85,7 +82,7 @@ def objectFromJSONText(text: str) -> Any:
             msg=f"{e.msg} in {text!r}",
             doc=e.doc,
             pos=e.pos,
-        )
+        ) from e
 
 
 def objectFromJSONBytesIO(io: BinaryIO, encoding: str = "utf-8") -> Any:

@@ -39,7 +39,6 @@ from typing import (
 )
 
 from attr import Attribute, attrib, attrs
-
 from hypothesis import assume, given
 from hypothesis.strategies import (
     booleans,
@@ -55,7 +54,6 @@ from hypothesis.strategies import (
     text,
     tuples,
 )
-
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 import deploy.notify.smtp
@@ -72,7 +70,6 @@ from deploy.ext.hypothesis import (
 )
 from deploy.notify.smtp import SMTPNotifier
 
-from .test_ecr import ECRServiceClient, testingECRServiceClient
 from .. import ecs
 from ..ecs import (
     ECSServiceClient,
@@ -82,6 +79,7 @@ from ..ecs import (
     TaskEnvironment,
     TaskEnvironmentUpdates,
 )
+from .test_ecr import ECRServiceClient, testingECRServiceClient
 
 
 __all__ = ()
@@ -1532,10 +1530,10 @@ class CommandLineTests(TestCase):
             result.echoOutput,
             [
                 (f"Environment variables for {cluster}:{service}:", {}),
-                (f"    version = '0'", {}),
-                (f"    happiness = 'true'", {}),
-                (f"    VARIABLE1 = 'value1'", {}),
-                (f"    VARIABLE2 = 'value2'", {}),
+                ("    version = '0'", {}),
+                ("    happiness = 'true'", {}),
+                ("    VARIABLE1 = 'value1'", {}),
+                ("    VARIABLE2 = 'value2'", {}),
             ],
         )
         self.assertEqual(result.stdout.getvalue(), "")

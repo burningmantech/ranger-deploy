@@ -18,6 +18,7 @@ from pprint import pprint
 from sys import path
 from typing import List
 
+
 path.insert(0, abspath(join("..", "src")))
 
 pprint(environ)

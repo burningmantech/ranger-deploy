@@ -22,9 +22,8 @@ from typing import (
 )
 from unittest.mock import patch
 
-from attr import Factory, attrs
-
 import click
+from attr import Factory, attrs
 from click import option
 
 

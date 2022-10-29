@@ -25,7 +25,6 @@ from typing import Dict
 
 from hypothesis import given, note
 from hypothesis.strategies import characters, dictionaries, text
-
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from ..click import readConfig

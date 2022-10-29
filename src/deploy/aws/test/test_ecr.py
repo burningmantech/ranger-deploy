@@ -38,12 +38,9 @@ from typing import (
 )
 
 from attr import Attribute, Factory, attrib, attrs
-
 from docker.errors import ImageNotFound
-
 from hypothesis import assume, given
 from hypothesis.strategies import integers, lists, text
-
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from deploy.ext.click import ClickTestResult, clickTestRun
