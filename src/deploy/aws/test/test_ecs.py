@@ -39,7 +39,6 @@ from typing import (
 )
 
 from attr import Attribute, attrib, attrs
-
 from hypothesis import assume, given
 from hypothesis.strategies import (
     booleans,
@@ -55,7 +54,6 @@ from hypothesis.strategies import (
     text,
     tuples,
 )
-
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 import deploy.notify.smtp
@@ -72,7 +70,6 @@ from deploy.ext.hypothesis import (
 )
 from deploy.notify.smtp import SMTPNotifier
 
-from .test_ecr import ECRServiceClient, testingECRServiceClient
 from .. import ecs
 from ..ecs import (
     ECSServiceClient,
@@ -82,6 +79,7 @@ from ..ecs import (
     TaskEnvironment,
     TaskEnvironmentUpdates,
 )
+from .test_ecr import ECRServiceClient, testingECRServiceClient
 
 
 __all__ = ()

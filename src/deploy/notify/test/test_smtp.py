@@ -25,10 +25,8 @@ from typing import Any, ClassVar, Iterator, List, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 from attr import Factory, attrs
-
 from hypothesis import given
 from hypothesis.strategies import booleans
-
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from deploy.ext.click import clickTestRun

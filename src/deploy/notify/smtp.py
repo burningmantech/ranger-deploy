@@ -27,18 +27,13 @@ from ssl import Purpose, create_default_context
 from typing import Callable, Optional, Tuple, Union
 
 from attr import attrs
-
-from click import (
-    BadParameter,
-    Context as ClickContext,
-    Option,
-    Parameter,
-    group as commandGroup,
-    option as commandOption,
-    pass_context as passContext,
-    version_option as versionOption,
-)
-
+from click import BadParameter
+from click import Context as ClickContext
+from click import Option, Parameter
+from click import group as commandGroup
+from click import option as commandOption
+from click import pass_context as passContext
+from click import version_option as versionOption
 from twisted.logger import Logger
 
 from deploy.ext.click import (

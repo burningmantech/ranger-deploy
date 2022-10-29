@@ -19,39 +19,29 @@ AWS EC2 Container Registry support.
 """
 
 from base64 import b64decode
-from datetime import (
-    datetime as DateTime,
-    timedelta as TimeDelta,
-    timezone as TimeZone,
-)
+from datetime import datetime as DateTime
+from datetime import timedelta as TimeDelta
+from datetime import timezone as TimeZone
 from enum import IntEnum
 from ssl import (
+    PROTOCOL_TLS,
     OP_NO_SSLv2,
     OP_NO_SSLv3,
     OP_NO_TLSv1,
     OP_NO_TLSv1_1,
-    PROTOCOL_TLS,
 )
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union, cast
 
-from attr import Factory, attrs
-
-from boto3 import client as boto3Client
-
 import click
-from click import (
-    Context as ClickContext,
-    group as commandGroup,
-    pass_context as passContext,
-    version_option as versionOption,
-)
-
-from docker import (
-    APIClient as DockerClient,
-    from_env as dockerClientFromEnvironment,
-)
+from attr import Factory, attrs
+from boto3 import client as boto3Client
+from click import Context as ClickContext
+from click import group as commandGroup
+from click import pass_context as passContext
+from click import version_option as versionOption
+from docker import APIClient as DockerClient
+from docker import from_env as dockerClientFromEnvironment
 from docker.models.images import Image
-
 from twisted.logger import Logger
 
 from deploy.ext.click import profileOption, readConfig

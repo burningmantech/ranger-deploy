@@ -18,12 +18,10 @@
 Tests for :mod:`deploy.ext.json`
 """
 
-from datetime import (
-    date as Date,
-    datetime as DateTime,
-    timedelta as TimeDelta,
-    timezone as TimeZone,
-)
+from datetime import date as Date
+from datetime import datetime as DateTime
+from datetime import timedelta as TimeDelta
+from datetime import timezone as TimeZone
 from io import BytesIO
 from json import JSONDecodeError
 from textwrap import dedent
@@ -31,18 +29,9 @@ from types import MappingProxyType
 from typing import Any, Callable, Dict, List, cast
 
 from hypothesis import given
-from hypothesis.strategies import (
-    SearchStrategy,
-    composite,
-    dates,
-    datetimes as _datetimes,
-    dictionaries,
-    integers,
-    lists,
-    one_of,
-    text,
-)
-
+from hypothesis.strategies import SearchStrategy, composite, dates
+from hypothesis.strategies import datetimes as _datetimes
+from hypothesis.strategies import dictionaries, integers, lists, one_of, text
 from twisted.trial.unittest import SynchronousTestCase as TestCase
 
 from ..json import (

@@ -33,23 +33,17 @@ from typing import (
     cast,
 )
 
-from attr import Factory, attrs
-
-from boto3 import client as boto3Client
-
 import click
-from click import (
-    Context as ClickContext,
-    UsageError,
-    argument as commandArgument,
-    group as commandGroup,
-    option as commandOption,
-    pass_context as passContext,
-    version_option as versionOption,
-)
-
+from attr import Factory, attrs
+from boto3 import client as boto3Client
+from click import Context as ClickContext
+from click import UsageError
+from click import argument as commandArgument
+from click import group as commandGroup
+from click import option as commandOption
+from click import pass_context as passContext
+from click import version_option as versionOption
 from git import Repo
-
 from twisted.logger import Logger
 
 from deploy.ext.click import (
@@ -59,11 +53,8 @@ from deploy.ext.click import (
     trialRunOption,
 )
 from deploy.ext.logger import startLogging
-from deploy.notify.smtp import (
-    _staging as notifyStaging,
-    buildOptions,
-    smtpOptions,
-)
+from deploy.notify.smtp import _staging as notifyStaging
+from deploy.notify.smtp import buildOptions, smtpOptions
 
 from .ecr import ECRServiceClient
 
