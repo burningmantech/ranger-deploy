@@ -37,9 +37,6 @@ extend-ignore =
     # missing whitespace after ','
     E231,
 
-    # f-string is missing placeholders
-    F541,
-
     # function name should be lowercase
     N802,
 
@@ -66,6 +63,3 @@ extend-ignore =
 
 # flake8-import-order: local module name space
 application-import-names = deploy
-
-# McCabe complexity checker
-max-complexity = 23

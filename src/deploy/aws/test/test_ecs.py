@@ -1530,10 +1530,10 @@ class CommandLineTests(TestCase):
             result.echoOutput,
             [
                 (f"Environment variables for {cluster}:{service}:", {}),
-                (f"    version = '0'", {}),
-                (f"    happiness = 'true'", {}),
-                (f"    VARIABLE1 = 'value1'", {}),
-                (f"    VARIABLE2 = 'value2'", {}),
+                ("    version = '0'", {}),
+                ("    happiness = 'true'", {}),
+                ("    VARIABLE1 = 'value1'", {}),
+                ("    VARIABLE2 = 'value2'", {}),
             ],
         )
         self.assertEqual(result.stdout.getvalue(), "")
