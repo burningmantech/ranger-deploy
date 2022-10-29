@@ -128,7 +128,7 @@ class ECRServiceClient:
         try:
             repository, tag = name.split(":")
         except ValueError:
-            raise InvalidImageNameError(name)
+            raise InvalidImageNameError(name) from None
 
     #
     # Class attributes
@@ -237,7 +237,7 @@ class ECRServiceClient:
         try:
             repository, tag = newName.split(":")
         except ValueError:
-            raise InvalidImageNameError(newName)
+            raise InvalidImageNameError(newName) from None
 
         image.tag(repository=repository, tag=tag)
 
@@ -258,7 +258,7 @@ class ECRServiceClient:
         try:
             repository, tag = ecrName.split(":")
         except ValueError:
-            raise InvalidImageNameError(ecrName)
+            raise InvalidImageNameError(ecrName) from None
 
         self.tag(localName, ecrName)
 
@@ -369,7 +369,9 @@ class DockerPushResponseHandler:
                 currentProgress = 0
                 totalProgress = -1
             else:
-                raise DockerServiceError(f"Unknown status: {jsonStatus}")
+                raise DockerServiceError(
+                    f"Unknown status: {jsonStatus}"
+                ) from None
         else:
             assert state != ImagePushState.start
             assert priorStatus.state <= state

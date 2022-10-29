@@ -175,7 +175,7 @@ def validateRepositoryID(
     try:
         organization, project = value.split("/")
     except ValueError:
-        raise BadParameter(f"Invalid repository ID: {value}")
+        raise BadParameter(f"Invalid repository ID: {value}") from None
 
     return (value, organization, project)
 

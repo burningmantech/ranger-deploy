@@ -619,7 +619,7 @@ def staging(
     try:
         stagingClient.deployImage(image_ecr, trialRun=trial_run)
     except NoSuchServiceError as e:
-        raise UsageError(f"Unknown service: {e.service}")
+        raise UsageError(f"Unknown service: {e.service}") from None
 
     if (
         repository_id is not None
