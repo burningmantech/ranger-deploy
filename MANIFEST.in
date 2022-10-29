@@ -1,6 +1,7 @@
 include .coveragerc
 include .flake8
 include .pre-commit-config.yaml
+include .isort.cfg
 include bin/deploy_aws_ecs
 include codecov.yml
 include COPYRIGHT.txt
