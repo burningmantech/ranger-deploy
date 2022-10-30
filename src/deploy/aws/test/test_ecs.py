@@ -41,6 +41,7 @@ from typing import (
 from attr import Attribute, attrib, attrs
 from hypothesis import assume, given
 from hypothesis.strategies import (
+    SearchStrategy,
     booleans,
     characters,
     composite,
@@ -87,15 +88,12 @@ __all__ = ()
 
 def environment_updates(
     min_size: int = 0, max_size: Optional[int] = None
-) -> Mapping[str, str]:
-    return cast(
-        Mapping[str, str],
-        dictionaries(
-            text(min_size=1),
-            text(),
-            min_size=min_size,
-            max_size=max_size,
-        ),
+) -> SearchStrategy:
+    return dictionaries(
+        text(min_size=1),
+        text(),
+        min_size=min_size,
+        max_size=max_size,
     )
 
 
