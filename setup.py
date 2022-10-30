@@ -99,19 +99,28 @@ package_data = dict(
 # Dependencies
 #
 
+
+def read_requirements(path: Path) -> List[str]:
+    """
+    Parse requirements file.
+    """
+    return [
+        requirement
+        for requirement in (
+            line.split("#", 1)[0].strip() for line in path.open()
+        )
+        if requirement
+    ]
+
+
 python_requirements = ">=3.7"
 
 setup_requirements: List[str] = []
 
-# Use a requirements.txt file for ease with Dependabot and/or Requires.io
-requirements_path = project_root / "requirements" / "requirements.txt"
-install_requirements = [
-    requirement
-    for requirement in (
-        line.split("#", 1)[0].strip() for line in requirements_path.open()
-    )
-    if requirement
-]
+requirements_dir = project_root / "requirements"
+install_requirements = read_requirements(
+    requirements_dir / "requirements-direct.txt"
+) + read_requirements(requirements_dir / "requirements-indirect.txt")
 
 extras_requirements: Dict[str, List[str]] = {}
 

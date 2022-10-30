@@ -29,7 +29,7 @@ settings.load_profile("CI")
 
 
 def ascii_text(
-    min_size: Optional[int] = 0, max_size: Optional[int] = None
+    min_size: int = 0, max_size: Optional[int] = None
 ) -> SearchStrategy:
     """
     A strategy which generates ASCII-encodable text.
