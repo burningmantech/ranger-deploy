@@ -137,7 +137,7 @@ class SMTPNotifier:
         message.attach(MIMEText(html, "html"))
 
         if not trialRun:
-            context = create_default_context(purpose=Purpose.CLIENT_AUTH)
+            context = create_default_context(purpose=Purpose.SERVER_AUTH)
             try:
                 with SMTP_SSL(
                     self.smtpHost, self.smtpPort, context=context
