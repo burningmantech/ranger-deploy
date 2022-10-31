@@ -23,11 +23,11 @@ from email.mime.text import MIMEText
 from html import escape as escapeHTML
 from pkgutil import get_data as readResource
 from smtplib import SMTP_SSL
-from ssl import Purpose, create_default_context
+from ssl import Purpose, SSLError, create_default_context
 from typing import Callable, Optional, Tuple, Union
 
 from attr import attrs
-from click import BadParameter
+from click import BadParameter, ClickException
 from click import Context as ClickContext
 from click import Option, Parameter
 from click import group as commandGroup
@@ -43,6 +43,8 @@ from deploy.ext.click import (
     trialRunOption,
 )
 from deploy.ext.logger import startLogging
+
+from ._error import FailedToSendNotificationError
 
 
 __all__ = ("SMTPNotifier",)
@@ -136,13 +138,19 @@ class SMTPNotifier:
 
         if not trialRun:
             context = create_default_context(purpose=Purpose.CLIENT_AUTH)
-            with SMTP_SSL(
-                self.smtpHost, self.smtpPort, context=context
-            ) as relay:
-                relay.login(self.smtpUser, self.smtpPassword)
-                relay.send_message(
-                    message, self.senderAddress, self.recipientAddress
-                )
+            try:
+                with SMTP_SSL(
+                    self.smtpHost, self.smtpPort, context=context
+                ) as relay:
+                    relay.login(self.smtpUser, self.smtpPassword)
+                    relay.send_message(
+                        message, self.senderAddress, self.recipientAddress
+                    )
+            except SSLError as e:
+                raise FailedToSendNotificationError(
+                    "SSL failure while connecting to "
+                    f"{self.smtpHost}:{self.smtpPort}"
+                ) from e
 
         self.log.info(
             "Sent email notification for project {project} ({repository}) "
@@ -384,15 +392,18 @@ def _staging(
         recipientAddress=email_recipient,
     )
 
-    notifier.notifyStaging(
-        project=project_name,
-        repository=repository,
-        buildNumber=build_number,
-        buildURL=build_url,
-        commitID=commit_id,
-        commitMessage=commit_message,
-        trialRun=trial_run,
-    )
+    try:
+        notifier.notifyStaging(
+            project=project_name,
+            repository=repository,
+            buildNumber=build_number,
+            buildURL=build_url,
+            commitID=commit_id,
+            commitMessage=commit_message,
+            trialRun=trial_run,
+        )
+    except FailedToSendNotificationError as e:
+        raise ClickException(e.message) from e
 
 
 if __name__ == "__main__":  # pragma: no cover
