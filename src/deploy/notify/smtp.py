@@ -149,7 +149,7 @@ class SMTPNotifier:
             except SSLError as e:
                 raise FailedToSendNotificationError(
                     "SSL failure while connecting to "
-                    f"{self.smtpHost}:{self.smtpPort}"
+                    f"{self.smtpHost}:{self.smtpPort}: {e}"
                 ) from e
 
         self.log.info(

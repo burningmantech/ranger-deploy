@@ -20,7 +20,7 @@ Tests for :mod:`deploy.notify.smtp`
 
 from contextlib import contextmanager
 from email.message import Message
-from ssl import SSLContext
+from ssl import SSLContext, SSLError
 from typing import Any, ClassVar, Iterator, List, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
@@ -413,3 +413,51 @@ class CommandLineTests(TestCase):
         except self.failureException:  # pragma: no cover
             # This will print a more useful error
             self.assertEqual(errors, expectedErrors)
+
+    def test_staging_sslError(self) -> None:
+        """
+        SSL error raised while connecting to mail server.
+        """
+
+        def SMTP_SSL(*args: object, **kwargs: object) -> None:
+            raise SSLError("SSL Oopsie")
+
+        with patch("deploy.notify.smtp.SMTP_SSL", SMTP_SSL):
+            result = clickTestRun(
+                SMTPNotifier.main,
+                [
+                    "notify_smtp",
+                    "staging",
+                    "--repository-id",
+                    "some-org/some-project",
+                    "--build-number",
+                    "build-number",
+                    "--build-url",
+                    "http://example.com/",
+                    "--commit-id",
+                    "101010",
+                    "--commit-message",
+                    "Hello",
+                    "--smtp-host",
+                    "mail.example.com",
+                    "--smtp-user",
+                    "user",
+                    "--smtp-password",
+                    "password",
+                    "--email-sender",
+                    "sender@example.com",
+                    "--email-recipient",
+                    "recipient@example.com",
+                ],
+            )
+
+        self.assertEqual(result.exitCode, 1)
+        self.assertEqual(result.stdout.getvalue(), "")
+
+        errors = result.stderr.getvalue()
+
+        self.assertTrue(
+            errors.startswith(
+                "Error: SSL failure while connecting to mail.example.com:465: "
+            )
+        )
