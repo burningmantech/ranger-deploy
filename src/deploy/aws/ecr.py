@@ -306,7 +306,7 @@ class ImagePushResult:
 class DockerPushResponseHandler:
     log = Logger()
 
-    _repoStatusPrefix = "The push refers to a repository ["
+    _repoStatusPrefix = "The push refers to repository ["
     _repoStatusSuffix = "]"
 
     repository: str

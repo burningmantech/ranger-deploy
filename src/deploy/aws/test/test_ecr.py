@@ -190,7 +190,13 @@ class MockImagesAPI:
 
         # Fake some activity
         json = [
-            {"status": f"The push refers to a repository [{repository}]"},
+            {
+                "status": (
+                    f"{DockerPushResponseHandler._repoStatusPrefix}"
+                    f"{repository}"
+                    f"{DockerPushResponseHandler._repoStatusSuffix}"
+                )
+            },
             {"status": "Preparing", "id": image.id, "progressDetail": {}},
             {"status": "Waiting", "id": image.id, "progressDetail": {}},
             {
@@ -510,8 +516,7 @@ class ECRServiceClientTests(TestCase):
 
             handler: DockerPushResponseHandler = failureEvent["log_source"]
 
-            self.assertEqual(len(handler.errors), 1)
-            self.assertEqual(handler.errors[0], fakeNewsError)
+            self.assertEqual(handler.errors, [fakeNewsError])
 
         self.flushLoggedErrors()
 
@@ -564,7 +569,13 @@ class DockerPushResponseHandlerTests(TestCase):
     def test_handleGeneralStatusUpdate_init(self, repository: str) -> None:
         handler = DockerPushResponseHandler(repository=repository, tag="tag")
         handler._handleGeneralStatusUpdate(
-            json={"status": f"The push refers to a repository [{repository}]"}
+            json={
+                "status": (
+                    f"{DockerPushResponseHandler._repoStatusPrefix}"
+                    f"{repository}"
+                    f"{DockerPushResponseHandler._repoStatusSuffix}"
+                )
+            }
         )
         self.assertEqual(handler.errors, [])
 
