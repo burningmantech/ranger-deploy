@@ -168,11 +168,11 @@ jobs:
             python-version: "3.11"
             optional: false
             tox-prefix: "coverage"
-          # Test Python 3.12 but allow it to fail
-          - os: "ubuntu-latest"
-            python-version: "3.12.0-rc.1"
-            optional: true
-            tox-prefix: "test"
+          # # Test Python 3.12 but allow it to fail
+          # - os: "ubuntu-latest"
+          #   python-version: "3.12.0-rc.1"
+          #   optional: true
+          #   tox-prefix: "test"
 
     steps:
 
