@@ -44,7 +44,7 @@ from deploy.ext.click import (
 )
 from deploy.ext.logger import startLogging
 
-from ._error import FailedToSendNotificationError
+from ._errors import FailedToSendNotificationError
 
 
 __all__ = ("SMTPNotifier",)

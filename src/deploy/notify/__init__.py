@@ -21,4 +21,4 @@ Notifications.
 __all__ = ("FailedToSendNotificationError",)
 
 
-from ._error import FailedToSendNotificationError
+from ._errors import FailedToSendNotificationError

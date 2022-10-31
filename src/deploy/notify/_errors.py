@@ -5,9 +5,7 @@ Notification Errors.
 from attr import attrs
 
 
-__all__ = (
-    "FailedToSendNotificationError",
-)
+__all__ = ("FailedToSendNotificationError",)
 
 
 @attrs(auto_attribs=True, auto_exc=True, slots=True)
