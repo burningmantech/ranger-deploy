@@ -26,7 +26,7 @@ from smtplib import SMTP_SSL
 from ssl import Purpose, SSLError, create_default_context
 from typing import Callable, Optional, Tuple, Union
 
-from attr import attrs
+from attrs import frozen
 from click import BadParameter, ClickException
 from click import Context as ClickContext
 from click import Option, Parameter
@@ -50,7 +50,7 @@ from ._errors import FailedToSendNotificationError
 __all__ = ("SMTPNotifier",)
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class SMTPNotifier:
     """
     SMTP Notifier

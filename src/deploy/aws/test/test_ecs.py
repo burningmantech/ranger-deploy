@@ -38,7 +38,7 @@ from typing import (
     cast,
 )
 
-from attr import Attribute, attrib, attrs
+from attrs import Attribute, field, frozen, mutable
 from hypothesis import assume, given
 from hypothesis.strategies import (
     SearchStrategy,
@@ -104,7 +104,7 @@ def set_unset_envs(draw: Callable) -> Tuple[Dict[str, str], Set[str]]:
     return (updates, removes)
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockBoto3ECSClient:
     """
     Mock Boto3 client.
@@ -324,7 +324,7 @@ class MockBoto3ECSClient:
     # Instance attributes
     #
 
-    _awsService: str = attrib()
+    _awsService: str = field()
 
     @_awsService.validator
     def _validate_service(self, attribute: Attribute, value: Any) -> None:
@@ -933,7 +933,7 @@ def ciEnvironment() -> Iterator[None]:
         chdir(wd)
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class MockSMTPNotifier(SMTPNotifier):
     _notifyStagingCalls: ClassVar[List[Mapping[str, Any]]] = []
 

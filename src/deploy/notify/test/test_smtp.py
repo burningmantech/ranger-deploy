@@ -24,7 +24,7 @@ from ssl import SSLContext, SSLError
 from typing import Any, ClassVar, Iterator, List, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
-from attr import Factory, attrs
+from attrs import Factory, mutable
 from hypothesis import given
 from hypothesis.strategies import booleans
 from twisted.trial.unittest import SynchronousTestCase as TestCase
@@ -46,7 +46,7 @@ from ..smtp import SMTPNotifier
 __all__ = ()
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockSMTPServer:
     _logins: List[Tuple[str, str]] = Factory(list)
     _messages: List[Tuple[str, str, Message]] = Factory(list)
@@ -61,7 +61,7 @@ class MockSMTPServer:
         self._messages.append((sender, recipient, message))
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockSMTPSSL:
     _instances: ClassVar[List["MockSMTPSSL"]] = []
 

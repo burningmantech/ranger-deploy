@@ -34,7 +34,7 @@ from typing import (
 )
 
 import click
-from attr import Factory, attrs
+from attrs import Factory, frozen, mutable
 from boto3 import client as boto3Client
 from click import Context as ClickContext
 from click import UsageError
@@ -78,7 +78,7 @@ TaskEnvironment = Mapping[str, str]
 TaskEnvironmentUpdates = Mapping[str, Optional[str]]
 
 
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
+@mutable
 class NoSuchServiceError(Exception):
     """
     Service does not exist in the specified cluster.
@@ -87,14 +87,14 @@ class NoSuchServiceError(Exception):
     service: str
 
 
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
+@mutable
 class NoChangesError(Exception):
     """
     Changes requested without any updates.
     """
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class ECSServiceClient:
     """
     Elastic Container Service Client

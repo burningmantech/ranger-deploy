@@ -2,13 +2,13 @@
 Notification Errors.
 """
 
-from attr import attrs
+from attrs import mutable
 
 
 __all__ = ("FailedToSendNotificationError",)
 
 
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
+@mutable
 class FailedToSendNotificationError(Exception):
     """
     Failed to send notification.
