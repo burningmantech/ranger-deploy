@@ -27,7 +27,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -61,7 +61,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -95,7 +95,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -128,7 +128,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -159,18 +159,18 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.7", "3.8", "3.9", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
         tox-prefix: ["test"]
         optional: [false]
         include:
-          # Test Python 3.10 with coverage
+          # Test Python 3.11 with coverage
           - os: "ubuntu-latest"
-            python-version: "3.10"
+            python-version: "3.11"
             optional: false
             tox-prefix: "coverage"
-          # Test Python 3.11 but allow it to fail
+          # Test Python 3.12 but allow it to fail
           - os: "ubuntu-latest"
-            python-version: "3.11.0-rc.2"
+            python-version: "3.12.0-rc.1"
             optional: true
             tox-prefix: "test"
 
@@ -231,7 +231,7 @@ jobs:
       - uses: "actions/setup-python@v4"
         if: ${{ matrix.tox-prefix == 'coverage' }}
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: "Upload coverage to Codecov"
         uses: "codecov/codecov-action@v3.1.1"
