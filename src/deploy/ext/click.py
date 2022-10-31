@@ -23,7 +23,7 @@ from typing import (
 from unittest.mock import patch
 
 import click
-from attr import Factory, attrs
+from attrs import Factory, mutable
 from click import option
 
 
@@ -74,7 +74,7 @@ class Internal(Enum):
     UNSET = auto()
 
 
-@attrs(auto_attribs=True, slots=True, kw_only=True)
+@mutable(kw_only=True)
 class ClickTestResult:
     """
     Captured results after testing a click command.

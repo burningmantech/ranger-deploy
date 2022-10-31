@@ -37,7 +37,7 @@ from typing import (
     cast,
 )
 
-from attr import Attribute, Factory, attrib, attrs
+from attrs import Attribute, Factory, field, mutable
 from docker.errors import ImageNotFound
 from hypothesis import assume, given
 from hypothesis.strategies import integers, lists, text
@@ -64,7 +64,7 @@ from ..ecr import (
 __all__ = ()
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockBoto3ECRClient:
     """
     Mock Boto3 client.
@@ -88,7 +88,7 @@ class MockBoto3ECRClient:
     # Instance attributes
     #
 
-    _awsService: str = attrib()
+    _awsService: str = field()
 
     @_awsService.validator
     def _validate_service(self, attribute: Attribute, value: Any) -> None:
@@ -114,7 +114,7 @@ class MockBoto3ECRClient:
         }
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockImage:
     id: str
     tags: List[str]
@@ -127,7 +127,7 @@ class MockImage:
         return True
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockImagesAPI:
     _fakeNewsError = "This error is fake news."
 
@@ -232,7 +232,7 @@ def sha256Hash(text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
 
-@attrs(auto_attribs=True)
+@mutable
 class MockDockerClient:
     """
     Mock Docker client.
@@ -281,7 +281,7 @@ class MockDockerClient:
     #
 
     _sslVersion: Optional[SSLOptions]
-    _generateErrors = False
+    _generateErrors: bool = False
 
     images: MockImagesAPI = Factory(MockImagesAPI, takes_self=True)
 

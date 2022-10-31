@@ -33,7 +33,7 @@ from ssl import (
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union, cast
 
 import click
-from attr import Factory, attrs
+from attrs import Factory, frozen, mutable
 from boto3 import client as boto3Client
 from click import Context as ClickContext
 from click import group as commandGroup
@@ -62,7 +62,7 @@ def utcNow() -> DateTime:
     return DateTime.utcnow().replace(tzinfo=TimeZone.utc)
 
 
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
+@mutable
 class DockerServiceError(Exception):
     """
     Error from Docker service.
@@ -71,7 +71,7 @@ class DockerServiceError(Exception):
     message: str
 
 
-@attrs(auto_attribs=True, auto_exc=True, slots=True)
+@mutable
 class InvalidImageNameError(Exception):
     """
     Invalid Docker image name.
@@ -80,7 +80,7 @@ class InvalidImageNameError(Exception):
     name: str
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class ECRAuthorizationToken:
     """
     EC2 Container Registry Authorization Token
@@ -102,7 +102,7 @@ class ECRAuthorizationToken:
         }
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class ECRServiceClient:
     """
     EC2 Container Registry Client
@@ -287,7 +287,7 @@ class ImagePushState(IntEnum):
     pushed = 5
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class ImagePushStatus:
     state: ImagePushState = ImagePushState.start
 
@@ -295,14 +295,14 @@ class ImagePushStatus:
     totalProgress: int = -1
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class ImagePushResult:
     tag: str
     digest: str
     size: int
 
 
-@attrs(frozen=True, auto_attribs=True, slots=True, kw_only=True)
+@frozen(kw_only=True)
 class DockerPushResponseHandler:
     log = Logger()
 
