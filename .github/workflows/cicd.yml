@@ -21,6 +21,12 @@ jobs:
 
     steps:
 
+      - name: Harden CI
+        uses: step-security/harden-runner@v2.0.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
       - name: Checkout source code
         uses: actions/checkout@v3
 
@@ -35,7 +41,7 @@ jobs:
       - name: Set up Tox environment
         run: |
           pip install tox
-          tox -e lint --notest
+          tox run -e lint --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -43,7 +49,7 @@ jobs:
           python-path: .tox/lint/*/python
 
       - name: Run Linters
-        run: tox -e lint
+        run: tox run -e lint
 
 
   mypy:
@@ -55,6 +61,12 @@ jobs:
 
     steps:
 
+      - name: Harden CI
+        uses: step-security/harden-runner@v2.0.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
       - name: Checkout source code
         uses: actions/checkout@v3
 
@@ -69,7 +81,7 @@ jobs:
       - name: Set up Tox environment
         run: |
           pip install tox
-          tox -e mypy --notest
+          tox run -e mypy --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -77,7 +89,7 @@ jobs:
           python-path: .tox/mypy/*/python
 
       - name: Run Mypy
-        run: tox -e mypy
+        run: tox run -e mypy
 
 
   docs:
@@ -89,6 +101,12 @@ jobs:
 
     steps:
 
+      - name: Harden CI
+        uses: step-security/harden-runner@v2.0.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
       - name: Checkout source code
         uses: actions/checkout@v3
 
@@ -103,7 +121,7 @@ jobs:
       - name: Set up Tox environment
         run: |
           pip install tox
-          tox -e docs --notest
+          tox run -e docs --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -111,7 +129,7 @@ jobs:
           python-path: .tox/docs/*/python
 
       - name: Build documentation
-        run: tox -e docs
+        run: tox run -e docs
 
 
   packaging:
@@ -122,6 +140,12 @@ jobs:
 
     steps:
 
+      - name: Harden CI
+        uses: step-security/harden-runner@v2.0.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
       - name: Checkout source code
         uses: actions/checkout@v3
 
@@ -136,7 +160,7 @@ jobs:
       - name: Set up Tox environment
         run: |
           pip install tox
-          tox -e packaging --notest
+          tox run -e packaging --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -144,7 +168,7 @@ jobs:
           python-path: .tox/packaging/*/python
 
       - name: Check packaging
-        run: tox -e packaging
+        run: tox run -e packaging
 
 
   unit:
@@ -175,6 +199,12 @@ jobs:
           #   tox-prefix: "test"
 
     steps:
+
+      - name: Harden CI
+        uses: step-security/harden-runner@v2.0.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
 
       - name: Checkout source code
         uses: actions/checkout@v3
@@ -209,7 +239,7 @@ jobs:
       - name: Set up Tox environment
         run: |
           pip install tox
-          tox -e ${TOX_ENV} --notest
+          tox run -e ${TOX_ENV} --notest
 
       - name: Tox Python Information
         uses: twisted/python-info-action@v1
@@ -217,7 +247,7 @@ jobs:
           python-path: .tox/${TOX_ENV}/*/python
 
       - name: Run unit tests
-        run: tox -e ${TOX_ENV}
+        run: tox run -e ${TOX_ENV}
 
       - name: Upload Trial log artifact
         if: ${{ failure() }}
