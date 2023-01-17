@@ -190,7 +190,7 @@ class SMTPNotifierTests(TestCase):
             )
 
             expectedHTML = (
-                f"<html>\n"
+                f"<html>\n"  # noqa: B028
                 f"  <head>{title}</head>\n"
                 f"<body>\n"
                 f"\n"
