@@ -511,7 +511,7 @@ class ECRServiceClientTests(TestCase):
             )
             self.assertEqual(
                 failureEvent["line"],
-                f'{{"errorDetail":"{fakeNewsError}"}}',
+                f'{{"errorDetail":"{fakeNewsError}"}}',  # noqa: B028
             )
 
             handler: DockerPushResponseHandler = failureEvent["log_source"]

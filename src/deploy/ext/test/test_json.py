@@ -110,7 +110,7 @@ class JSONEncodingTests(TestCase):
         """
         self.assertEqual(
             jsonTextFromObject(dateTime),
-            f'"{dateTimeAsRFC3339Text(dateTime)}"',
+            f'"{dateTimeAsRFC3339Text(dateTime)}"',  # noqa: B028
         )
 
     def test_encodeUnknown(self) -> None:
