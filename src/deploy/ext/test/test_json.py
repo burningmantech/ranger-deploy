@@ -26,7 +26,7 @@ from io import BytesIO
 from json import JSONDecodeError
 from textwrap import dedent
 from types import MappingProxyType
-from typing import Any, Callable, Dict, List, cast
+from typing import Any, Callable, Dict, List
 
 from hypothesis import given
 from hypothesis.strategies import SearchStrategy, composite, dates
@@ -254,10 +254,10 @@ class DateTimeTests(TestCase):
         :return: An RFC 3339 formatted date-time string corresponding to
             :obj:`datetime`.
         """
-        timeZone = cast(TimeZone, dateTime.tzinfo)
+        timeZone = dateTime.tzinfo
         assert timeZone is not None
 
-        offset = cast(TimeDelta, timeZone.utcoffset(dateTime))
+        offset = timeZone.utcoffset(dateTime)
         assert offset is not None
 
         utcOffset = offset.total_seconds()
