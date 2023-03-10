@@ -254,10 +254,10 @@ class DateTimeTests(TestCase):
         :return: An RFC 3339 formatted date-time string corresponding to
             :obj:`datetime`.
         """
-        timeZone = cast(TimeZone, dateTime.tzinfo)
+        timeZone = dateTime.tzinfo
         assert timeZone is not None
 
-        offset = cast(TimeDelta, timeZone.utcoffset(dateTime))
+        offset = timeZone.utcoffset(dateTime)
         assert offset is not None
 
         utcOffset = offset.total_seconds()
