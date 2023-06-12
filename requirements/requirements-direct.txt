@@ -4,7 +4,7 @@
 # • it should improve interoperability with AWS services
 
 arrow==1.2.3
-attrs==22.2.0
+attrs==23.1.0
 boto3>=1.26,<1.27
 certifi==2023.5.7
 click==8.1.3
