@@ -1,4 +1,4 @@
 # Note: mypy-zope pins the mypy version
 
 mypy==1.0.0
-mypy-zope==0.9.1
+mypy-zope==1.0.0
