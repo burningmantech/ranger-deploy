@@ -24,14 +24,14 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.4.1
+        uses: step-security/harden-runner@v2.5.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
           egress-policy: audit
 
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -65,14 +65,14 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.4.1
+        uses: step-security/harden-runner@v2.5.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
           egress-policy: audit
 
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -106,14 +106,14 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.4.1
+        uses: step-security/harden-runner@v2.5.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
           egress-policy: audit
 
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -146,13 +146,13 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.4.1
+        uses: step-security/harden-runner@v2.5.1
         with:
           disable-sudo: true
           egress-policy: audit
 
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -206,13 +206,13 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.4.1
+        uses: step-security/harden-runner@v2.5.1
         with:
           disable-sudo: true
           egress-policy: audit
 
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
