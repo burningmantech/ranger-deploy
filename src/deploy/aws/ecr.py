@@ -19,6 +19,7 @@ AWS EC2 Container Registry support.
 """
 
 from base64 import b64decode
+from collections.abc import Iterable
 from datetime import datetime as DateTime
 from datetime import timedelta as TimeDelta
 from datetime import timezone as TimeZone
@@ -30,7 +31,7 @@ from ssl import (
     OP_NO_TLSv1,
     OP_NO_TLSv1_1,
 )
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, ClassVar, Optional, Union, cast
 
 import click
 from attrs import Factory, frozen, mutable
@@ -91,7 +92,7 @@ class ECRAuthorizationToken:
     expiration: DateTime
     proxyEndpoint: str
 
-    def credentials(self) -> Dict[str, str]:
+    def credentials(self) -> dict[str, str]:
         """
         Returns credentials as required by the auth_config argument to
         docker.client.images.push().
@@ -142,9 +143,9 @@ class ECRServiceClient:
     # Instance attributes
     #
 
-    _botoClient: List[Boto3ECRClient] = Factory(list)
-    _dockerClient: List[DockerClient] = Factory(list)
-    _authorizationToken: List[ECRAuthorizationToken] = Factory(list)
+    _botoClient: list[Boto3ECRClient] = Factory(list)
+    _dockerClient: list[DockerClient] = Factory(list)
+    _authorizationToken: list[ECRAuthorizationToken] = Factory(list)
 
     @property
     def _aws(self) -> Boto3ECRClient:
@@ -312,9 +313,9 @@ class DockerPushResponseHandler:
     repository: str
     tag: str
 
-    status: Dict[str, ImagePushStatus] = Factory(dict)
-    errors: List[str] = Factory(list)
-    result: List[ImagePushResult] = Factory(list)
+    status: dict[str, ImagePushStatus] = Factory(dict)
+    errors: list[str] = Factory(list)
+    result: list[ImagePushResult] = Factory(list)
 
     def _statusForImage(self, imageID: str) -> ImagePushStatus:
         return self.status.setdefault(imageID, ImagePushStatus())
@@ -323,7 +324,7 @@ class DockerPushResponseHandler:
         self.log.error("Docker push error: {error}", error=message)
         self.errors.append(message)
 
-    def _handleGeneralStatusUpdate(self, json: Dict[str, Any]) -> None:
+    def _handleGeneralStatusUpdate(self, json: dict[str, Any]) -> None:
         message = json["status"]
 
         if message.startswith(self._repoStatusPrefix):
@@ -344,7 +345,7 @@ class DockerPushResponseHandler:
         else:
             self._error(f"Unknown push status message: {message!r}")
 
-    def _handleImageStatusUpdate(self, json: Dict[str, Any]) -> None:
+    def _handleImageStatusUpdate(self, json: dict[str, Any]) -> None:
         assert not self.result
 
         imageID = json["id"]
@@ -409,7 +410,7 @@ class DockerPushResponseHandler:
             totalProgress=totalProgress,
         )
 
-    def _handleAux(self, json: Dict[str, Any]) -> None:
+    def _handleAux(self, json: dict[str, Any]) -> None:
         assert not self.result
 
         aux = json["aux"]
