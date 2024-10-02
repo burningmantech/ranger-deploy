@@ -8,8 +8,6 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-  merge_group:
-    types: [checks_requested]
 
 
 jobs:
@@ -24,7 +22,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
@@ -36,7 +34,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -65,7 +63,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
@@ -77,7 +75,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -106,7 +104,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
@@ -118,7 +116,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -146,7 +144,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           egress-policy: audit
@@ -157,7 +155,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: System Python Information
         uses: twisted/python-info-action@v1
@@ -188,25 +186,25 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.7", "3.8", "3.9", "3.10", "pypy-3.7", "pypy-3.8", "pypy-3.9"]
+        python-version: ["3.9", "3.10", "3.11", "pypy-3.9"]
         tox-prefix: ["test"]
         optional: [false]
         include:
-          # Test Python 3.11 with coverage
+          # Test Python 3.12 with coverage
           - os: "ubuntu-latest"
-            python-version: "3.11"
+            python-version: "3.12"
             optional: false
             tox-prefix: "coverage"
-          # # Test Python 3.12 but allow it to fail
+          # # Test Python 3.13 but allow it to fail
           # - os: "ubuntu-latest"
-          #   python-version: "3.12.0-rc.1"
+          #   python-version: "3.13.0-rc.1"
           #   optional: true
           #   tox-prefix: "test"
 
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           egress-policy: audit
@@ -266,7 +264,7 @@ jobs:
       - uses: "actions/setup-python@v4"
         if: ${{ matrix.tox-prefix == 'coverage' }}
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: "Upload coverage to Codecov"
         uses: "codecov/codecov-action@v3.1.4"
