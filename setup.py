@@ -62,11 +62,10 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -114,7 +113,7 @@ def read_requirements(path: Path) -> List[str]:
     ]
 
 
-python_requirements = ">=3.7"
+python_requirements = ">=3.9"
 
 setup_requirements: List[str] = []
 
