@@ -16,6 +16,9 @@ extend-exclude =
 
 # Codes: https://flake8.pycqa.org/en/latest/user/error-codes.html
 extend-ignore =
+    # line too long
+    B950,
+
     # One-line docstring should fit on one line with quotes
     D200,
 
@@ -36,6 +39,9 @@ extend-ignore =
 
     # missing whitespace after ','
     E231,
+
+    # line too long
+    E501,
 
     # function name should be lowercase
     N802,

@@ -192,19 +192,19 @@ class SMTPNotifierTests(TestCase):
 
             expectedHTML = (
                 f"<html>\n"  # noqa: B028
-                f"  <head>{title}</head>\n"
+                f"  <head>{title}</head>\n"  # noqa: E221
                 f"<body>\n"
                 f"\n"
-                f"  <h1>{title}</h1>\n"
+                f"  <h1>{title}</h1>\n"  # noqa: E221
                 f"\n"
-                f"  <p>\n"
-                f'    <a href="{buildURL}">Build #{buildNumber}</a>\n'
-                f'    for <a href="{commitURL}">commit {commitIDShort}</a>\n'
+                f"  <p>\n"  # noqa: E221
+                f'    <a href="{buildURL}">Build #{buildNumber}</a>\n'  # noqa: B028, E221
+                f'    for <a href="{commitURL}">commit {commitIDShort}</a>\n'  # noqa: B028, E272
                 f"    has completed successfully and the resulting image has\n"
                 f"    been deployed to the staging environment.\n"
-                f"  </p>\n"
+                f"  </p>\n"  # noqa: E221
                 f"\n"
-                f"  <blockquote>{commitMessage}</blockquote>\n"
+                f"  <blockquote>{commitMessage}</blockquote>\n"  # noqa: E221
                 f"</body>\n"
                 f"</html>\n"
             )
