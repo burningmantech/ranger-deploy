@@ -26,7 +26,7 @@ from io import BytesIO
 from json import JSONDecodeError
 from textwrap import dedent
 from types import MappingProxyType
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 from hypothesis import given
 from hypothesis.strategies import SearchStrategy, composite, dates
@@ -77,7 +77,7 @@ class JSONEncodingTests(TestCase):
     """
 
     @given(lists(json()))
-    def test_encodeIterables(self, items: List[Any]) -> None:
+    def test_encodeIterables(self, items: list[Any]) -> None:
         """
         :func:`jsonTextFromObject` encodes iterables other than :class:`list`
         and :class:`tuple`.
@@ -90,7 +90,7 @@ class JSONEncodingTests(TestCase):
         )
 
     @given(dictionaries(text(), json()))
-    def test_encodeMappings(self, items: Dict[str, Any]) -> None:
+    def test_encodeMappings(self, items: dict[str, Any]) -> None:
         """
         :func:`jsonTextFromObject` encodes mappings other than :class:`dict`.
 

@@ -3,23 +3,12 @@ Extensions to :mod:`click`
 """
 
 import sys
+from collections.abc import Mapping, Sequence
 from configparser import ConfigParser, ExtendedInterpolation
 from enum import Enum, auto
 from io import StringIO
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import Any, Callable, ClassVar, Optional, Union, cast
 from unittest.mock import patch
 
 import click
@@ -80,7 +69,7 @@ class ClickTestResult:
     Captured results after testing a click command.
     """
 
-    echoOutputType: ClassVar = List[Tuple[str, Mapping[str, Any]]]
+    echoOutputType: ClassVar = list[tuple[str, Mapping[str, Any]]]
 
     exitCode: Union[int, None, Internal] = Internal.UNSET
 
@@ -94,7 +83,7 @@ class ClickTestResult:
 
 
 def clickTestRun(
-    main: Callable[[], None], arguments: List[str]
+    main: Callable[[], None], arguments: list[str]
 ) -> ClickTestResult:
     """
     Context manager for testing click applications.
@@ -147,7 +136,7 @@ def clickTestRun(
 def readConfig(
     profile: Optional[str] = defaultConfigProfile,
     path: Path = defaultConfigPath,
-) -> Dict[str, Optional[str]]:
+) -> dict[str, Optional[str]]:
     """
     Read configuration from the given path using the given profile.
     """
