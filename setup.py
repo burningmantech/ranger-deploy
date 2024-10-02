@@ -22,7 +22,6 @@ Setuptools configuration
 
 from pathlib import Path
 from sys import path
-from typing import Dict, List
 
 from setuptools import find_packages, setup
 
@@ -62,11 +61,10 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -76,7 +74,7 @@ classifiers = [
 # Entry points
 #
 
-entry_points: Dict[str, List[str]] = {
+entry_points: dict[str, list[str]] = {
     "console_scripts": [
         "deploy_aws_ecr = deploy.aws.ecr:ECRServiceClient.main",
         "deploy_aws_ecs = deploy.aws.ecs:ECSServiceClient.main",
@@ -101,7 +99,7 @@ package_data = dict(
 #
 
 
-def read_requirements(path: Path) -> List[str]:
+def read_requirements(path: Path) -> list[str]:
     """
     Parse requirements file.
     """
@@ -114,23 +112,23 @@ def read_requirements(path: Path) -> List[str]:
     ]
 
 
-python_requirements = ">=3.7"
+python_requirements = ">=3.9"
 
-setup_requirements: List[str] = []
+setup_requirements: list[str] = []
 
 requirements_dir = project_root / "requirements"
 install_requirements = read_requirements(
     requirements_dir / "requirements-direct.txt"
 ) + read_requirements(requirements_dir / "requirements-indirect.txt")
 
-extras_requirements: Dict[str, List[str]] = {}
+extras_requirements: dict[str, list[str]] = {}
 
 
 #
 # Set up Extension modules that need to be built
 #
 
-extensions: List[str] = []
+extensions: list[str] = []
 
 
 #
