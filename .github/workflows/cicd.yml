@@ -8,8 +8,6 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-  merge_group:
-    types: [checks_requested]
 
 
 jobs:
@@ -24,7 +22,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
@@ -65,7 +63,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
@@ -106,7 +104,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           disable-file-monitoring: true
@@ -146,7 +144,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           egress-policy: audit
@@ -206,7 +204,7 @@ jobs:
     steps:
 
       - name: Harden CI
-        uses: step-security/harden-runner@v2.5.1
+        uses: step-security/harden-runner@v2.6.1
         with:
           disable-sudo: true
           egress-policy: audit
