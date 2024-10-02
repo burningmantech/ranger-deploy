@@ -59,7 +59,7 @@ class ReadConfigTests(TestCase):
             alphabet=characters(
                 exclude_categories=configExcludeCategories  # type:ignore[arg-type]
                 + ("Zs",),  # Spaces
-                blacklist_characters="]",
+                exclude_characters="]",
             ),
         ),
         dictionaries(  # config keys
@@ -67,7 +67,7 @@ class ReadConfigTests(TestCase):
                 min_size=1,
                 alphabet=characters(
                     exclude_categories=configExcludeCategories,  # type:ignore[arg-type]
-                    blacklist_characters="=",
+                    exclude_characters="=",
                 ),
             ),
             text(  # config values
