@@ -21,7 +21,6 @@ Tests for :mod:`deploy.ext.click`
 from pathlib import Path
 from re import findall
 from sys import maxunicode
-from typing import Collection, Literal, cast
 
 from hypothesis import given, note
 from hypothesis.strategies import characters, dictionaries, text
