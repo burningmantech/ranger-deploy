@@ -18,10 +18,11 @@
 Tests for :mod:`deploy.notify.smtp`
 """
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from email.message import Message
 from ssl import SSLContext, SSLError
-from typing import Any, ClassVar, Iterator, List, Optional, Tuple, Type, cast
+from typing import Any, ClassVar, Optional, cast
 from unittest.mock import patch
 
 from attrs import Factory, mutable
@@ -48,8 +49,8 @@ __all__ = ()
 
 @mutable
 class MockSMTPServer:
-    _logins: List[Tuple[str, str]] = Factory(list)
-    _messages: List[Tuple[str, str, Message]] = Factory(list)
+    _logins: list[tuple[str, str]] = Factory(list)
+    _messages: list[tuple[str, str, Message]] = Factory(list)
 
     def login(self, user: str, password: str) -> None:
         self._logins.append((user, password))
@@ -63,13 +64,13 @@ class MockSMTPServer:
 
 @mutable
 class MockSMTPSSL:
-    _instances: ClassVar[List["MockSMTPSSL"]] = []
+    _instances: ClassVar[list["MockSMTPSSL"]] = []
 
     host: str
     port: int
     context: Optional[SSLContext] = None
 
-    _servers: List[MockSMTPServer] = Factory(list)
+    _servers: list[MockSMTPServer] = Factory(list)
 
     def __attrs_post_init__(self) -> None:
         self._instances.append(self)
@@ -86,7 +87,7 @@ class MockSMTPSSL:
 @contextmanager
 def testingSMTP() -> Iterator[None]:
     SMTP_SSL = smtp.SMTP_SSL
-    smtp.SMTP_SSL = cast(Type, MockSMTPSSL)  # type: ignore[misc]
+    smtp.SMTP_SSL = cast(type, MockSMTPSSL)  # type: ignore[misc]
 
     try:
         yield None
@@ -168,7 +169,7 @@ class SMTPNotifierTests(TestCase):
             message = server._messages[0][2]
             self.assertTrue(message.is_multipart())
 
-            parts = cast(List[Message], message.get_payload())
+            parts = cast(list[Message], message.get_payload())
             self.assertTrue(len(parts), 2)
 
             title = f"{project} Deployed to Staging"

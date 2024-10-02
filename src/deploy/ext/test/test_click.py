@@ -21,7 +21,6 @@ Tests for :mod:`deploy.ext.click`
 from pathlib import Path
 from re import findall
 from sys import maxunicode
-from typing import Dict
 
 from hypothesis import given, note
 from hypothesis.strategies import characters, dictionaries, text
@@ -78,7 +77,7 @@ class ReadConfigTests(TestCase):
             ),
         ),
     )
-    def test_readConfig(self, profile: str, configDict: Dict[str, str]) -> None:
+    def test_readConfig(self, profile: str, configDict: dict[str, str]) -> None:
         # Normalize the config dict so that we ensure keys and valid and that
         # we can can compare this dict with the result:
         #  * Keys and values are stripped of leading and trailing whitespace.

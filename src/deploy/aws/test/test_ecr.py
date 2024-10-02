@@ -19,23 +19,13 @@ Tests for :mod:`deploy.aws.ecr`
 """
 
 from base64 import b64encode
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import timedelta as TimeDelta
 from hashlib import sha256
 from json import JSONDecodeError
 from ssl import Options as SSLOptions
-from typing import (
-    Any,
-    ClassVar,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, ClassVar, Optional, Union, cast
 
 from attrs import Attribute, Factory, field, mutable
 from docker.errors import ImageNotFound
@@ -96,7 +86,7 @@ class MockBoto3ECRClient:
 
     def get_authorization_token(
         self, registryIds: Sequence[str] = ()
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    ) -> dict[str, list[dict[str, Any]]]:
         assert not registryIds
 
         token = b64encode(b"AWS:see-kreht")
@@ -117,7 +107,7 @@ class MockBoto3ECRClient:
 @mutable
 class MockImage:
     id: str
-    tags: List[str]
+    tags: list[str]
 
     def tag(self, repository: str, tag: Optional[str] = None) -> bool:
         assert ":" not in repository
@@ -133,7 +123,7 @@ class MockImagesAPI:
 
     _parent: "MockDockerClient"
 
-    def list(self) -> List[MockImage]:
+    def list(self) -> list[MockImage]:
         return self._parent._localImages
 
     def get(self, name: str) -> MockImage:
@@ -145,7 +135,7 @@ class MockImagesAPI:
         raise ImageNotFound(name)
 
     def _fromECR(self, name: str) -> Optional[MockImage]:
-        images: List[MockImage] = []
+        images: list[MockImage] = []
         for image in self._parent._cloudImages:
             if name in image.tags:
                 images.append(image)
@@ -163,7 +153,7 @@ class MockImagesAPI:
         tag: Optional[str] = None,
         stream: bool = False,
         decode: bool = False,
-        auth_config: Optional[Dict[str, str]] = None,
+        auth_config: Optional[dict[str, str]] = None,
     ) -> Union[bytes, Iterator[bytes]]:
         assert ":" not in repository
         assert tag is not None
@@ -242,18 +232,18 @@ class MockDockerClient:
     # Class attributes
     #
 
-    _localImages: ClassVar[List[MockImage]] = []
-    _cloudImages: ClassVar[List[MockImage]] = []
+    _localImages: ClassVar[list[MockImage]] = []
+    _cloudImages: ClassVar[list[MockImage]] = []
 
     @classmethod
-    def _defaultLocalImages(cls) -> List[MockImage]:
+    def _defaultLocalImages(cls) -> list[MockImage]:
         return [
             MockImage(id=sha256Hash(name), tags=[name])
             for name in ("image:1", "image:2", "image:3")
         ]
 
     @classmethod
-    def _defaultCloudImages(cls) -> List[MockImage]:
+    def _defaultCloudImages(cls) -> list[MockImage]:
         return [
             MockImage(id=sha256Hash(name), tags=[name])
             for name in ("cloud:1", "cloud:2")
@@ -501,7 +491,7 @@ class ECRServiceClientTests(TestCase):
 
             self.assertEqual(len(failureEvents), 1)
 
-            failureEvent: Dict[str, Any] = failureEvents[0]
+            failureEvent: dict[str, Any] = failureEvents[0]
 
             fakeNewsError = MockImagesAPI._fakeNewsError
 
@@ -559,7 +549,7 @@ class DockerPushResponseHandlerTests(TestCase):
         self.assertEqual(handler._statusForImage(imageID), ImagePushStatus())
 
     @given(lists(text()))
-    def test_error(self, messages: List[str]) -> None:
+    def test_error(self, messages: list[str]) -> None:
         handler = DockerPushResponseHandler(repository="repo", tag="tag")
         for message in messages:
             handler._error(message)
@@ -1016,8 +1006,8 @@ class DockerPushResponseHandlerTests(TestCase):
 
 
 @contextmanager
-def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
-    clients: List[ECRServiceClient] = []
+def testingECRServiceClient() -> Iterator[list[ECRServiceClient]]:
+    clients: list[ECRServiceClient] = []
 
     class RememberMeECRServiceClient(ECRServiceClient):
         def __init__(self, **kwargs: Any) -> None:
@@ -1026,7 +1016,7 @@ def testingECRServiceClient() -> Iterator[List[ECRServiceClient]]:
 
     Client = ecr.ECRServiceClient
     ecr.ECRServiceClient = cast(  # type: ignore[misc]
-        Type, RememberMeECRServiceClient
+        type, RememberMeECRServiceClient
     )
 
     try:
