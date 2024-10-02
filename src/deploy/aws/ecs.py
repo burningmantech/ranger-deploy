@@ -18,20 +18,11 @@
 AWS Elastic Container Service support.
 """
 
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from datetime import datetime as DateTime
 from os import environ
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    cast,
-)
+from typing import Any, Callable, Optional, cast
 
 import click
 from attrs import Factory, frozen, mutable
@@ -107,13 +98,13 @@ class ECSServiceClient:
     @staticmethod
     def _environmentAsJSON(
         environment: TaskEnvironment,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         return [
             {"name": key, "value": value} for key, value in environment.items()
         ]
 
     @staticmethod
-    def _environmentFromJSON(json: List[Dict[str, str]]) -> TaskEnvironment:
+    def _environmentFromJSON(json: list[dict[str, str]]) -> TaskEnvironment:
         return {e["name"]: e["value"] for e in json}
 
     @staticmethod
@@ -146,8 +137,8 @@ class ECSServiceClient:
     cluster: str
     service: str
 
-    _botoClient: List[Boto3ECSClient] = Factory(list)
-    _currentTask: Dict[str, Any] = Factory(dict)
+    _botoClient: list[Boto3ECSClient] = Factory(list)
+    _currentTask: dict[str, Any] = Factory(dict)
 
     @property
     def _aws(self) -> Boto3ECSClient:
@@ -232,7 +223,7 @@ class ECSServiceClient:
 
         # Copy, then remove keys that may not be re-submitted.
         currentTaskDefinition = dict(currentTaskDefinition)
-        extraFields: Tuple[str, ...] = (
+        extraFields: tuple[str, ...] = (
             "revision",
             "registeredAt",
             "registeredBy",
@@ -574,7 +565,7 @@ def staging(
     staging_cluster: str,
     staging_service: str,
     project_name: Optional[str],
-    repository_id: Optional[Tuple[str, str, str]],
+    repository_id: Optional[tuple[str, str, str]],
     build_number: str,
     build_url: str,
     commit_id: str,
@@ -752,7 +743,7 @@ def environment(cluster: str, service: str, arguments: Sequence[str]) -> None:
     stagingClient = ECSServiceClient(cluster=cluster, service=service)
     if arguments:
         click.echo(f"Changing environment variables for {cluster}:{service}:")
-        updates: Dict[str, Optional[str]] = {}
+        updates: dict[str, Optional[str]] = {}
         for arg in arguments:
             if "=" in arg:
                 key, value = arg.split("=", 1)

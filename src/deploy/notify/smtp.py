@@ -24,7 +24,7 @@ from html import escape as escapeHTML
 from pkgutil import get_data as readResource
 from smtplib import SMTP_SSL
 from ssl import Purpose, SSLError, create_default_context
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 from attrs import frozen
 from click import BadParameter, ClickException
@@ -171,7 +171,7 @@ class SMTPNotifier:
 
 def validateRepositoryID(
     ctx: ClickContext, param: Union[Option, Parameter], value: Optional[str]
-) -> Optional[Tuple[str, str, str]]:
+) -> Optional[tuple[str, str, str]]:
     if value is None:
         return None
 
@@ -325,7 +325,7 @@ def main(ctx: ClickContext, profile: Optional[str]) -> None:
 @trialRunOption
 def staging(
     project_name: Optional[str],
-    repository_id: Optional[Tuple[str, str, str]],
+    repository_id: Optional[tuple[str, str, str]],
     build_number: str,
     build_url: str,
     commit_id: str,
@@ -362,7 +362,7 @@ def staging(
 
 def _staging(
     project_name: Optional[str],
-    repository_id: Tuple[str, str, str],
+    repository_id: tuple[str, str, str],
     build_number: str,
     build_url: str,
     commit_id: str,
