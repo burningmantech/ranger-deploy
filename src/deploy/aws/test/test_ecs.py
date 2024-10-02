@@ -1531,8 +1531,8 @@ class CommandLineTests(TestCase):
             tuples(
                 text(  # updates/keys
                     alphabet=characters(
-                        blacklist_categories=("Cs",),
-                        blacklist_characters="=",
+                        exclude_categories=("Cs",),  # type:ignore[arg-type]
+                        exclude_characters="=",
                     ),
                 ),
                 text(),  # updates/values

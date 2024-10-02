@@ -37,7 +37,7 @@ unicodeWhitespace = "".join(
 )
 
 
-configBlacklistCategories = (
+configExcludeCategories = (
     "Cc",  # Control
     "Cf",  # Format
     "Cn",  # Not assigned
@@ -57,22 +57,22 @@ class ReadConfigTests(TestCase):
         text(  # profile
             min_size=1,
             alphabet=characters(
-                blacklist_categories=configBlacklistCategories
+                exclude_categories=configExcludeCategories  # type:ignore[arg-type]
                 + ("Zs",),  # Spaces
-                blacklist_characters="]",
+                exclude_characters="]",
             ),
         ),
         dictionaries(  # config keys
             text(
                 min_size=1,
                 alphabet=characters(
-                    blacklist_categories=configBlacklistCategories,
-                    blacklist_characters="=",
+                    exclude_categories=configExcludeCategories,  # type:ignore[arg-type]
+                    exclude_characters="=",
                 ),
             ),
             text(  # config values
                 alphabet=characters(
-                    blacklist_categories=configBlacklistCategories
+                    exclude_categories=configExcludeCategories  # type:ignore[arg-type]
                 ),
             ),
         ),
