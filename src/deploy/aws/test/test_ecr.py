@@ -1016,7 +1016,7 @@ def testingECRServiceClient() -> Iterator[list[ECRServiceClient]]:
 
     Client = ecr.ECRServiceClient
     ecr.ECRServiceClient = cast(  # type: ignore[misc]
-        type, RememberMeECRServiceClient
+        type[ecr.ECRServiceClient], RememberMeECRServiceClient
     )
 
     try:

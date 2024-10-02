@@ -864,7 +864,7 @@ def testingECSServiceClient() -> Iterator[list[ECSServiceClient]]:
 
     Client = ecs.ECSServiceClient
     ecs.ECSServiceClient = cast(  # type: ignore[misc]
-        type, RememberMeECSServiceClient
+        type[ecs.ECSServiceClient], RememberMeECSServiceClient
     )
 
     try:

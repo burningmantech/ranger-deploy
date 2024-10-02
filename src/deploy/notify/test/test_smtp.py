@@ -87,7 +87,7 @@ class MockSMTPSSL:
 @contextmanager
 def testingSMTP() -> Iterator[None]:
     SMTP_SSL = smtp.SMTP_SSL
-    smtp.SMTP_SSL = cast(type, MockSMTPSSL)  # type: ignore[misc]
+    smtp.SMTP_SSL = cast(type[smtp.SMTP_SSL], MockSMTPSSL)  # type: ignore[misc]
 
     try:
         yield None
