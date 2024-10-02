@@ -18,25 +18,12 @@
 Tests for :mod:`deploy.aws.ecs`
 """
 
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from os import chdir, environ, getcwd
 from os.path import dirname
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    cast,
-)
+from typing import Any, Callable, ClassVar, Optional, cast
 
 from attrs import Attribute, field, frozen, mutable
 from hypothesis import assume, given
@@ -98,7 +85,7 @@ def environment_updates(
 
 
 @composite
-def set_unset_envs(draw: Callable) -> Tuple[Dict[str, str], Set[str]]:
+def set_unset_envs(draw: Callable) -> tuple[dict[str, str], set[str]]:
     updates = draw(environment_updates(min_size=1))
     removes = draw(sets(elements=just(tuple(updates.keys()))))
     return (updates, removes)
@@ -218,8 +205,8 @@ class MockBoto3ECSClient:
         },
     ]
 
-    _taskDefinitions: ClassVar[Dict[str, TaskDefinition]] = {}
-    _services: ClassVar[Dict[str, Dict[str, str]]] = {}
+    _taskDefinitions: ClassVar[dict[str, TaskDefinition]] = {}
+    _services: ClassVar[dict[str, dict[str, str]]] = {}
 
     @classmethod
     def _addDefaultTaskDefinitions(cls) -> None:
@@ -691,7 +678,7 @@ class ECSServiceClientTests(TestCase):
 
     @given(set_unset_envs())
     def test_updateTaskEnvironment_unset(
-        self, instructions: Tuple[TaskEnvironmentUpdates, Set[str]]
+        self, instructions: tuple[TaskEnvironmentUpdates, set[str]]
     ) -> None:
         with testingBoto3ECS():
             updates, removes = instructions
@@ -867,8 +854,8 @@ class ECSServiceClientTests(TestCase):
 
 
 @contextmanager
-def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
-    clients: List[ECSServiceClient] = []
+def testingECSServiceClient() -> Iterator[list[ECSServiceClient]]:
+    clients: list[ECSServiceClient] = []
 
     class RememberMeECSServiceClient(ECSServiceClient):
         def __init__(self, **kwargs: Any) -> None:
@@ -877,7 +864,7 @@ def testingECSServiceClient() -> Iterator[List[ECSServiceClient]]:
 
     Client = ecs.ECSServiceClient
     ecs.ECSServiceClient = cast(  # type: ignore[misc]
-        Type, RememberMeECSServiceClient
+        type[ecs.ECSServiceClient], RememberMeECSServiceClient
     )
 
     try:
@@ -935,7 +922,7 @@ def ciEnvironment() -> Iterator[None]:
 
 @frozen(kw_only=True)
 class MockSMTPNotifier(SMTPNotifier):
-    _notifyStagingCalls: ClassVar[List[Mapping[str, Any]]] = []
+    _notifyStagingCalls: ClassVar[list[Mapping[str, Any]]] = []
 
     def notifyStaging(
         self,
@@ -1554,7 +1541,7 @@ class CommandLineTests(TestCase):
         ),
     )
     def test_environment_set(
-        self, cluster: str, service: str, updates: List[Tuple[str, str]]
+        self, cluster: str, service: str, updates: list[tuple[str, str]]
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
@@ -1616,7 +1603,7 @@ class CommandLineTests(TestCase):
         ),
     )
     def test_environment_unset(
-        self, cluster: str, service: str, removes: List[str]
+        self, cluster: str, service: str, removes: list[str]
     ) -> None:
         with testingECSServiceClient() as clients:
             # Add starting data set
