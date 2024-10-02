@@ -21,6 +21,7 @@ Tests for :mod:`deploy.ext.click`
 from pathlib import Path
 from re import findall
 from sys import maxunicode
+from typing import Collection, Literal, cast
 
 from hypothesis import given, note
 from hypothesis.strategies import characters, dictionaries, text
@@ -37,7 +38,7 @@ unicodeWhitespace = "".join(
 )
 
 
-configBlacklistCategories = (
+configExcludeCategories = (
     "Cc",  # Control
     "Cf",  # Format
     "Cn",  # Not assigned
@@ -57,7 +58,7 @@ class ReadConfigTests(TestCase):
         text(  # profile
             min_size=1,
             alphabet=characters(
-                blacklist_categories=configBlacklistCategories
+                exclude_categories=configExcludeCategories  # type:ignore[arg-type]
                 + ("Zs",),  # Spaces
                 blacklist_characters="]",
             ),
@@ -66,13 +67,13 @@ class ReadConfigTests(TestCase):
             text(
                 min_size=1,
                 alphabet=characters(
-                    blacklist_categories=configBlacklistCategories,
+                    exclude_categories=configExcludeCategories,  # type:ignore[arg-type]
                     blacklist_characters="=",
                 ),
             ),
             text(  # config values
                 alphabet=characters(
-                    blacklist_categories=configBlacklistCategories
+                    exclude_categories=configExcludeCategories  # type:ignore[arg-type]
                 ),
             ),
         ),
