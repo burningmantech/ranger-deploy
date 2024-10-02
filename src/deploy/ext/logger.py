@@ -3,8 +3,9 @@ Extensions to :mod:`twisted.logger`
 """
 
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, TextIO, cast
+from typing import Any, TextIO, cast
 
 from twisted.logger import (
     FilteringLogObserver,
@@ -42,8 +43,8 @@ def startLogging(file: TextIO = sys.stdout) -> None:
 
 
 @contextmanager
-def logCapture() -> Iterator[List[Dict[str, Any]]]:
-    events: List[Dict[str, Any]] = []
+def logCapture() -> Iterator[list[dict[str, Any]]]:
+    events: list[dict[str, Any]] = []
     observer = cast(ILogObserver, events.append)
 
     globalLogPublisher.addObserver(observer)
